@@ -153,6 +153,9 @@ CREATE TABLE `insumos` (
   `id_grado` int(11) DEFAULT NULL,
   `id_area` int(11) DEFAULT NULL,
   `id_bimestre` int(11) DEFAULT NULL,
+  -- Variantes de talla
+  `es_agrupador` tinyint(1) NOT NULL DEFAULT 0 COMMENT '1=Producto padre con variantes de talla',
+  `id_producto_padre` int(11) DEFAULT NULL COMMENT 'FK al producto padre si es variante',
   PRIMARY KEY (`id_insumo`),
   KEY `id_categoria` (`id_categoria`),
   KEY `id_unidad` (`id_unidad`),
@@ -162,6 +165,7 @@ CREATE TABLE `insumos` (
   KEY `id_grado` (`id_grado`),
   KEY `id_area` (`id_area`),
   KEY `id_bimestre` (`id_bimestre`),
+  KEY `idx_producto_padre` (`id_producto_padre`),
   CONSTRAINT `insumos_ibfk_1` FOREIGN KEY (`id_categoria`) REFERENCES `categorias` (`id_categoria`),
   CONSTRAINT `insumos_ibfk_2` FOREIGN KEY (`id_unidad`) REFERENCES `unidades_medida` (`id_unidad`),
   CONSTRAINT `fk_insumo_talla` FOREIGN KEY (`id_talla`) REFERENCES `tallas` (`id_talla`),
@@ -169,7 +173,8 @@ CREATE TABLE `insumos` (
   CONSTRAINT `fk_insumo_nivel` FOREIGN KEY (`id_nivel`) REFERENCES `niveles_educativos` (`id_nivel`),
   CONSTRAINT `fk_insumo_grado` FOREIGN KEY (`id_grado`) REFERENCES `grados` (`id_grado`),
   CONSTRAINT `fk_insumo_area` FOREIGN KEY (`id_area`) REFERENCES `areas_cursos` (`id_area`),
-  CONSTRAINT `fk_insumo_bimestre` FOREIGN KEY (`id_bimestre`) REFERENCES `bimestres` (`id_bimestre`)
+  CONSTRAINT `fk_insumo_bimestre` FOREIGN KEY (`id_bimestre`) REFERENCES `bimestres` (`id_bimestre`),
+  CONSTRAINT `fk_producto_padre` FOREIGN KEY (`id_producto_padre`) REFERENCES `insumos` (`id_insumo`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- =============================================================================
