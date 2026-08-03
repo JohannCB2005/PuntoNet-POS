@@ -7,8 +7,9 @@ $stripePublicKey = STRIPE_PK;
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Checkout Seguro — Granja UNP</title>
-    <link rel="icon" type="image/png" href="../../assets/logo_unp.png">
+    <title>Checkout Seguro — NISSI STORE</title>
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="../../assets/Logo navegador PuntoNet.png">
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -21,15 +22,15 @@ $stripePublicKey = STRIPE_PK;
 
     <style>
         :root {
-            --primary:       #15803d;
-            --primary-dark:  #166534;
-            --primary-light: #dcfce7;
+            --primary:       #0284c7;
+            --primary-dark:  #0369a1;
+            --primary-light: #f0f9ff;
             --surface:       #ffffff;
             --bg:            #f1f5f9;
             --border:        #e2e8f0;
             --text:          #0f172a;
             --muted:         #64748b;
-            --success:       #16a34a;
+            --success:       #0284c7;
             --danger:        #dc2626;
         }
 
@@ -147,7 +148,7 @@ $stripePublicKey = STRIPE_PK;
         }
         .co-input:focus {
             border-color: var(--primary);
-            box-shadow: 0 0 0 3px rgba(21,128,61,.12);
+            box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.12);
             background: #fff;
         }
         .co-input.is-invalid { border-color: var(--danger); }
@@ -176,7 +177,7 @@ $stripePublicKey = STRIPE_PK;
         }
         #stripe-element-container.StripeElement--focus {
             border-color: var(--primary);
-            box-shadow: 0 0 0 3px rgba(21,128,61,.12);
+            box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.12);
         }
         .stripe-logo-row {
             display: flex;
@@ -211,12 +212,12 @@ $stripePublicKey = STRIPE_PK;
             justify-content: center;
             gap: 8px;
             margin-top: 24px;
-            box-shadow: 0 4px 14px rgba(21,128,61,.3);
+            box-shadow: 0 4px 14px rgba(2, 132, 199, 0.3);
         }
         .btn-pay:hover:not(:disabled) {
             background: var(--primary-dark);
             transform: translateY(-1px);
-            box-shadow: 0 6px 18px rgba(21,128,61,.38);
+            box-shadow: 0 6px 18px rgba(2, 132, 199, 0.38);
         }
         .btn-pay:active:not(:disabled) { transform: translateY(0); }
         .btn-pay:disabled { opacity: .6; cursor: not-allowed; }
@@ -355,9 +356,9 @@ $stripePublicKey = STRIPE_PK;
     <!-- Navbar -->
     <nav class="co-nav">
         <a href="../../tienda.php" class="co-nav-brand">
-            <img src="../../assets/logo_unp.png" alt="Logo" height="28"
+            <img src="../../assets/Logo navegador PuntoNet.png" alt="Logo" height="28"
                  onerror="this.onerror=null; this.style.display='none'; this.nextElementSibling.insertAdjacentHTML('beforebegin','<span style=\'font-size:1.4rem;\'>🌿</span> ');">
-            <span><span class="brand-accent">Granja UNP</span> Checkout</span>
+            <span><span class="brand-accent">NISSI STORE</span> Checkout</span>
         </a>
         <div class="co-nav-secure">
             <i class="bi bi-lock-fill text-success"></i>
@@ -375,7 +376,7 @@ $stripePublicKey = STRIPE_PK;
             <div id="empty-cart-msg" class="co-card" style="display:none;">
                 <i class="bi bi-basket2"></i>
                 <p class="fw-semibold mb-3">Tu cesta está vacía.</p>
-                <a href="../../tienda.php" class="btn btn-success rounded-pill px-4">Volver a la tienda</a>
+                <a href="../../tienda.php" class="btn btn-primary rounded-pill px-4">Volver a la tienda</a>
             </div>
 
             <!-- ══ SECCIÓN 1: Datos del Cliente ══ -->
@@ -486,7 +487,7 @@ $stripePublicKey = STRIPE_PK;
     // ─────────────────────────────────────────────────────────────
     // 1. Load cart from sessionStorage
     // ─────────────────────────────────────────────────────────────
-    const cart = JSON.parse(sessionStorage.getItem('granja_cart') || '[]');
+    const cart = JSON.parse(sessionStorage.getItem('puntonet_cart') || '[]');
     const totalAmount = cart.reduce((s, i) => s + i.subtotal, 0);
 
     if (cart.length === 0) {

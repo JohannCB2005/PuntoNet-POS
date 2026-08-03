@@ -68,7 +68,7 @@ El proyecto seguirá 5 fases formales:
 ## 4. Arquitectura y Carpetas (MVC + Singleton)
 El proyecto respetará la separación estricta en capas basada en los laboratorios del curso, implementando el Patrón Singleton para la gestión de la base de datos:
 ```text
-/granja_pos
+/puntonet_pos
 ├── assets/                 <-- FRONTEND (Territorio del Integrante 4)
 │   ├── css/                # Estilos personalizados adicionales a Bootstrap
 │   ├── js/                 # Lógica de cliente, AJAX, validaciones y gráficos

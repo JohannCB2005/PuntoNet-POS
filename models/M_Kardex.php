@@ -32,12 +32,16 @@ class M_Kardex {
     public function listarInsumos() {
         try {
             $sql = "SELECT i.id_insumo, i.nombre, c.nombre AS categoria, u.abreviatura,
-                           i.precio_unitario, i.stock_piezas
+                           i.precio_unitario, i.stock_piezas,
+                           t.nombre AS talla,
+                           p.nombre AS nombre_padre
                     FROM insumos i
                     INNER JOIN categorias c ON i.id_categoria = c.id_categoria
                     INNER JOIN unidades_medida u ON i.id_unidad = u.id_unidad
-                    WHERE i.estado = 1
-                    ORDER BY c.nombre, i.nombre";
+                    LEFT JOIN tallas t ON i.id_talla = t.id_talla
+                    LEFT JOIN insumos p ON i.id_producto_padre = p.id_insumo
+                    WHERE i.estado = 1 AND i.es_agrupador = 0
+                    ORDER BY c.nombre, nombre_padre, t.orden, i.nombre";
             $stmt = $this->conexion->prepare($sql);
             $stmt->execute();
             return $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -65,21 +69,10 @@ class M_Kardex {
      */
     public function obtenerMovimientos($id_insumo, $desde = null, $hasta = null, $tipo = 'todos', $busqueda = '') {
         try {
-            // Inicializar parámetros de la consulta con el ID del insumo
             $params = [$id_insumo];
-
-            // Generar filtros de fecha dinámicos en las consultas
             $fechaWhere = '';
-            if ($desde) {
-                $fechaWhere .= ' AND v.fecha >= ?';
-                $params[] = $desde . ' 00:00:00';
-            }
-            if ($hasta) {
-                $fechaWhere .= ' AND v.fecha <= ?';
-                $params[] = $hasta . ' 23:59:59';
-            }
-
-            // Generar filtro de búsqueda textual dinámico
+            if ($desde) { $fechaWhere .= ' AND v.fecha >= ?'; $params[] = $desde . ' 00:00:00'; }
+            if ($hasta)  { $fechaWhere .= ' AND v.fecha <= ?'; $params[] = $hasta  . ' 23:59:59'; }
             $busquedaWhere = '';
             if ($busqueda) {
                 $busquedaWhere = ' AND (v.id_venta LIKE ? OR p.nombres_razon_social LIKE ?)';
@@ -87,7 +80,7 @@ class M_Kardex {
                 $params[] = '%' . $busqueda . '%';
             }
 
-            // 1. Consultar todos los movimientos de venta (salidas de stock) para este insumo
+            // 1a. Salidas por ventas
             $sql = "SELECT
                         v.fecha,
                         CASE v.tipo_comprobante
@@ -98,8 +91,8 @@ class M_Kardex {
                         END AS tipo_doc,
                         LPAD(v.id_venta, 6, '0') AS numero_doc,
                         CONCAT('Venta a ', p.nombres_razon_social, IFNULL(CONCAT(' ', p.apellidos), '')) AS concepto,
-                        dv.piezas AS salida_cant,
-                        dv.peso_neto AS salida_peso,
+                        dv.cantidad AS salida_cant,
+                        NULL AS salida_peso,
                         dv.precio_venta AS costo_unit,
                         dv.subtotal AS salida_ct,
                         'salida' AS tipo_movimiento
@@ -112,10 +105,27 @@ class M_Kardex {
                       {$fechaWhere}
                       {$busquedaWhere}
                     ORDER BY v.fecha ASC";
-
             $stmt = $this->conexion->prepare($sql);
             $stmt->execute($params);
             $salidas = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            // 1b. Movimientos manuales del kardex
+            $paramsMov = [$id_insumo];
+            $fechaWhereMov = '';
+            if ($desde) { $fechaWhereMov .= ' AND km.fecha >= ?'; $paramsMov[] = $desde . ' 00:00:00'; }
+            if ($hasta)  { $fechaWhereMov .= ' AND km.fecha <= ?'; $paramsMov[] = $hasta  . ' 23:59:59'; }
+            $sqlMov = "SELECT km.fecha, km.tipo AS tipo_movimiento, km.cantidad,
+                              km.precio_unitario AS costo_unit, km.concepto,
+                              km.referencia,
+                              CONCAT(per.nombres_razon_social, IFNULL(CONCAT(' ', per.apellidos), '')) AS usuario_nombre
+                       FROM kardex_movimientos km
+                       INNER JOIN usuarios u ON km.id_usuario = u.id_usuario
+                       INNER JOIN personas per ON u.id_persona = per.id_persona
+                       WHERE km.id_insumo = ? {$fechaWhereMov}
+                       ORDER BY km.fecha ASC";
+            $stmtMov = $this->conexion->prepare($sqlMov);
+            $stmtMov->execute($paramsMov);
+            $movManuales = $stmtMov->fetchAll(PDO::FETCH_ASSOC);
 
             // 2. Obtener los datos básicos de stock y unidad del insumo
             $infoStmt = $this->conexion->prepare(
@@ -130,70 +140,94 @@ class M_Kardex {
 
             if (!$insumo) return ['error' => 'Insumo no encontrado'];
 
-            // 3. Reconstruir stock: Sumar todo lo vendido al stock actual para obtener el stock inicial (Apertura)
-            $totalVendido = array_sum(array_column($salidas, 'salida_cant'));
-            $stockActual = floatval($insumo['stock_piezas']);
-            $stockInicial = $stockActual + $totalVendido;
-            $precioUnit = floatval($insumo['precio_unitario']);
+            // 3. Reconstruir stock desde cero
+            $totalVendido    = array_sum(array_column($salidas, 'salida_cant'));
+            $totalSalidasMan = 0; $totalEntradasMan = 0;
+            foreach ($movManuales as $mm) {
+                if ($mm['tipo_movimiento'] === 'salida') $totalSalidasMan += floatval($mm['cantidad']);
+                else $totalEntradasMan += floatval($mm['cantidad']);
+            }
+            $stockActual  = floatval($insumo['stock_piezas']);
+            $stockInicial = $stockActual + $totalVendido + $totalSalidasMan - $totalEntradasMan;
+            $precioUnit   = floatval($insumo['precio_unitario']);
 
-            // 4. Construir las filas del Kardex con balances acumulativos
-            $rows = [];
+            // 4. Construir filas (ventas + manuales fusionadas y ordenadas)
+            $rows     = [];
             $saldoCant = 0;
 
-            // Registrar fila de Saldo Inicial si no se está filtrando específicamente por salidas, búsquedas o fechas específicas
             if ($tipo !== 'salida' && !$desde && !$busqueda) {
                 $saldoCant = $stockInicial;
                 $rows[] = [
-                    'fecha'         => null,
-                    'tipo_doc'      => 'Saldo Inicial',
-                    'numero_doc'    => '—',
-                    'concepto'      => 'Stock de apertura',
-                    'entrada_cant'  => $stockInicial,
-                    'entrada_cu'    => $precioUnit,
-                    'entrada_ct'    => $stockInicial * $precioUnit,
-                    'salida_cant'   => null,
-                    'salida_cu'     => null,
-                    'salida_ct'     => null,
-                    'saldo_cant'    => $saldoCant,
-                    'saldo_cu'      => $precioUnit,
-                    'saldo_ct'      => $saldoCant * $precioUnit,
+                    'fecha' => null, 'tipo_doc' => 'Saldo Inicial', 'numero_doc' => '—',
+                    'concepto' => 'Stock de apertura',
+                    'entrada_cant' => $stockInicial, 'entrada_cu' => $precioUnit, 'entrada_ct' => $stockInicial * $precioUnit,
+                    'salida_cant'  => null, 'salida_cu' => null, 'salida_ct' => null,
+                    'saldo_cant' => $saldoCant, 'saldo_cu' => $precioUnit, 'saldo_ct' => $saldoCant * $precioUnit,
                     'tipo_movimiento' => 'entrada',
                 ];
             } else {
-                // Si hay filtros activos, el saldo inicial se calcula igual para inicializar la cuenta acumulada
                 $saldoCant = $stockInicial;
             }
 
-            // 5. Procesar e insertar las salidas (ventas) restándolas del acumulado
+            // 5. Unir ventas + movimientos manuales y ordenar por fecha
+            $allMovs = [];
             foreach ($salidas as $mov) {
-                if ($tipo === 'entrada') continue; // Omitir si se filtra solo por entradas
+                if ($tipo === 'entrada') continue;
+                $allMovs[] = ['fecha' => $mov['fecha'], '_src' => 'venta', '_data' => $mov];
+            }
+            foreach ($movManuales as $mov) {
+                if ($tipo === 'entrada' && $mov['tipo_movimiento'] === 'salida') continue;
+                if ($tipo === 'salida' && $mov['tipo_movimiento'] === 'entrada') continue;
+                $allMovs[] = ['fecha' => $mov['fecha'], '_src' => 'manual', '_data' => $mov];
+            }
+            usort($allMovs, fn($a, $b) => strtotime($a['fecha']) - strtotime($b['fecha']));
 
-                $cant = floatval($mov['salida_cant']);
-                $cu   = floatval($mov['costo_unit']);
-                $saldoCant -= $cant;
-
-                $rows[] = [
-                    'fecha'         => $mov['fecha'],
-                    'tipo_doc'      => $mov['tipo_doc'],
-                    'numero_doc'    => 'V-' . $mov['numero_doc'],
-                    'concepto'      => $mov['concepto'],
-                    'entrada_cant'  => null,
-                    'entrada_cu'    => null,
-                    'entrada_ct'    => null,
-                    'salida_cant'   => $cant,
-                    'salida_peso'   => floatval($mov['salida_peso']),
-                    'salida_cu'     => $cu,
-                    'salida_ct'     => $mov['salida_ct'],
-                    'saldo_cant'    => $saldoCant,
-                    'saldo_cu'      => $cu,
-                    'saldo_ct'      => $saldoCant * $cu,
-                    'tipo_movimiento' => 'salida',
-                ];
+            foreach ($allMovs as $item) {
+                if ($item['_src'] === 'venta') {
+                    $mov  = $item['_data'];
+                    $cant = floatval($mov['salida_cant']);
+                    $cu   = floatval($mov['costo_unit']);
+                    $saldoCant -= $cant;
+                    $rows[] = [
+                        'fecha' => $mov['fecha'], 'tipo_doc' => $mov['tipo_doc'],
+                        'numero_doc' => 'V-' . $mov['numero_doc'], 'concepto' => $mov['concepto'],
+                        'entrada_cant' => null, 'entrada_cu' => null, 'entrada_ct' => null,
+                        'salida_cant' => $cant, 'salida_peso' => floatval($mov['salida_peso']),
+                        'salida_cu' => $cu, 'salida_ct' => $mov['salida_ct'],
+                        'saldo_cant' => $saldoCant, 'saldo_cu' => $cu, 'saldo_ct' => $saldoCant * $cu,
+                        'tipo_movimiento' => 'salida',
+                    ];
+                } else {
+                    $mov  = $item['_data'];
+                    $cant = floatval($mov['cantidad']);
+                    $cu   = floatval($mov['costo_unit']) ?: $precioUnit;
+                    if ($mov['tipo_movimiento'] === 'entrada') {
+                        $saldoCant += $cant;
+                        $rows[] = [
+                            'fecha' => $mov['fecha'], 'tipo_doc' => 'Entrada Manual',
+                            'numero_doc' => $mov['referencia'] ?? '—', 'concepto' => $mov['concepto'],
+                            'entrada_cant' => $cant, 'entrada_cu' => $cu, 'entrada_ct' => $cant * $cu,
+                            'salida_cant' => null, 'salida_cu' => null, 'salida_ct' => null,
+                            'saldo_cant' => $saldoCant, 'saldo_cu' => $cu, 'saldo_ct' => $saldoCant * $cu,
+                            'tipo_movimiento' => 'entrada',
+                        ];
+                    } else {
+                        $saldoCant -= $cant;
+                        $rows[] = [
+                            'fecha' => $mov['fecha'], 'tipo_doc' => 'Salida Manual',
+                            'numero_doc' => '—', 'concepto' => $mov['concepto'] . ($mov['referencia'] ? ' — ' . $mov['referencia'] : ''),
+                            'entrada_cant' => null, 'entrada_cu' => null, 'entrada_ct' => null,
+                            'salida_cant' => $cant, 'salida_cu' => $cu, 'salida_ct' => $cant * $cu,
+                            'saldo_cant' => $saldoCant, 'saldo_cu' => $cu, 'saldo_ct' => $saldoCant * $cu,
+                            'tipo_movimiento' => 'salida',
+                        ];
+                    }
+                }
             }
 
-            // Estadísticas resumidas finales del insumo
-            $totalEntradaCant = $stockInicial; 
-            $totalSalidaCant  = $totalVendido;
+            // Estadísticas
+            $totalEntradaCant = $stockInicial + $totalEntradasMan;
+            $totalSalidaCant  = $totalVendido  + $totalSalidasMan;
 
             return [
                 'insumo'           => $insumo,
@@ -206,6 +240,21 @@ class M_Kardex {
 
         } catch (PDOException $e) {
             return ['error' => $e->getMessage()];
+        }
+    }
+
+    /**
+     * Registra un movimiento manual de entrada o salida en el kardex
+     */
+    public function registrarMovimiento($id_insumo, $tipo, $cantidad, $precio_unitario, $referencia, $concepto, $id_usuario) {
+        try {
+            $sql = "INSERT INTO kardex_movimientos (id_insumo, tipo, cantidad, precio_unitario, referencia, concepto, id_usuario, fecha)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, NOW())";
+            $stmt = $this->conexion->prepare($sql);
+            $stmt->execute([$id_insumo, $tipo, $cantidad, $precio_unitario, $referencia, $concepto, $id_usuario]);
+            return true;
+        } catch (PDOException $e) {
+            return false;
         }
     }
 }

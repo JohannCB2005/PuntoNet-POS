@@ -1,8 +1,8 @@
 <?php
 $host = 'localhost';
-$dbname = 'granja_pos';
-$user = 'granja_user';
-$pass = 'granja2026';
+$dbname = 'puntonet_pos';
+$user = 'puntonet_user';
+$pass = 'puntonet2026';
 
 try {
     $db = new PDO("mysql:host=$host", $user, $pass);

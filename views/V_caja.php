@@ -42,7 +42,7 @@ if ($cajaAbierta) {
                             <label class="form-label fw-semibold text-muted">Monto inicial de apertura (S/)</label>
                             <div class="input-group input-group-lg">
                                 <span class="input-group-text bg-light border-end-0">S/</span>
-                                <input type="number" class="form-control border-start-0 ps-1" id="monto_apertura" step="0.01" min="0" required placeholder="0.00" value="0.00" style="box-shadow: none;">
+                                <input type="number" class="form-control border-start-0 ps-1" id="monto_apertura" step="0.01" min="0" required placeholder="0.00" style="box-shadow: none;">
                             </div>
                         </div>
                         <button type="submit" class="gp-btn-primary w-100 py-3 rounded-3 fw-bold border-0" style="font-size: 1.05rem;">
@@ -78,6 +78,11 @@ if ($cajaAbierta) {
                             <div class="bg-success bg-opacity-10 p-3 rounded-3 text-center h-100 d-flex flex-column justify-content-center border border-success border-opacity-25">
                                 <small class="d-block text-success fw-semibold mb-1" style="font-size: 13px;">Ventas del Turno</small>
                                 <span class="fs-5 fw-bold text-success">+ S/ <?php echo number_format($ventasAcumuladas, 2); ?></span>
+                                <div id="breakdown_ventas" class="mt-2 text-start d-none" style="font-size: 13px; font-weight: 500;">
+                                    <div class="d-flex justify-content-between text-success" style="opacity: 0.85;"><span>Efectivo:</span><span id="bd_efectivo">S/ 0.00</span></div>
+                                    <div class="d-flex justify-content-between text-success" style="opacity: 0.85;"><span>Yape:</span><span id="bd_yape">S/ 0.00</span></div>
+                                    <div class="d-flex justify-content-between text-success" style="opacity: 0.85;"><span>Tarjeta:</span><span id="bd_tarjeta">S/ 0.00</span></div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -93,13 +98,39 @@ if ($cajaAbierta) {
                         <input type="hidden" id="id_caja" value="<?php echo $cajaAbierta['id_caja']; ?>">
                         
                         <div class="mb-3">
-                            <label class="form-label fw-semibold text-dark" style="font-size: 14px;">Monto real de cierre (S/) <span class="text-danger">*</span></label>
-                            <div class="input-group input-group-lg">
-                                <span class="input-group-text bg-light border-end-0 text-muted">S/</span>
-                                <input type="number" class="form-control border-start-0 ps-1 fw-bold" id="monto_cierre" step="0.01" min="0" required placeholder="0.00" style="color: #1f2937; box-shadow: none;">
+                            <div class="d-flex justify-content-between align-items-end">
+                                <label class="form-label fw-semibold text-dark mb-1" style="font-size: 14px;">Cierre Físico Efectivo (S/) <span class="text-danger">*</span></label>
+                                <small class="text-muted fw-bold" style="font-size: 12px;" id="lbl_esperado_efectivo">Sistema: S/ 0.00</small>
                             </div>
-                            <!-- Mensaje dinámico de cuadre/descuadre en base a la entrada de usuario -->
-                            <div id="diferencia_hint" class="form-text mt-2 fw-medium" style="font-size: 13px;">Ingrese el dinero físico actual para calcular diferencia.</div>
+                            <div class="input-group input-group-lg">
+                                <span class="input-group-text bg-light border-end-0 text-muted" style="padding: 0.5rem 1rem; font-size: 1.1rem;">S/</span>
+                                <input type="number" class="form-control border-start-0 ps-1 fw-bold" id="cierre_efectivo" step="0.01" min="0" required placeholder="0.00" style="color: #1f2937; box-shadow: none; font-size: 1.1rem; padding: 0.5rem 0;">
+                            </div>
+                            <div id="hint_efectivo" class="form-text mt-1 fw-medium" style="font-size: 13px;">Ingrese el efectivo actual.</div>
+                        </div>
+
+                        <div class="mb-3">
+                            <div class="d-flex justify-content-between align-items-end">
+                                <label class="form-label fw-semibold text-dark mb-1" style="font-size: 14px;">Cierre Físico Yape (S/) <span class="text-danger">*</span></label>
+                                <small class="text-muted fw-bold" style="font-size: 12px;" id="lbl_esperado_yape">Sistema: S/ 0.00</small>
+                            </div>
+                            <div class="input-group input-group-lg">
+                                <span class="input-group-text bg-light border-end-0 text-muted" style="padding: 0.5rem 1rem; font-size: 1.1rem;">S/</span>
+                                <input type="number" class="form-control border-start-0 ps-1 fw-bold" id="cierre_yape" step="0.01" min="0" required placeholder="0.00" style="color: #1f2937; box-shadow: none; font-size: 1.1rem; padding: 0.5rem 0;">
+                            </div>
+                            <div id="hint_yape" class="form-text mt-1 fw-medium" style="font-size: 13px;">Ingrese el monto en Yape actual.</div>
+                        </div>
+
+                        <div class="mb-3">
+                            <div class="d-flex justify-content-between align-items-end">
+                                <label class="form-label fw-semibold text-dark mb-1" style="font-size: 14px;">Cierre Físico Tarjeta (S/) <span class="text-danger">*</span></label>
+                                <small class="text-muted fw-bold" style="font-size: 12px;" id="lbl_esperado_tarjeta">Sistema: S/ 0.00</small>
+                            </div>
+                            <div class="input-group input-group-lg">
+                                <span class="input-group-text bg-light border-end-0 text-muted" style="padding: 0.5rem 1rem; font-size: 1.1rem;">S/</span>
+                                <input type="number" class="form-control border-start-0 ps-1 fw-bold" id="cierre_tarjeta" step="0.01" min="0" required placeholder="0.00" style="color: #1f2937; box-shadow: none; font-size: 1.1rem; padding: 0.5rem 0;">
+                            </div>
+                            <div id="hint_tarjeta" class="form-text mt-1 fw-medium" style="font-size: 13px;">Ingrese el monto en Tarjeta actual.</div>
                         </div>
 
                         <div class="mb-4">
@@ -132,7 +163,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 text: `Se aperturará la caja con un fondo de S/ ${parseFloat(monto).toFixed(2)}`,
                 icon: 'question',
                 showCancelButton: true,
-                confirmButtonColor: '#15803d',
+                confirmButtonColor: '#0284c7',
                 cancelButtonColor: '#6b7280',
                 confirmButtonText: 'Sí, abrir caja',
                 cancelButtonText: 'Cancelar',
@@ -168,37 +199,83 @@ document.addEventListener('DOMContentLoaded', () => {
     // 2. Manejador de Cierre de Caja
     const formCerrar = document.getElementById('formCerrarCaja');
     if (formCerrar) {
-        const inputMontoCierre = document.getElementById('monto_cierre');
-        const hint = document.getElementById('diferencia_hint');
-        const totalEsperado = parseFloat(document.getElementById('total_esperado').value);
+        let expectedEfectivo = 0, expectedYape = 0, expectedTarjeta = 0;
+        const montoApertura = parseFloat('<?php echo isset($cajaAbierta["monto_apertura"]) ? $cajaAbierta["monto_apertura"] : 0; ?>');
 
-        // Evaluar dinámicamente y en tiempo real el cuadre de caja (sobrante o faltante)
-        inputMontoCierre.addEventListener('input', () => {
-            const cierre = parseFloat(inputMontoCierre.value);
-            if (isNaN(cierre)) {
-                hint.innerHTML = `Ingrese el dinero físico actual para calcular diferencia.`;
-                return;
-            }
-            
-            const dif = cierre - totalEsperado;
-            if (dif > 0) {
-                hint.innerHTML = `<span class="text-primary fw-bold"><i class="bi bi-arrow-up-circle-fill"></i> Sobrante en caja de S/ ${dif.toFixed(2)}</span>`;
-            } else if (dif < 0) {
-                hint.innerHTML = `<span class="text-danger fw-bold"><i class="bi bi-arrow-down-circle-fill"></i> Faltante en caja de S/ ${Math.abs(dif).toFixed(2)}</span>`;
-            } else {
-                hint.innerHTML = `<span class="text-success fw-bold"><i class="bi bi-check-circle-fill"></i> La caja cuadra perfectamente.</span>`;
-            }
+        // Obtener estado y desglose de caja
+        fetch('controllers/C_Caja.php?action=estado')
+            .then(res => res.json())
+            .then(data => {
+                if (data.success && data.caja_abierta && data.desglose) {
+                    const desglose = data.desglose;
+                    const ventasEfectivo = parseFloat(desglose['1'] || 0);
+                    const ventasYape = parseFloat(desglose['2'] || 0);
+                    const ventasTarjeta = parseFloat(desglose['3'] || 0);
+
+                    // Actualizar desglose en UI
+                    document.getElementById('breakdown_ventas').classList.remove('d-none');
+                    document.getElementById('bd_efectivo').innerText = `S/ ${ventasEfectivo.toFixed(2)}`;
+                    document.getElementById('bd_yape').innerText = `S/ ${ventasYape.toFixed(2)}`;
+                    document.getElementById('bd_tarjeta').innerText = `S/ ${ventasTarjeta.toFixed(2)}`;
+
+                    // Establecer montos esperados
+                    expectedEfectivo = montoApertura + ventasEfectivo;
+                    expectedYape = ventasYape;
+                    expectedTarjeta = ventasTarjeta;
+
+                    document.getElementById('lbl_esperado_efectivo').innerText = `Sistema: S/ ${expectedEfectivo.toFixed(2)}`;
+                    document.getElementById('lbl_esperado_yape').innerText = `Sistema: S/ ${expectedYape.toFixed(2)}`;
+                    document.getElementById('lbl_esperado_tarjeta').innerText = `Sistema: S/ ${expectedTarjeta.toFixed(2)}`;
+                    
+                    // Disparar evento input para recalcular hints si hay datos
+                    ['cierre_efectivo', 'cierre_yape', 'cierre_tarjeta'].forEach(id => {
+                        const el = document.getElementById(id);
+                        if (el.value) el.dispatchEvent(new Event('input'));
+                    });
+                }
+            })
+            .catch(err => console.error('Error fetching estado:', err));
+
+        const inputsCierre = [
+            { id: 'cierre_efectivo', hint: 'hint_efectivo', getExpected: () => expectedEfectivo },
+            { id: 'cierre_yape', hint: 'hint_yape', getExpected: () => expectedYape },
+            { id: 'cierre_tarjeta', hint: 'hint_tarjeta', getExpected: () => expectedTarjeta }
+        ];
+
+        inputsCierre.forEach(item => {
+            const inputEl = document.getElementById(item.id);
+            const hintEl = document.getElementById(item.hint);
+
+            inputEl.addEventListener('input', () => {
+                const val = parseFloat(inputEl.value);
+                if (isNaN(val)) {
+                    hintEl.innerHTML = 'Ingrese el monto actual.';
+                    return;
+                }
+                const exp = item.getExpected();
+                const dif = val - exp;
+                if (dif > 0) {
+                    hintEl.innerHTML = `<span class="text-primary fw-bold"><i class="bi bi-arrow-up-circle-fill"></i> Sobrante de S/ ${dif.toFixed(2)}</span>`;
+                } else if (dif < 0) {
+                    hintEl.innerHTML = `<span class="text-danger fw-bold"><i class="bi bi-arrow-down-circle-fill"></i> Faltante de S/ ${Math.abs(dif).toFixed(2)}</span>`;
+                } else {
+                    hintEl.innerHTML = `<span class="text-success fw-bold"><i class="bi bi-check-circle-fill"></i> Cuadre perfecto</span>`;
+                }
+            });
         });
 
         formCerrar.addEventListener('submit', async (e) => {
             e.preventDefault();
             const id = document.getElementById('id_caja').value;
-            const monto = document.getElementById('monto_cierre').value;
+            const ef = parseFloat(document.getElementById('cierre_efectivo').value) || 0;
+            const yp = parseFloat(document.getElementById('cierre_yape').value) || 0;
+            const tj = parseFloat(document.getElementById('cierre_tarjeta').value) || 0;
             const obs = document.getElementById('observaciones_cierre').value;
+            const total = ef + yp + tj;
 
             Swal.fire({
                 title: '¿Confirmar cierre de caja?',
-                text: `Vas a declarar S/ ${parseFloat(monto).toFixed(2)}. Esta acción no se puede deshacer.`,
+                text: `Vas a declarar un total de S/ ${total.toFixed(2)}. Esta acción no se puede deshacer.`,
                 icon: 'warning',
                 showCancelButton: true,
                 confirmButtonColor: '#dc3545',
@@ -212,7 +289,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         const res = await fetch('controllers/C_Caja.php?action=cerrar', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ id_caja: id, monto_cierre: monto, observaciones: obs })
+                            body: JSON.stringify({ id_caja: id, cierre_efectivo: ef, cierre_yape: yp, cierre_tarjeta: tj, observaciones: obs })
                         });
                         const data = await res.json();
                         if (data.success) {

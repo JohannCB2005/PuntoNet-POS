@@ -36,11 +36,14 @@ switch ($action) {
         if ($caja) {
             // Si la caja está abierta, calcular en vivo el total de ventas acumuladas desde la hora de apertura
             $ventas_acumuladas = $model->calcularVentasAcumuladas($id_usuario, $caja['fecha_apertura']);
+            $desglose = $model->calcularDesglosePorMetodo($id_usuario, $caja['fecha_apertura']);
+            
             echo json_encode([
                 "success" => true, 
                 "caja_abierta" => true, 
                 "caja" => $caja, 
-                "ventas_acumuladas" => $ventas_acumuladas
+                "ventas_acumuladas" => $ventas_acumuladas,
+                "desglose" => $desglose
             ]);
         } else {
             echo json_encode(["success" => true, "caja_abierta" => false]);
@@ -68,17 +71,19 @@ switch ($action) {
     // Cierra la sesión activa de caja, calculando el balance final y diferencias
     case 'cerrar':
         $id_caja = isset($input['id_caja']) ? intval($input['id_caja']) : 0;
-        $monto_cierre = isset($input['monto_cierre']) ? floatval($input['monto_cierre']) : 0.00;
+        $cierre_efectivo = isset($input['cierre_efectivo']) ? floatval($input['cierre_efectivo']) : 0.00;
+        $cierre_yape = isset($input['cierre_yape']) ? floatval($input['cierre_yape']) : 0.00;
+        $cierre_tarjeta = isset($input['cierre_tarjeta']) ? floatval($input['cierre_tarjeta']) : 0.00;
         $observaciones = isset($input['observaciones']) ? trim($input['observaciones']) : '';
 
         // Validaciones básicas de parámetros
-        if ($id_caja <= 0 || $monto_cierre < 0) {
+        if ($id_caja <= 0 || $cierre_efectivo < 0 || $cierre_yape < 0 || $cierre_tarjeta < 0) {
             echo json_encode(["success" => false, "mensaje" => "Datos inválidos."]);
             exit;
         }
 
         // Procesar el cierre de la caja
-        if ($model->cerrarCaja($id_caja, $id_usuario, $monto_cierre, $observaciones)) {
+        if ($model->cerrarCaja($id_caja, $id_usuario, $cierre_efectivo, $cierre_yape, $cierre_tarjeta, $observaciones)) {
             echo json_encode(["success" => true, "mensaje" => "Caja cerrada con éxito."]);
         } else {
             echo json_encode(["success" => false, "mensaje" => "Error al cerrar la caja."]);
@@ -94,6 +99,21 @@ switch ($action) {
         // Si no se envía fecha por GET, se asume la fecha actual del servidor
         $fecha = isset($_GET['fecha']) ? $_GET['fecha'] : date('Y-m-d');
         echo json_encode($model->listarPorFecha($fecha));
+        break;
+
+    // Obtiene el detalle completo de una caja
+    case 'detalle':
+        if ($_SESSION['rol'] !== 'Administrador') {
+            echo json_encode(["success" => false, "mensaje" => "No tienes permisos."]);
+            exit;
+        }
+        $id_caja = isset($input['id_caja']) ? intval($input['id_caja']) : (isset($_GET['id_caja']) ? intval($_GET['id_caja']) : 0);
+        $data = $model->obtenerDetalleCaja($id_caja);
+        if ($data) {
+            echo json_encode(["success" => true, "data" => $data]);
+        } else {
+            echo json_encode(["success" => false, "mensaje" => "No se pudo obtener el detalle."]);
+        }
         break;
 
     default:

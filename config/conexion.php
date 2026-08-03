@@ -18,13 +18,13 @@ class Conexion {
             $configs = [
                 [
                     'host' => 'localhost',
-                    'dbname' => 'granja_pos',
-                    'user' => 'granja_user',
-                    'pass' => 'granja2026'
+                    'dbname' => 'puntonet_pos',
+                    'user' => 'puntonet_user',
+                    'pass' => 'puntonet2026'
                 ],
                 [
                     'host' => 'localhost',
-                    'dbname' => 'granja_pos',
+                    'dbname' => 'puntonet_pos',
                     'user' => 'root',
                     'pass' => ''
                 ]
@@ -33,7 +33,7 @@ class Conexion {
             $configs = [
                 [
                     'host' => 'sql210.infinityfree.com',
-                    'dbname' => 'if0_42381931_granja_pos',
+                    'dbname' => 'if0_42381931_puntonet_pos',
                     'user' => 'if0_42381931',
                     'pass' => 'For52638'
                 ]
@@ -103,9 +103,9 @@ class Conexion {
      * para compatibilidad con hosting compartido (InfinityFree) sin privilegios de CREATE PROCEDURE.
      */
     private function inicializarBaseDatos($conexion) {
-        $sqlPath = dirname(__DIR__) . '/base_datos.sql';
+        $sqlPath = dirname(__DIR__) . '/base_datos_nissi.sql';
         if (!file_exists($sqlPath)) {
-            die("Error de inicialización: No se encontró el archivo base_datos.sql en " . $sqlPath);
+            die("Error de inicialización: No se encontró el archivo base_datos_nissi.sql en " . $sqlPath);
         }
 
         try {

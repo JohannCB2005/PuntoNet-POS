@@ -80,7 +80,7 @@ try {
     $chartData = array_values($ventasPorDia);
 
     // 7. Productos más vendidos (Top 5)
-    $stmt = $dbh->query("SELECT i.nombre, SUM(dv.piezas) as vendidos, i.stock_piezas, um.abreviatura as unidad
+    $stmt = $dbh->query("SELECT i.nombre, SUM(dv.cantidad) as vendidos, i.stock_piezas, um.abreviatura as unidad
                          FROM detalle_ventas dv
                          INNER JOIN insumos i ON dv.id_insumo = i.id_insumo
                          INNER JOIN unidades_medida um ON i.id_unidad = um.id_unidad

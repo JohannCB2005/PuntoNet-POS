@@ -2,12 +2,7 @@
 /**
  * Entidad Insumo
  * Representa un artículo del catálogo de inventario.
- * 
- * Regla de negocio:
- *   - contenido_estandar = NULL  → Peso variable al momento de la venta (Ej: pavos vivos).
- *                                   El precio se calcula sobre el peso real de balanza.
- *   - contenido_estandar = N     → Cada pieza tiene un peso/volumen fijo (Ej: saco de 50 Kg).
- *                                   El precio se calcula sobre las piezas vendidas.
+ * Atributos extendidos para uniformes y módulos escolares.
  */
 class Insumo {
     public $id_insumo;
@@ -15,11 +10,22 @@ class Insumo {
     public $id_unidad;
     public $nombre;
     public $precio_unitario;
-    public $costo_produccion;    // Costo base por lote para cálculo de rentabilidad
-    public $stock_piezas;        // Cantidad de piezas/unidades físicas en almacén
-    public $contenido_estandar;  // Kg/L por pieza. NULL = peso variable (aves)
+    public $costo_produccion;
+    public $stock_piezas;
     public $estado;
     public $imagen;
+
+    // Uniformes
+    public $id_talla;
+    public $id_tipo_corbata;
+    // Módulos Escolares
+    public $id_nivel;
+    public $id_grado;
+    public $id_area;
+    public $id_bimestre;
+    // Sistema de variantes de talla
+    public $es_agrupador;       // 1 = Producto padre (NO vendible), 0 = simple/variante
+    public $id_producto_padre;  // FK al padre, NULL si es padre o producto simple
 
     public function __construct(
         $id_categoria = null,
@@ -28,9 +34,16 @@ class Insumo {
         $precio_unitario = 0.0,
         $costo_produccion = 0.0,
         $stock_piezas = 0.0,
-        $contenido_estandar = null,
         $id_insumo = null,
-        $imagen = null
+        $imagen = null,
+        $id_talla = null,
+        $id_tipo_corbata = null,
+        $id_nivel = null,
+        $id_grado = null,
+        $id_area = null,
+        $id_bimestre = null,
+        $es_agrupador = 0,
+        $id_producto_padre = null
     ) {
         $this->id_insumo          = $id_insumo;
         $this->id_categoria       = $id_categoria;
@@ -39,9 +52,16 @@ class Insumo {
         $this->precio_unitario    = $precio_unitario;
         $this->costo_produccion   = $costo_produccion;
         $this->stock_piezas       = $stock_piezas;
-        $this->contenido_estandar = $contenido_estandar;
         $this->estado             = 1;
         $this->imagen             = $imagen;
+        $this->id_talla           = $id_talla;
+        $this->id_tipo_corbata    = $id_tipo_corbata;
+        $this->id_nivel           = $id_nivel;
+        $this->id_grado           = $id_grado;
+        $this->id_area            = $id_area;
+        $this->id_bimestre        = $id_bimestre;
+        $this->es_agrupador       = $es_agrupador ? 1 : 0;
+        $this->id_producto_padre  = $id_producto_padre;
     }
 }
 ?>

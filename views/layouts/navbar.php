@@ -24,8 +24,8 @@ $rolUsuario = isset($_SESSION['rol']) ? $_SESSION['rol'] : 'Rol';
         </button>
         
         <div class="d-none d-sm-block">
-            <h6 class="mb-0 fw-bold">Granja POS</h6>
-            <small class="text-muted" style="font-size: 11px;">Sistema de gestión ganadera</small>
+            <h6 class="mb-0 fw-bold">NISSI POS</h6>
+            <small class="text-muted" style="font-size: 11px;">Tienda de Uniformes Escolares</small>
         </div>
     </div>
     
@@ -33,7 +33,7 @@ $rolUsuario = isset($_SESSION['rol']) ? $_SESSION['rol'] : 'Rol';
         <!-- Indicador visual del Rol de Usuario -->
         <div class="d-none d-md-flex align-items-center gap-2">
             <span class="text-muted" style="font-size: 12px; font-weight: 500;">Rol Activo:</span>
-            <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-20 px-2.5 py-1.5 fw-semibold" style="font-size: 11px;">
+            <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-20 px-2.5 py-1.5 fw-semibold" style="font-size: 11px;">
                 <?php echo htmlspecialchars($rolUsuario); ?>
             </span>
         </div>
@@ -41,7 +41,7 @@ $rolUsuario = isset($_SESSION['rol']) ? $_SESSION['rol'] : 'Rol';
         <!-- Menú Desplegable de Perfil de Usuario -->
         <div class="dropdown">
             <button class="btn btn-link text-dark text-decoration-none dropdown-toggle d-flex align-items-center gap-2 p-1 border rounded-3 bg-light hover-bg-secondary" type="button" id="userDropdown" data-bs-toggle="dropdown" aria-expanded="false" style="box-shadow: none;">
-                <div class="avatar bg-success text-white rounded-circle d-flex align-items-center justify-content-center fw-bold" style="width: 32px; height: 32px; font-size: 12px;">
+                <div class="avatar bg-primary text-white rounded-circle d-flex align-items-center justify-content-center fw-bold" style="width: 32px; height: 32px; font-size: 12px;">
                     <?php echo $iniciales; ?>
                 </div>
                 <div class="text-start d-none d-lg-block leading-tight" style="line-height: 1.2;">

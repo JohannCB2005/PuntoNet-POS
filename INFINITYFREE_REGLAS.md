@@ -1,5 +1,5 @@
 # 📋 Reglas de Compatibilidad con InfinityFree
-## Proyecto: Granja POS — `granja-pos.site.je`
+## Proyecto: PuntoNet — `puntonet.site.je`
 
 > Este documento establece las restricciones y lineamientos técnicos que **todo el equipo debe respetar**
 > para garantizar que el código funcione correctamente en el entorno de hosting gratuito **InfinityFree**.
@@ -22,8 +22,8 @@ USE mi_base_de_datos;
 
 **✅ Correcto:** Crear la base de datos desde el panel → sección **MySQL Databases**, y comentar estas líneas en el SQL:
 ```sql
--- CREATE DATABASE IF NOT EXISTS if0_42381931_granja_pos ...;
--- USE if0_42381931_granja_pos;
+-- CREATE DATABASE IF NOT EXISTS if0_42381931_puntonet_pos ...;
+-- USE if0_42381931_puntonet_pos;
 ```
 
 ---
@@ -64,7 +64,7 @@ InfinityFree genera automáticamente el nombre de usuario y la base de datos con
 | Parámetro  | Valor correcto para este proyecto       |
 |------------|-----------------------------------------|
 | `$host`    | `sql210.infinityfree.com`               |
-| `$dbname`  | `if0_42381931_granja_pos`               |
+| `$dbname`  | `if0_42381931_puntonet_pos`              |
 | `$user`    | `if0_42381931`                          |
 | `$pass`    | La contraseña del panel de vPanel       |
 
@@ -75,16 +75,16 @@ Archivo de configuración: `config/conexion.php`
 ### 4. Nombre de base de datos — siempre con prefijo `if0_42381931_`
 
 InfinityFree **fuerza el prefijo** de la cuenta en todos los nombres de bases de datos.
-Al crear una base de datos en el panel llamada `granja_pos`, el nombre real queda como `if0_42381931_granja_pos`.
+Al crear una base de datos en el panel llamada `puntonet_pos`, el nombre real queda como `if0_42381931_puntonet_pos`.
 
 **❌ Incorrecto:**
 ```php
-$dbname = 'granja_pos';
+$dbname = 'puntonet_pos';
 ```
 
 **✅ Correcto:**
 ```php
-$dbname = 'if0_42381931_granja_pos';
+$dbname = 'if0_42381931_puntonet_pos';
 ```
 
 ---
@@ -183,7 +183,7 @@ o redirigir a una página de error personalizada. Los mensajes detallados de PDO
 ## 📁 Estructura de archivos relevante
 
 ```
-granja_pos/
+puntonet_pos/
 ├── index.php                       ← Front Controller principal (con sesión)
 ├── tienda.php                      ← Entry point público del e-commerce (sin sesión)
 │
@@ -226,9 +226,9 @@ granja_pos/
 | Concepto           | Valor                          |
 |--------------------|--------------------------------|
 | Servidor MySQL     | `sql210.infinityfree.com`      |
-| Base de Datos      | `if0_42381931_granja_pos`      |
+| Base de Datos      | `if0_42381931_puntonet_pos`    |
 | Usuario MySQL      | `if0_42381931`                 |
-| Dominio            | `granja-pos.site.je`           |
+| Dominio            | `puntonet.site.je`             |
 | Panel de Control   | `app.infinityfree.com`         |
 | Directorio Raíz    | `/home/vol10_8/infinityfree.com/if0_42381931/htdocs` |
 

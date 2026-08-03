@@ -51,6 +51,53 @@ switch ($action) {
         }
         break;
 
+    // Registra un movimiento manual (entrada o salida) en el kardex
+    case 'registrar_movimiento':
+        if ($_SESSION['rol'] !== 'Administrador') {
+            echo json_encode(['success' => false, 'mensaje' => 'Sin permiso.']);
+            exit;
+        }
+        $data = json_decode(file_get_contents('php://input'), true);
+        if (!$data || !isset($data['id_insumo'], $data['tipo'], $data['cantidad'])) {
+            echo json_encode(['success' => false, 'mensaje' => 'Datos incompletos.']);
+            exit;
+        }
+        $id_insumo = intval($data['id_insumo']);
+        $tipo      = in_array($data['tipo'], ['entrada', 'salida']) ? $data['tipo'] : null;
+        $cantidad  = floatval($data['cantidad']);
+        $referencia = trim($data['referencia'] ?? '');
+        $concepto  = trim($data['concepto']   ?? '');
+        $id_usuario = $_SESSION['id_usuario'];
+
+        if (!$tipo || $cantidad <= 0) {
+            echo json_encode(['success' => false, 'mensaje' => 'Tipo o cantidad inválidos.']);
+            exit;
+        }
+
+        require_once dirname(__DIR__) . '/models/M_Insumo.php';
+
+        // Verificar stock suficiente para salidas
+        if ($tipo === 'salida') {
+            $modelIns = M_Insumo::singleton();
+            $ins = $modelIns->obtenerPorId($id_insumo);
+            if (!$ins || $ins['stock_piezas'] < $cantidad) {
+                echo json_encode(['success' => false, 'mensaje' => 'Stock insuficiente para la salida.']);
+                exit;
+            }
+        }
+
+        $variacion = $tipo === 'entrada' ? $cantidad : -$cantidad;
+        M_Insumo::singleton()->actualizarStockRapido($id_insumo, $variacion);
+
+        $precioUnit = floatval($data['precio_unitario'] ?? 0);
+
+        if ($model->registrarMovimiento($id_insumo, $tipo, $cantidad, $precioUnit, $referencia, $concepto, $id_usuario)) {
+            echo json_encode(['success' => true, 'mensaje' => 'Movimiento registrado exitosamente.']);
+        } else {
+            echo json_encode(['success' => false, 'mensaje' => 'Error al registrar el movimiento.']);
+        }
+        break;
+
     default:
         echo json_encode(['success' => false, 'mensaje' => 'Acción no válida.']);
         break;

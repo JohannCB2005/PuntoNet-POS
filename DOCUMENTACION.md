@@ -1,6 +1,6 @@
-# 📚 Documentación del Proyecto: Granja UNP — POS & Tienda Virtual
+# 📚 Documentación del Proyecto: PuntoNet — POS & Tienda Virtual
 
-Este documento describe todas las capacidades, módulos y la arquitectura técnica del sistema **Granja POS**, el cual integra un sistema de punto de venta (POS) administrativo con una tienda virtual pública (e-commerce) autogestionada.
+Este documento describe todas las capacidades, módulos y la arquitectura técnica del sistema **PuntoNet POS**, el cual integra un sistema de punto de venta (POS) administrativo con una tienda virtual pública (e-commerce) autogestionada.
 
 ---
 
@@ -67,7 +67,7 @@ El acceso a estos módulos requiere inicio de sesión en `index.php`. El sistema
 
 ## 🛒 Tienda Virtual Pública (`tienda.php`)
 
-Es la vitrina de cara al cliente final, permitiéndole reservar productos para pagar y recoger de manera presencial en la Granja UNP (*Click & Collect*).
+Es la vitrina de cara al cliente final, permitiéndole reservar productos para pagar y recoger de manera presencial en PuntoNet (*Click & Collect*).
 
 ### 1. Interfaz Premium e Interactiva
 * **Hero Banner Dinámico**: Cabecera visual moderna con imagen de fondo del campo, overlay traslúcido verde corporativo y tipografía corta y elegante.
@@ -98,7 +98,7 @@ Es la vitrina de cara al cliente final, permitiéndole reservar productos para p
 
 ## 🔒 Cumplimiento de Reglas de InfinityFree
 
-Todo el desarrollo se ha realizado bajo el marco de reglas estrictas de [INFINITYFREE_REGLAS.md](file:///c:/xampp/htdocs/Granja-POS-/INFINITYFREE_REGLAS.md):
+Todo el desarrollo se ha realizado bajo el marco de reglas estrictas de [INFINITYFREE_REGLAS.md](file:///c:/xampp/htdocs/PuntoNet/INFINITYFREE_REGLAS.md):
 1. **Sin dependencias del sistema**: Las subidas de imágenes usan PHP nativo.
 2. **Eficiencia en Hosting Gratuito**: Los filtros de la tienda virtual se procesan en el navegador del cliente mediante JavaScript nativo, eliminando peticiones HTTP excesivas y evitando la suspensión de la cuenta por sobrecarga de CPU.
 3. **Estructura de Base de Datos estándar**: El esquema cuenta con la columna `imagen` insertada en la definición de tabla de `insumos` sin usar triggers ni stored procedures.

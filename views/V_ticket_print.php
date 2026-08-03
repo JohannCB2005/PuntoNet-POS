@@ -270,12 +270,12 @@ p { margin: 1px 0; }
 <?php if (!$isTicket): /* ========= MAQUETADO A4 ========= */ ?>
 <div class="header">
     <div class="header-brand">
-        <div class="brand-logo">G</div>
+        <div class="brand-logo"><img src="../assets/Logo Login PuntoNet.png" style="height: 60px; filter: grayscale(100%);" alt="NISSI"></div>
         <div class="brand-info">
-            <p class="biz-name">Granja UNP</p>
-            <p>Campus Universitario S/N, Castilla – Piura</p>
-            <p>RUC: 20100000000</p>
-            <p>Tel: 073-999999 | granja@unp.edu.pe</p>
+            <p class="biz-name">Confecciones NISSI</p>
+            <p>Av. Principal S/N</p>
+            <p>RUC: 20000000000</p>
+            <p>Tel: 999 999 999 | nissi@uniformes.com</p>
         </div>
     </div>
     <div class="header-doc">
@@ -291,10 +291,7 @@ p { margin: 1px 0; }
         <div class="info-row"><span class="info-label">Cliente:</span><span class="info-value"><?php echo htmlspecialchars($venta['cliente']); ?></span></div>
         <div class="info-row"><span class="info-label">Doc. / RUC:</span><span class="info-value"><?php echo htmlspecialchars($venta['numero_documento']); ?></span></div>
         <div class="info-row"><span class="info-label">Vendedor:</span><span class="info-value"><?php echo htmlspecialchars($venta['vendedor']); ?></span></div>
-        <div class="info-row"><span class="info-label">Forma de Pago:</span><span class="info-value"><?php echo $venta['metodo_pago'] == 2 ? 'CARGO A PLANILLA' : 'EFECTIVO / TRANSFERENCIA'; ?></span></div>
-        <?php if ($venta['id_vale']): ?>
-        <div class="info-row"><span class="info-label">Vale Aplicado:</span><span class="info-value">Sí</span></div>
-        <?php endif; ?>
+        <div class="info-row"><span class="info-label">Forma de Pago:</span><span class="info-value">EFECTIVO / TRANSFERENCIA</span></div>
         <div class="info-row"><span class="info-label">Estado:</span><span class="info-value"><?php echo $estado; ?></span></div>
     </div>
     <div>
@@ -320,9 +317,6 @@ p { margin: 1px 0; }
             <td><?php echo str_pad($i+1, 2, '0', STR_PAD_LEFT); ?></td>
             <td>
                 <?php echo number_format($d['piezas'], 2); ?>
-                <?php if (!empty($d['peso_neto']) && $d['peso_neto'] > 0): ?>
-                    <br><small style="font-size:9px;color:#555;"><?php echo number_format($d['peso_neto'], 2); ?> Kg</small>
-                <?php endif; ?>
             </td>
             <td><?php echo htmlspecialchars($d['abreviatura']); ?></td>
             <td><?php echo htmlspecialchars($d['insumo_nombre']); ?></td>
@@ -347,32 +341,22 @@ p { margin: 1px 0; }
             <td class="label">TOTAL A PAGAR: S/</td>
             <td class="value"><?php echo number_format($total, 2); ?></td>
         </tr>
-        <?php if ($venta['pago_vale'] > 0 || $venta['pago_efectivo'] > 0): ?>
-        <tr class="split">
-            <td class="label">Pago con Vale:</td>
-            <td class="value">S/ <?php echo number_format($venta['pago_vale'] ?? 0, 2); ?></td>
-        </tr>
-        <tr class="split">
-            <td class="label">Pago Adicional (<?php echo $venta['metodo_pago'] == 2 ? 'Planilla' : 'Efectivo'; ?>):</td>
-            <td class="value">S/ <?php echo number_format($venta['pago_efectivo'] ?? 0, 2); ?></td>
-        </tr>
-        <?php endif; ?>
     </table>
 </div>
 
 <div class="footer">
-    <p><strong>CONDICIÓN DE PAGO:</strong> <?php echo $venta['metodo_pago'] == 2 ? 'Crédito a Planilla' : 'Al contado'; ?></p>
+    <p><strong>CONDICIÓN DE PAGO:</strong> Al contado</p>
     <p class="thanks">¡Gracias por su compra!</p>
 </div>
 
 <?php else: /* ========= MAQUETADO TICKETERAS TÉRMICAS ========= */ ?>
 
-<div class="brand-logo">Granja UNP</div>
+<div class="brand-logo"><img src="../assets/Logo Login PuntoNet.png" style="height: 40px; filter: grayscale(100%);" alt="NISSI"></div>
 <div class="biz-info">
-    <p class="biz-name">Universidad Nacional de Piura</p>
-    <p>RUC: 20100000000</p>
-    <p>Campus Universitario S/N, Castilla</p>
-    <p>Tel: 073-999999</p>
+    <p class="biz-name">Confecciones NISSI</p>
+    <p>RUC: 20000000000</p>
+    <p>Av. Principal S/N</p>
+    <p>Tel: 999 999 999</p>
 </div>
 
 <hr class="sep">
@@ -391,8 +375,7 @@ p { margin: 1px 0; }
         <tr><td>Cliente:</td><td><?php echo htmlspecialchars($venta['cliente']); ?></td></tr>
         <tr><td>Doc.:</td><td><?php echo htmlspecialchars($venta['numero_documento']); ?></td></tr>
         <tr><td>Vendedor:</td><td><?php echo htmlspecialchars($venta['vendedor']); ?></td></tr>
-        <tr><td>F. Pago:</td><td><?php echo $venta['metodo_pago'] == 2 ? 'CARGO A PLANILLA' : 'EFECTIVO / TRANSF'; ?></td></tr>
-        <?php if ($venta['id_vale']): ?><tr><td>Vale:</td><td>Aplicado</td></tr><?php endif; ?>
+        <tr><td>F. Pago:</td><td>EFECTIVO / TRANSF</td></tr>
         <tr><td>Estado:</td><td><?php echo $estado; ?></td></tr>
     </table>
 </div>
@@ -414,9 +397,6 @@ p { margin: 1px 0; }
             <td><?php echo str_pad($i+1, 2, '0', STR_PAD_LEFT); ?></td>
             <td>
                 <?php echo number_format($d['piezas'], 2); ?>
-                <?php if (!empty($d['peso_neto']) && $d['peso_neto'] > 0): ?>
-                    <br><small><?php echo number_format($d['peso_neto'], 2); ?>Kg</small>
-                <?php endif; ?>
             </td>
             <td><?php echo htmlspecialchars($d['abreviatura']); ?></td>
             <td><?php echo htmlspecialchars($d['insumo_nombre']); ?></td>
@@ -430,10 +410,6 @@ p { margin: 1px 0; }
 <div class="total-row"><span>OP. GRAVADA:</span><span>S/ <?php echo number_format($subtotal, 2); ?></span></div>
 <div class="total-row"><span>IGV (18%):</span><span>S/ <?php echo number_format($igv, 2); ?></span></div>
 <div class="total-row grand"><span>TOTAL A PAGAR: S/</span><span><?php echo number_format($total, 2); ?></span></div>
-<?php if ($venta['pago_vale'] > 0 || $venta['pago_efectivo'] > 0): ?>
-<div class="total-row split"><span>Pago Vale:</span><span>S/ <?php echo number_format($venta['pago_vale'] ?? 0, 2); ?></span></div>
-<div class="total-row split"><span>Pago <?php echo $venta['metodo_pago'] == 2 ? 'Planilla' : 'Efectivo'; ?>:</span><span>S/ <?php echo number_format($venta['pago_efectivo'] ?? 0, 2); ?></span></div>
-<?php endif; ?>
 
 <hr class="sep" style="margin-top:8px;">
 <p class="footer-msg">¡Gracias por su compra!</p>

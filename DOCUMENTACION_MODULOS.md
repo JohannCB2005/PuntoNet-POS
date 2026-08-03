@@ -1,6 +1,6 @@
-# Documentación de Módulos - Granja POS
+# Documentación de Módulos - PuntoNet POS
 
-Este documento sirve como guía para el equipo de desarrollo, detallando la lógica de negocio, funcionamiento y la estructura de los módulos principales del sistema **Granja POS**.
+Este documento sirve como guía para el equipo de desarrollo, detallando la lógica de negocio, funcionamiento y la estructura de los módulos principales del sistema **PuntoNet POS**.
 
 ---
 

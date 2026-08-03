@@ -6,9 +6,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tienda Online - Granja UNP</title>
+    <title>NISSI STORE | Tienda de Uniformes</title>
     <!-- Favicon -->
-    <link rel="icon" type="image/png" href="assets/logo_unp.png">
+    <link rel="icon" type="image/png" href="assets/Logo navegador PuntoNet.png">
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -22,15 +22,16 @@
     
     <style>
         :root {
-            --primary: #15803d;
-            --primary-hover: #166534;
+            --primary: #1d4ed8;
+            --bg-main: #f0f4ff;
+            --primary-hover: #1e40af;
             --secondary: #f3f4f6;
             --text-dark: #1f2937;
             --text-muted: #6b7280;
         }
         body {
             font-family: 'Inter', sans-serif;
-            background-color: #f9fafb;
+            background-color: var(--bg-main);
             color: var(--text-dark);
             padding-top: 70px;
         }
@@ -56,7 +57,7 @@
             color: white;
             border-radius: 20px;
             margin: 20px 0;
-            box-shadow: 0 10px 25px rgba(21, 128, 61, 0.15);
+            box-shadow: 0 10px 25px rgba(29, 78, 216, 0.15);
             text-align: center;
             overflow: hidden;
         }
@@ -67,7 +68,7 @@
             left: 0;
             right: 0;
             bottom: 0;
-            background: linear-gradient(135deg, rgba(21, 128, 61, 0.85) 0%, rgba(6, 78, 59, 0.9) 100%);
+            background: linear-gradient(135deg, rgba(29, 78, 216, 0.85) 0%, rgba(30, 64, 175, 0.9) 100%);
             z-index: 1;
         }
         .hero h1, .hero p {
@@ -121,7 +122,7 @@
         .product-title { font-weight: 700; font-size: 1.1rem; margin-bottom: 5px; color: var(--text-dark); }
         .product-category { font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; margin-bottom: 15px; }
         .product-price { font-size: 1.3rem; font-weight: 800; color: var(--primary); }
-        .product-stock { font-size: 0.85rem; color: #059669; background: #d1fae5; padding: 3px 8px; border-radius: 20px; font-weight: 600; }
+        .product-stock { font-size: 0.85rem; color: #1d4ed8; background: #dbeafe; padding: 3px 8px; border-radius: 20px; font-weight: 600; }
         
         .btn-add {
             background: var(--primary);
@@ -188,32 +189,43 @@
             margin-bottom: 15px;
         }
 
-        /* Botón de filtrar flotante */
-        .btn-filtrar-flotante {
-            position: fixed;
-            bottom: 25px;
-            left: 25px;
-            background-color: var(--primary);
-            color: white;
+        /* Sidebar integrado */
+        .filtros-sidebar-inline {
+            width: 280px;
+            min-width: 280px;
+            background: #fff;
+            border-radius: 16px;
+            border: 1px solid #e2e8f0;
+            padding: 24px 20px;
+            position: sticky;
+            top: 80px;
+            max-height: calc(100vh - 100px);
+            overflow-y: auto;
+            transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+            transform-origin: left;
+        }
+        .filtros-sidebar-inline.sidebar-hidden {
+            width: 0;
+            min-width: 0;
+            padding: 0;
             border: none;
-            border-radius: 50px;
-            padding: 12px 24px;
-            font-weight: 700;
-            box-shadow: 0 4px 15px rgba(21, 128, 61, 0.4);
-            z-index: 1030;
-            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-            display: flex;
-            align-items: center;
-            gap: 8px;
+            overflow: hidden;
+            margin-right: -1rem; /* Adjust gap when hidden */
+            opacity: 0;
         }
-        .btn-filtrar-flotante:hover {
-            background-color: var(--primary-hover);
-            transform: translateY(-3px) scale(1.03);
-            box-shadow: 0 6px 20px rgba(21, 128, 61, 0.5);
-            color: white;
-        }
-        .btn-filtrar-flotante:active {
-            transform: translateY(0) scale(0.97);
+        @media (max-width: 768px) {
+            #mainLayout { flex-direction: column; }
+            .filtros-sidebar-inline {
+                width: 100%;
+                min-width: 100%;
+                position: static;
+                max-height: none;
+                margin-bottom: 20px;
+            }
+            .filtros-sidebar-inline.sidebar-hidden {
+                display: none;
+                margin-right: 0;
+            }
         }
 
         /* Badge de filtros */
@@ -361,58 +373,165 @@
     <!-- Navbar -->
     <nav class="navbar navbar-expand-lg fixed-top">
         <div class="container justify-content-between">
-            <div class="d-flex align-items-center gap-3">
-                <!-- Botón de Filtrar -->
-                <button class="btn btn-light rounded-pill px-3 position-relative border shadow-sm d-flex align-items-center gap-2" type="button" data-bs-toggle="offcanvas" data-bs-target="#filtrosOffcanvas" id="btnFiltrarNavbar" style="height: 38px;" title="Filtrar productos">
-                    <i class="bi bi-sliders text-success"></i>
-                    <span class="fw-semibold text-dark fs-6">Filtros</span>
-                    <span id="filtrosCountBadge" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger border border-light d-none" style="font-size: 0.65rem; padding: 3px 6px;">0</span>
-                </button>
+            <!-- Brand / Título -->
+            <a class="navbar-brand d-flex align-items-center gap-2" href="#">
+                <img src="assets/Logo navegador PuntoNet.png" alt="NISSI" height="30">
+                <span>NISSI <small class="text-muted fw-normal fs-6">STORE</small></span>
+            </a>
 
-                <a class="navbar-brand d-flex align-items-center gap-2" href="#">
-                    <img src="assets/logo_unp.png" alt="Logo" height="30" onerror="this.src='https://via.placeholder.com/30?text=UNP'">
-                    <span>Granja UNP <small class="text-muted fw-normal fs-6">Click & Collect</small></span>
-                </a>
-            </div>
-            
-            <div class="d-flex align-items-center gap-2">
-                <!-- Mi Cesta -->
-                <button class="btn btn-dark position-relative rounded-pill px-3 fw-semibold shadow-sm" type="button" data-bs-toggle="offcanvas" data-bs-target="#cartOffcanvas">
-                    <i class="bi bi-bag-fill me-1"></i> Mi Cesta
-                    <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger border border-light" id="cartBadge">
-                        0
-                    </span>
-                </button>
-            </div>
+            <!-- Mi Cesta -->
+            <button class="btn btn-dark position-relative rounded-pill px-3 fw-semibold shadow-sm" type="button" data-bs-toggle="offcanvas" data-bs-target="#cartOffcanvas">
+                <i class="bi bi-bag-fill me-1"></i> Mi Cesta
+                <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger border border-light" id="cartBadge">0</span>
+            </button>
         </div>
     </nav>
 
     <div class="container">
-        <!-- Hero -->
+
+        <!-- ── Hero Banner ── -->
         <div class="hero">
-            <h1>Productos Frescos Directo a ti</h1>
-            <p>Reserva online, paga por Yape y recoge en la Granja UNP.</p>
+            <h1>Bienvenido a NISSI STORE</h1>
+            <p>Encuentra los mejores uniformes escolares. Reserva online y recoge en tienda.</p>
         </div>
 
-        <!-- Buscador por nombre centralizado -->
-        <div class="row justify-content-center mb-4">
-            <div class="col-12 col-md-8 col-lg-6">
-                <div class="input-group shadow-sm rounded-pill overflow-hidden border" style="border-color: #e5e7eb !important;">
-                    <span class="input-group-text bg-white border-0 ps-4 text-muted"><i class="bi bi-search"></i></span>
-                    <input type="text" id="filtroNombre" class="form-control border-0 py-3 ps-2" style="font-size: 1rem; outline: none; box-shadow: none;" placeholder="¿Qué estás buscando hoy? Ej: Pavo, Huevo...">
+        <!-- ── Contenedor principal: Sidebar + Catálogo ── -->
+        <div class="d-flex gap-4 align-items-start" id="mainLayout">
+
+            <!-- SIDEBAR DE FILTROS -->
+            <aside id="filtrosSidebar" class="filtros-sidebar-inline">
+
+                <!-- Buscador -->
+                <div class="filtro-seccion">
+                    <h6><i class="bi bi-search text-primary"></i> Buscar</h6>
+                    <div class="input-group">
+                        <span class="input-group-text bg-white border-end-0 text-muted"><i class="bi bi-search"></i></span>
+                        <input type="text" id="filtroNombre" class="form-control border-start-0 ps-0" style="box-shadow:none;" placeholder="Nombre del producto...">
+                    </div>
                 </div>
-            </div>
-        </div>
 
-        <!-- Pills de Filtros Activos -->
-        <div id="pillsFiltros" class="d-flex flex-wrap gap-2 mb-3 align-items-center"></div>
+                <!-- Categorías -->
+                <div class="filtro-seccion">
+                    <h6><i class="bi bi-tag text-primary"></i> Categorías</h6>
+                    <div id="categoriasFiltroContainer">
+                        <!-- Checkboxes dinámicos -->
+                    </div>
+                </div>
 
-        <!-- Catálogo -->
-        <div class="row g-4 my-4" id="catalogoContainer">
-            <!-- Cargando -->
-            <div class="col-12 text-center py-5">
-                <div class="spinner-border text-success" role="status"></div>
-                <p class="mt-2 text-muted fw-semibold">Cargando catálogo...</p>
+                <!-- Rango de Precios -->
+                <div class="filtro-seccion">
+                    <h6><i class="bi bi-cash-stack text-primary"></i> Rango de Precio</h6>
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <div class="input-group input-group-sm" style="width:45%;">
+                            <span class="input-group-text">S/</span>
+                            <input type="number" id="inputMin" class="form-control" placeholder="Min" min="0">
+                        </div>
+                        <span class="text-muted">al</span>
+                        <div class="input-group input-group-sm" style="width:45%;">
+                            <span class="input-group-text">S/</span>
+                            <input type="number" id="inputMax" class="form-control" placeholder="Max" min="0">
+                        </div>
+                    </div>
+                    <div class="range-slider-container">
+                        <div class="slider-track" id="sliderTrack"></div>
+                        <input type="range" id="sliderMin" min="0" max="100" value="0">
+                        <input type="range" id="sliderMax" min="0" max="100" value="100">
+                    </div>
+                </div>
+
+                <!-- Ordenar por -->
+                <div class="filtro-seccion">
+                    <h6><i class="bi bi-sort-down text-primary"></i> Ordenar por</h6>
+                    <div class="d-flex flex-column gap-2">
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="ordenarProductos" id="ordenDefault" value="default" checked>
+                            <label class="form-check-label" for="ordenDefault">Relevancia</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="ordenarProductos" id="ordenPrecioAsc" value="precio_asc">
+                            <label class="form-check-label" for="ordenPrecioAsc">Precio: Menor a Mayor</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="ordenarProductos" id="ordenPrecioDesc" value="precio_desc">
+                            <label class="form-check-label" for="ordenPrecioDesc">Precio: Mayor a Menor</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="ordenarProductos" id="ordenNombreAsc" value="nombre_asc">
+                            <label class="form-check-label" for="ordenNombreAsc">Nombre: A-Z</label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Botón Limpiar -->
+                <button class="btn btn-outline-primary w-100 py-2 fw-semibold" id="btnLimpiarFiltros">
+                    <i class="bi bi-trash"></i> Limpiar Filtros
+                </button>
+
+            </aside>
+
+            <!-- CATÁLOGO DE PRODUCTOS -->
+            <div id="catalogoWrapper" class="flex-grow-1 w-100">
+
+                <!-- Pills de filtros activos -->
+                <div id="pillsFiltros" class="d-flex flex-wrap gap-2 mb-3 align-items-center"></div>
+
+                <div class="row g-4 mb-4" id="catalogoContainer">
+                    <!-- Spinner inicial -->
+                    <div class="col-12 text-center py-5">
+                        <div class="spinner-border text-primary" role="status"></div>
+                        <p class="mt-2 text-muted fw-semibold">Cargando catálogo...</p>
+                    </div>
+                </div>
+
+            </div><!-- /#catalogoWrapper -->
+
+        </div><!-- /#mainLayout -->
+    </div><!-- /.container -->
+
+    <!-- Modal Selector de Talla para Tienda -->
+    <div class="modal fade" id="tallaTiendaModal" tabindex="-1" aria-labelledby="tallaTiendaModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered" style="max-width: 450px;">
+            <div class="modal-content border-0 shadow-lg" style="border-radius: 16px;">
+                <div class="modal-header border-0 py-3 px-4" style="background: var(--primary); border-radius: 16px 16px 0 0;">
+                    <div>
+                        <h6 class="modal-title fw-bold text-white mb-0" id="tallaTiendaModalLabel">Seleccionar Talla</h6>
+                        <small class="text-white opacity-75" id="tallaTiendaNombreProducto">Producto</small>
+                    </div>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" style="box-shadow:none;"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <div class="mb-4">
+                        <label class="form-label fw-semibold text-muted mb-2" style="font-size:12px; text-transform:uppercase; letter-spacing:.5px;">Tallas disponibles</label>
+                        <div id="tallaTiendaPills" class="d-flex flex-wrap gap-2"></div>
+                    </div>
+                    <div class="d-flex align-items-center gap-3 p-3 rounded-3 mb-4" style="background: #f0f4ff;">
+                        <i class="bi bi-tag-fill fs-4 text-primary"></i>
+                        <div class="flex-grow-1">
+                            <div class="text-muted" style="font-size:11px; text-transform:uppercase; letter-spacing:.5px;">Precio / Stock</div>
+                            <div class="d-flex gap-3 align-items-baseline">
+                                <span class="fw-bold fs-5 text-primary" id="tallaTiendaPrecio">S/ 0.00</span>
+                                <span class="text-muted" style="font-size:13px;" id="tallaTiendaStock">Seleccione una talla</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold" style="font-size:13px;">Cantidad</label>
+                        <div class="d-flex align-items-center gap-3">
+                            <button type="button" class="btn btn-outline-secondary" id="tallaTiendaDecBtn"
+                                    style="width:38px; height:38px; border-radius:10px; padding:0; font-size:18px; line-height:1;">−</button>
+                            <input type="number" id="tallaTiendaCantidad" class="form-control text-center fw-bold"
+                                   value="1" min="1" style="width:80px; border-radius:10px; height:38px; font-size:15px; box-shadow:none;">
+                            <button type="button" class="btn btn-outline-secondary" id="tallaTiendaIncBtn"
+                                    style="width:38px; height:38px; border-radius:10px; padding:0; font-size:18px; line-height:1;">+</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer border-0 px-4 pb-4 pt-0">
+                    <button type="button" class="btn fw-semibold w-100" id="tallaTiendaAddBtn" disabled
+                            style="border-radius:10px; background:var(--primary); color:#fff; border:none; padding: 12px 20px;">
+                        <i class="bi bi-cart-plus-fill me-1"></i> Agregar al carrito
+                    </button>
+                </div>
             </div>
         </div>
     </div>
@@ -420,7 +539,7 @@
     <!-- Offcanvas Carrito -->
     <div class="offcanvas offcanvas-end" tabindex="-1" id="cartOffcanvas">
         <div class="offcanvas-header bg-light">
-            <h5 class="offcanvas-title fw-bold"><i class="bi bi-bag-check-fill text-success me-2"></i>Tu Cesta</h5>
+            <h5 class="offcanvas-title fw-bold"><i class="bi bi-bag-check-fill text-primary me-2"></i>Tu Cesta</h5>
             <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
         </div>
         <div class="offcanvas-body d-flex flex-column p-0">
@@ -435,87 +554,18 @@
                     <span>Total:</span>
                     <span id="cartTotal">S/ 0.00</span>
                 </div>
-                <button class="btn btn-success w-100 py-3 fw-bold rounded-3 shadow-sm fs-6" id="btnCheckout" disabled>
+                <button class="btn btn-primary w-100 py-3 fw-bold rounded-3 shadow-sm fs-6" id="btnCheckout" disabled>
                     Proceder al Pago <i class="bi bi-arrow-right ms-1"></i>
                 </button>
             </div>
         </div>
     </div>
 
-
-
-
-    <!-- Offcanvas de Filtros -->
-    <div class="offcanvas offcanvas-start" tabindex="-1" id="filtrosOffcanvas">
-        <div class="offcanvas-header bg-light">
-            <h5 class="offcanvas-title fw-bold"><i class="bi bi-sliders me-2 text-success"></i>Filtros</h5>
-            <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
-        </div>
-        <div class="offcanvas-body">
-            <!-- Categorías -->
-            <div class="filtro-seccion">
-                <h6><i class="bi bi-tag text-success"></i> Categorías</h6>
-                <div id="categoriasFiltroContainer">
-                    <!-- Checkboxes dinámicos -->
-                </div>
-            </div>
-
-            <!-- Rango de Precios -->
-            <div class="filtro-seccion">
-                <h6><i class="bi bi-cash-stack text-success"></i> Rango de Precio</h6>
-                <div class="d-flex justify-content-between align-items-center mb-2">
-                    <div class="input-group input-group-sm w-45">
-                        <span class="input-group-text">S/</span>
-                        <input type="number" id="inputMin" class="form-control" placeholder="Min" min="0">
-                    </div>
-                    <span class="text-muted">al</span>
-                    <div class="input-group input-group-sm w-45">
-                        <span class="input-group-text">S/</span>
-                        <input type="number" id="inputMax" class="form-control" placeholder="Max" min="0">
-                    </div>
-                </div>
-                <!-- Double Range Slider -->
-                <div class="range-slider-container">
-                    <div class="slider-track" id="sliderTrack"></div>
-                    <input type="range" id="sliderMin" min="0" max="100" value="0">
-                    <input type="range" id="sliderMax" min="0" max="100" value="100">
-                </div>
-            </div>
-
-            <!-- Ordenar por -->
-            <div class="filtro-seccion">
-                <h6><i class="bi bi-sort-down text-success"></i> Ordenar por</h6>
-                <div class="d-flex flex-column gap-2">
-                    <div class="form-check">
-                        <input class="form-check-input" type="radio" name="ordenarProductos" id="ordenDefault" value="default" checked>
-                        <label class="form-check-label" for="ordenDefault">Relevancia</label>
-                    </div>
-                    <div class="form-check">
-                        <input class="form-check-input" type="radio" name="ordenarProductos" id="ordenPrecioAsc" value="precio_asc">
-                        <label class="form-check-label" for="ordenPrecioAsc">Precio: Menor a Mayor</label>
-                    </div>
-                    <div class="form-check">
-                        <input class="form-check-input" type="radio" name="ordenarProductos" id="ordenPrecioDesc" value="precio_desc">
-                        <label class="form-check-label" for="ordenPrecioDesc">Precio: Mayor a Menor</label>
-                    </div>
-                    <div class="form-check">
-                        <input class="form-check-input" type="radio" name="ordenarProductos" id="ordenNombreAsc" value="nombre_asc">
-                        <label class="form-check-label" for="ordenNombreAsc">Nombre: A-Z</label>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Botones de Acción -->
-            <button class="btn btn-outline-secondary w-100 mb-2 py-2 fw-semibold" id="btnLimpiarFiltros">
-                <i class="bi bi-trash"></i> Limpiar Filtros
-            </button>
-        </div>
-    </div>
-
-    <!-- Bootstrap Bundle with Popper -->
+    <!-- Bootstrap Bundle -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-    
+
     <script>
+        
         let catalogo = [];
         let cart = [];
 
@@ -535,7 +585,7 @@
 
         async function cargarCatalogo() {
             try {
-                const res = await fetch('./controllers/C_Ecommerce.php?action=catalogo');
+                const res = await fetch('./controllers/C_Ecommerce.php?action=catalogo_agrupado');
                 const json = await res.json();
                 if (json.success) {
                     catalogo = json.data;
@@ -550,7 +600,7 @@
 
         function calcularLimitesPrecio() {
             if (catalogo.length === 0) return;
-            const precios = catalogo.map(item => parseFloat(item.precio_unitario));
+            const precios = catalogo.map(item => parseFloat(item.precio_desde));
             precioLimiteMin = Math.floor(Math.min(...precios));
             precioLimiteMax = Math.ceil(Math.max(...precios));
             
@@ -727,15 +777,15 @@
 
             // 3. Filtrar por precio
             productos = productos.filter(p => {
-                const precio = parseFloat(p.precio_unitario);
+                const precio = parseFloat(p.precio_desde);
                 return precio >= filtroPrecioMin && precio <= filtroPrecioMax;
             });
 
             // 4. Ordenamiento
             if (filtroOrdenVal === 'precio_asc') {
-                productos.sort((a, b) => parseFloat(a.precio_unitario) - parseFloat(b.precio_unitario));
+                productos.sort((a, b) => parseFloat(a.precio_desde) - parseFloat(b.precio_desde));
             } else if (filtroOrdenVal === 'precio_desc') {
-                productos.sort((a, b) => parseFloat(b.precio_unitario) - parseFloat(a.precio_unitario));
+                productos.sort((a, b) => parseFloat(b.precio_desde) - parseFloat(a.precio_desde));
             } else if (filtroOrdenVal === 'nombre_asc') {
                 productos.sort((a, b) => a.nombre.localeCompare(b.nombre));
             }
@@ -807,11 +857,13 @@
             containerPills.innerHTML = htmlPills;
 
             const badge = document.getElementById('filtrosCountBadge');
-            if (totalFiltrosActivos > 0) {
-                badge.innerText = totalFiltrosActivos;
-                badge.classList.remove('d-none');
-            } else {
-                badge.classList.add('d-none');
+            if (badge) {
+                if (totalFiltrosActivos > 0) {
+                    badge.innerText = totalFiltrosActivos;
+                    badge.classList.remove('d-none');
+                } else {
+                    badge.classList.add('d-none');
+                }
             }
         }
 
@@ -850,9 +902,9 @@
             if (productos.length === 0) {
                 container.innerHTML = `
                     <div class="col-12 text-center py-5 text-muted no-results-msg">
-                        <i class="bi bi-search-heart fs-1 mb-3 d-block text-success"></i>
+                        <i class="bi bi-search-heart fs-1 mb-3 d-block text-primary"></i>
                         <p class="fw-semibold">No se encontraron productos con los filtros seleccionados.</p>
-                        <button class="btn btn-success btn-sm mt-2 fw-semibold px-3 rounded-pill" onclick="limpiarFiltros()">Limpiar Filtros</button>
+                        <button class="btn btn-primary btn-sm mt-2 fw-semibold px-3 rounded-pill" onclick="limpiarFiltros()">Limpiar Filtros</button>
                     </div>
                 `;
                 return;
@@ -872,69 +924,174 @@
                     imgHtml = `<i class="bi ${icon}"></i>`;
                 }
 
-                html += `
-                    <div class="col-12 col-sm-6 col-lg-3">
-                        <div class="product-card">
-                            <div class="product-img-wrap">
-                                ${imgHtml}
-                            </div>
-                            <div class="product-info">
-                                <div class="d-flex justify-content-between align-items-start mb-2">
-                                    <div class="product-category">${item.categoria}</div>
-                                    <div class="product-stock">${item.stock_piezas} disp.</div>
+                if (item.tiene_tallas) {
+                    html += `
+                        <div class="col-12 col-sm-6 col-lg-3">
+                            <div class="product-card">
+                                <div class="product-img-wrap">
+                                    ${imgHtml}
                                 </div>
-                                <h3 class="product-title">${item.nombre}</h3>
-                                <div class="mt-auto pt-3">
-                                    <div class="product-price mb-3">S/ ${parseFloat(item.precio_unitario).toFixed(2)} <span class="fs-6 text-muted fw-normal">/ ${item.unidad}</span></div>
-                                    <button class="btn-add" onclick="agregarAlCarrito(${item.id_insumo})">
-                                        <i class="bi bi-cart-plus-fill me-1"></i> Añadir a Cesta
-                                    </button>
+                                <div class="product-info">
+                                    <div class="d-flex justify-content-between align-items-start mb-2">
+                                        <div class="product-category">${item.categoria}</div>
+                                        <div class="product-stock text-info"><i class="bi bi-rulers"></i> ${item.variantes.length} tallas</div>
+                                    </div>
+                                    <h3 class="product-title">${item.nombre}</h3>
+                                    <div class="mt-auto pt-3">
+                                        <div class="product-price mb-3">
+                                            <span class="fs-6 text-muted fw-normal me-1">Desde</span>S/ ${parseFloat(item.precio_desde).toFixed(2)}
+                                        </div>
+                                        <button class="btn-add text-primary" style="background:#eff6ff; border:1.5px solid #3b82f6;" onclick='abrirModalTallasTienda(${JSON.stringify(item).replace(/'/g, "&#39;")})'>
+                                            <i class="bi bi-rulers me-1"></i> Elegir talla
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                         </div>
-                    </div>
-                `;
+                    `;
+                } else {
+                    // Producto simple
+                    const v = item.variantes[0];
+                    html += `
+                        <div class="col-12 col-sm-6 col-lg-3">
+                            <div class="product-card">
+                                <div class="product-img-wrap">
+                                    ${imgHtml}
+                                </div>
+                                <div class="product-info">
+                                    <div class="d-flex justify-content-between align-items-start mb-2">
+                                        <div class="product-category">${item.categoria}</div>
+                                        <div class="product-stock">${v.stock} disp.</div>
+                                    </div>
+                                    <h3 class="product-title">${item.nombre}</h3>
+                                    <div class="mt-auto pt-3">
+                                        <div class="product-price mb-3">S/ ${parseFloat(item.precio_desde).toFixed(2)}</div>
+                                        <button class="btn-add" onclick="agregarItemDirecto(${v.id_insumo}, '${item.nombre}', ${v.precio}, ${v.stock}, '')">
+                                            <i class="bi bi-cart-plus-fill me-1"></i> Añadir a Cesta
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }
             });
             container.innerHTML = html;
         }
 
-        window.agregarAlCarrito = (id) => {
-            const producto = catalogo.find(p => p.id_insumo == id);
-            if (!producto) return;
+        let modalTallaTiendaInstance = null;
+        let tallaSeleccionadaTienda = null;
 
-            const existing = cart.find(i => i.id_insumo == id);
+        window.abrirModalTallasTienda = (producto) => {
+            if (!modalTallaTiendaInstance) {
+                modalTallaTiendaInstance = new bootstrap.Modal(document.getElementById('tallaTiendaModal'));
+            }
+            document.getElementById('tallaTiendaNombreProducto').textContent = producto.nombre;
+            tallaSeleccionadaTienda = null;
+            document.getElementById('tallaTiendaCantidad').value = 1;
+            document.getElementById('tallaTiendaPrecio').textContent = 'S/ 0.00';
+            document.getElementById('tallaTiendaStock').textContent = 'Seleccione una talla';
+            document.getElementById('tallaTiendaAddBtn').disabled = true;
+
+            const pillsContainer = document.getElementById('tallaTiendaPills');
+            pillsContainer.innerHTML = '';
+            
+            producto.variantes.forEach(v => {
+                const btn = document.createElement('button');
+                btn.className = 'btn fw-semibold';
+                btn.textContent = v.talla;
+                btn.style.cssText = 'min-width:48px; height:38px; border-radius:8px; font-size:13px; border:1.5px solid #e5e7eb; background:#f3f4f6; color:#374151;';
+                
+                btn.addEventListener('click', () => {
+                    tallaSeleccionadaTienda = {
+                        id_insumo: v.id_insumo,
+                        nombre: `${producto.nombre} (T-${v.talla})`,
+                        precio: v.precio,
+                        stock: v.stock,
+                        unidad: 'Und'
+                    };
+                    
+                    Array.from(pillsContainer.children).forEach(b => {
+                        b.style.background = '#f3f4f6';
+                        b.style.color = '#374151';
+                        b.style.borderColor = '#e5e7eb';
+                    });
+                    btn.style.background = 'var(--primary)';
+                    btn.style.color = '#fff';
+                    btn.style.borderColor = 'var(--primary)';
+                    
+                    document.getElementById('tallaTiendaPrecio').textContent = 'S/ ' + parseFloat(v.precio).toFixed(2);
+                    document.getElementById('tallaTiendaStock').textContent = v.stock + ' disponibles';
+                    document.getElementById('tallaTiendaCantidad').max = v.stock;
+                    document.getElementById('tallaTiendaCantidad').value = 1;
+                    document.getElementById('tallaTiendaAddBtn').disabled = false;
+                });
+                
+                pillsContainer.appendChild(btn);
+            });
+            
+            modalTallaTiendaInstance.show();
+        };
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const decBtn = document.getElementById('tallaTiendaDecBtn');
+            const incBtn = document.getElementById('tallaTiendaIncBtn');
+            const addBtn = document.getElementById('tallaTiendaAddBtn');
+            const qtyInput = document.getElementById('tallaTiendaCantidad');
+
+            if(decBtn) {
+                decBtn.addEventListener('click', () => {
+                    qtyInput.value = Math.max(1, parseInt(qtyInput.value) - 1);
+                });
+                incBtn.addEventListener('click', () => {
+                    if(!tallaSeleccionadaTienda) return;
+                    qtyInput.value = Math.min(tallaSeleccionadaTienda.stock, parseInt(qtyInput.value) + 1);
+                });
+                addBtn.addEventListener('click', () => {
+                    if(!tallaSeleccionadaTienda) return;
+                    const qty = parseInt(qtyInput.value) || 1;
+                    // Llama a la lógica directa pasandole la cantidad preestablecida en vez de sumarle +1 siempre
+                    agregarItemDirecto(
+                        tallaSeleccionadaTienda.id_insumo, 
+                        tallaSeleccionadaTienda.nombre, 
+                        tallaSeleccionadaTienda.precio, 
+                        tallaSeleccionadaTienda.stock, 
+                        tallaSeleccionadaTienda.unidad,
+                        qty
+                    );
+                    modalTallaTiendaInstance.hide();
+                });
+            }
+        });
+
+        window.agregarItemDirecto = (id_insumo, nombre, precio, stock_max, unidad, qty = 1) => {
+            const existing = cart.find(i => i.id_insumo === id_insumo);
             if (existing) {
-                if (existing.cantidad + 1 > producto.stock_piezas) {
-                    Swal.fire({ icon: 'warning', text: 'Stock máximo alcanzado' });
+                if (existing.cantidad + qty > stock_max) {
+                    Swal.fire({ icon: 'warning', text: 'Stock máximo alcanzado para este producto' });
                     return;
                 }
-                existing.cantidad += 1;
-                // Si es pesado, asumimos que se vende por unidad estándar en web y luego en POS se regulariza?
-                // Mejor, para pavos (contenido_estandar = NULL), en e-commerce solo podemos vender la pieza.
-                // Asumimos un peso estándar de 10kg para pre-cobro.
-                let peso_aprox = producto.contenido_estandar ? parseFloat(producto.contenido_estandar) : 10.0;
-                existing.peso_neto = existing.cantidad * peso_aprox;
-                existing.subtotal = (producto.contenido_estandar ? existing.cantidad : existing.peso_neto) * parseFloat(producto.precio_unitario);
+                existing.cantidad += qty;
+                existing.subtotal = existing.cantidad * precio;
             } else {
-                let peso_aprox = producto.contenido_estandar ? parseFloat(producto.contenido_estandar) : 10.0;
-                let precioBase = parseFloat(producto.precio_unitario);
-                let subtotal = (producto.contenido_estandar ? 1 : peso_aprox) * precioBase;
-
+                if (qty > stock_max) {
+                    Swal.fire({ icon: 'warning', text: 'Stock insuficiente' });
+                    return;
+                }
                 cart.push({
-                    id_insumo: producto.id_insumo,
-                    nombre: producto.nombre,
-                    precio: precioBase,
-                    cantidad: 1,
-                    peso_neto: peso_aprox,
-                    stock_max: producto.stock_piezas,
-                    subtotal: subtotal,
-                    unidad: producto.unidad,
-                    es_pesado: !producto.contenido_estandar
+                    id_insumo: id_insumo,
+                    nombre: nombre,
+                    precio: parseFloat(precio),
+                    cantidad: qty,
+                    peso_neto: qty,
+                    stock_max: parseInt(stock_max),
+                    subtotal: qty * parseFloat(precio),
+                    unidad: unidad || 'Und',
+                    es_pesado: false
                 });
             }
             actualizarCarrito();
             
-            // Feedback visual
             const offcanvas = new bootstrap.Offcanvas(document.getElementById('cartOffcanvas'));
             offcanvas.show();
         };
@@ -1012,7 +1169,7 @@
         // Checkout Logic — redirect to checkout (reorganizado en views/public/)
         document.getElementById('btnCheckout').addEventListener('click', () => {
             if (cart.length === 0) return;
-            sessionStorage.setItem('granja_cart', JSON.stringify(cart));
+            sessionStorage.setItem('puntonet_cart', JSON.stringify(cart));
             window.location.href = 'views/public/V_checkout.php';
         });
     </script>

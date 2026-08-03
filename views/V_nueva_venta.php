@@ -15,36 +15,43 @@ require_once dirname(__DIR__) . '/models/M_Caja.php';
 $modelInsumo = M_Insumo::singleton();
 $insumos = $modelInsumo->listar();
 
+// Construir mapa de productos agrupados para el selector de tallas en POS
+// Estructura: [ id_padre => ['nombre'=>..., 'imagen'=>..., 'categoria'=>..., 'variantes'=>[...]] ]
+$productosAgrupados = [];
+foreach ($insumos as $ins) {
+    if ($ins['es_agrupador'] == 1) {
+        $productosAgrupados[$ins['id_insumo']] = [
+            'nombre'    => $ins['nombre'],
+            'categoria' => $ins['categoria'],
+            'imagen'    => $ins['imagen'] ?? null,
+            'variantes' => [],
+        ];
+    }
+}
+foreach ($insumos as $ins) {
+    if ($ins['id_producto_padre'] && isset($productosAgrupados[$ins['id_producto_padre']]) && $ins['stock_piezas'] > 0) {
+        $productosAgrupados[$ins['id_producto_padre']]['variantes'][] = [
+            'id_insumo' => (int) $ins['id_insumo'],
+            'talla'     => $ins['talla'] ?? 'S/T',
+            'precio'    => (float) $ins['precio_unitario'],
+            'stock'     => (float) $ins['stock_piezas'],
+            'unidad'    => $ins['abreviatura'],
+        ];
+    }
+}
+
 // Listar clientes registrados
 $modelCliente = M_Cliente::singleton();
 $clientesRaw = $modelCliente->listarClientes();
 
-// Listar trabajadores registrados
-require_once dirname(__DIR__) . '/models/M_Trabajador.php';
-$modelTrabajador = M_Trabajador::singleton();
-$trabajadoresRaw = $modelTrabajador->listar();
-
 $clientes = [];
 foreach ($clientesRaw as $c) {
     $clientes[] = [
-        'id_cliente' => $c['id_cliente'],
-        'id_trabajador' => null,
-        'tipo_cliente' => $c['tipo_cliente'],
-        'numero_documento' => $c['numero_documento'],
-        'nombres_razon_social' => $c['nombres_razon_social'],
-        'apellidos' => $c['apellidos'],
-        'es_trabajador' => false
-    ];
-}
-foreach ($trabajadoresRaw as $t) {
-    $clientes[] = [
-        'id_cliente' => null,
-        'id_trabajador' => $t['id_trabajador'],
-        'tipo_cliente' => 3, // Trabajador UNP
-        'numero_documento' => $t['numero_documento'],
-        'nombres_razon_social' => $t['nombres_razon_social'],
-        'apellidos' => $t['apellidos'],
-        'es_trabajador' => true
+        'id_cliente'          => $c['id_cliente'],
+        'tipo_cliente'        => $c['tipo_cliente'],
+        'numero_documento'    => $c['numero_documento'],
+        'nombres_razon_social'=> $c['nombres_razon_social'],
+        'apellidos'           => $c['apellidos']
     ];
 }
 
@@ -98,7 +105,7 @@ $cajaAbierta = $modelCaja->obtenerCajaAbierta($_SESSION['id_usuario']);
 
     .client-dropdown-item:hover, .client-dropdown-item:focus {
         background-color: #f0fdf4;
-        color: #15803d;
+        color: #0284c7;
         outline: none;
     }
 
@@ -107,7 +114,7 @@ $cajaAbierta = $modelCaja->obtenerCajaAbierta($_SESSION['id_usuario']);
     }
 
     .client-dropdown-item:hover strong {
-        color: #15803d;
+        color: #0284c7;
     }
 
     .client-dropdown-divider {
@@ -151,8 +158,8 @@ $cajaAbierta = $modelCaja->obtenerCajaAbierta($_SESSION['id_usuario']);
     }
     
     #clientTabs .nav-link.active {
-        color: #15803d !important;
-        border-bottom: 3px solid #15803d !important;
+        color: #0284c7 !important;
+        border-bottom: 3px solid #0284c7 !important;
         font-weight: 600;
     }
 
@@ -183,7 +190,7 @@ $cajaAbierta = $modelCaja->obtenerCajaAbierta($_SESSION['id_usuario']);
                     <i class="bi bi-lock-fill text-muted mb-3 d-block" style="font-size: 3.5rem;"></i>
                     <h3 class="fw-bold text-dark mb-2">Caja Cerrada</h3>
                     <p class="text-muted mb-4" style="font-size: 14px;">Debes aperturar tu caja para poder registrar ventas en el sistema.</p>
-                    <a href="index.php?modulo=caja" class="btn btn-success rounded-pill px-4 py-2 fw-bold w-100 shadow-sm">
+                    <a href="index.php?modulo=caja" class="btn btn-primary rounded-pill px-4 py-2 fw-bold w-100 shadow-sm">
                         <i class="bi bi-unlock-fill me-2"></i> Ir a Mi Caja
                     </a>
                 </div>
@@ -198,7 +205,7 @@ $cajaAbierta = $modelCaja->obtenerCajaAbierta($_SESSION['id_usuario']);
         <div class="col-12">
             <div class="gp-card p-3" style="border-radius: 12px;">
                 <h6 class="mb-3 fw-bold text-dark d-flex align-items-center gap-2">
-                    <i class="bi bi-cart3 text-success"></i>
+                    <i class="bi bi-cart3 text-primary"></i>
                     Datos del Cliente
                 </h6>
                 <div class="row g-3">
@@ -212,7 +219,6 @@ $cajaAbierta = $modelCaja->obtenerCajaAbierta($_SESSION['id_usuario']);
                     </div>
                     <div class="col-12 col-md-8">
                         <input type="hidden" id="cartClientId" value="1">
-                        <input type="hidden" id="cartTrabajadorId" value="">
                         <label class="form-label fw-semibold text-muted mb-1" style="font-size: 12px;">Cliente</label>
                         <div class="client-autocomplete-wrapper">
                             <div class="input-group input-group-sm">
@@ -233,7 +239,7 @@ $cajaAbierta = $modelCaja->obtenerCajaAbierta($_SESSION['id_usuario']);
                         
                         <!-- Etiqueta del Cliente Seleccionado -->
                         <div id="selectedClientBadge" class="mt-2 d-none" style="font-size: 13px;">
-                            <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-20 px-2.5 py-1.5 fw-semibold d-inline-flex align-items-center gap-1">
+                            <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-20 px-2.5 py-1.5 fw-semibold d-inline-flex align-items-center gap-1">
                                 <i class="bi bi-person-check-fill"></i> 
                                 <span id="selectedClientText">Público General</span>
                             </span>
@@ -263,7 +269,7 @@ $cajaAbierta = $modelCaja->obtenerCajaAbierta($_SESSION['id_usuario']);
                         <!-- Píldoras de Filtro por Categorías -->
                         <div class="d-flex gap-2 overflow-auto pb-2 pb-md-0" style="flex: 1; white-space: nowrap; scrollbar-width: none;" id="categoryFilterPills">
                             <style>#categoryFilterPills::-webkit-scrollbar { display: none; }</style>
-                            <button class="btn btn-success btn-sm rounded-pill px-3 fw-semibold cat-filter-btn active" data-cat="all">Todos</button>
+                            <button class="btn btn-primary btn-sm rounded-pill px-3 fw-semibold cat-filter-btn active" data-cat="all">Todos</button>
                             <?php foreach ($categorias as $cat): ?>
                                 <button class="btn btn-outline-secondary btn-sm rounded-pill px-3 fw-semibold cat-filter-btn" style="border-color: #e5e7eb; color: #4b5563;" data-cat="<?php echo htmlspecialchars($cat['nombre']); ?>">
                                     <?php echo htmlspecialchars($cat['nombre']); ?>
@@ -277,44 +283,77 @@ $cajaAbierta = $modelCaja->obtenerCajaAbierta($_SESSION['id_usuario']);
                 <div class="flex-grow-1 overflow-auto pe-1" style="max-height: 480px;" id="catalogGrid">
                     <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 g-3">
                         <?php foreach ($insumos as $ins): ?>
-                            <?php if ($ins['estado'] == 1): ?>
-                                <div class="col product-card" 
+                            <?php if ($ins['estado'] == 1 && !$ins['id_producto_padre'] && $ins['es_agrupador'] == 0): ?>
+                                <!-- TARJETA SIMPLE: producto sin variantes de talla -->
+                                <div class="col product-card"
                                      data-nombre="<?php echo htmlspecialchars(strtolower($ins['nombre'])); ?>"
                                      data-categoria="<?php echo htmlspecialchars($ins['categoria']); ?>">
                                     <div class="card h-100 border border-light shadow-sm hover-shadow-md transition-all position-relative" style="border-radius: 12px; overflow: hidden;">
-                                        <!-- Alerta de Stock Mínimo -->
                                         <div class="position-absolute top-0 end-0 m-2">
                                             <?php if ($ins['stock_piezas'] <= 0): ?>
                                                 <span class="badge bg-danger rounded-pill px-2.5 py-1 fw-bold" style="font-size: 10px;">Agotado</span>
                                             <?php elseif ($ins['stock_piezas'] <= 20): ?>
                                                 <span class="badge bg-warning text-dark rounded-pill px-2.5 py-1 fw-bold" style="font-size: 10px;">Bajo Stock (<?php echo number_format($ins['stock_piezas'], 1); ?>)</span>
                                             <?php else: ?>
-                                                <span class="badge bg-success bg-opacity-10 text-success rounded-pill px-2.5 py-1 fw-bold" style="font-size: 10px;">Stock: <?php echo number_format($ins['stock_piezas'], 1); ?></span>
+                                                <span class="badge bg-primary bg-opacity-10 text-primary rounded-pill px-2.5 py-1 fw-bold" style="font-size: 10px;">Stock: <?php echo number_format($ins['stock_piezas'], 1); ?></span>
                                             <?php endif; ?>
                                         </div>
-
                                         <div class="card-body p-3 d-flex flex-column justify-content-between">
                                             <div class="mb-3 pt-2">
                                                 <span class="text-muted text-uppercase fw-bold" style="font-size: 9px; letter-spacing: 0.5px;"><?php echo htmlspecialchars($ins['categoria']); ?></span>
                                                 <h6 class="card-title fw-bold text-dark mb-1 text-truncate-2" style="font-size: 14px; min-height: 38px;"><?php echo htmlspecialchars($ins['nombre']); ?></h6>
                                                 <small class="text-muted" style="font-size: 11px;">U.M: <?php echo htmlspecialchars($ins['unidad']); ?></small>
                                             </div>
-
                                             <div class="d-flex align-items-center justify-content-between pt-2 border-top">
                                                 <div class="d-flex flex-column">
                                                     <span class="text-muted" style="font-size: 10px;">Precio Unit.</span>
-                                                    <span class="fw-bold text-success" style="font-size: 15px;">S/ <?php echo number_format($ins['precio_unitario'], 2); ?></span>
+                                                    <span class="fw-bold text-primary" style="font-size: 15px;">S/ <?php echo number_format($ins['precio_unitario'], 2); ?></span>
                                                 </div>
-                                                <button class="btn btn-success bg-gradient border-0 add-to-cart-btn" 
+                                                <button class="btn btn-primary bg-gradient border-0 add-to-cart-btn"
                                                         data-id="<?php echo $ins['id_insumo']; ?>"
                                                         data-nombre="<?php echo htmlspecialchars($ins['nombre']); ?>"
                                                         data-precio="<?php echo $ins['precio_unitario']; ?>"
                                                         data-stock="<?php echo $ins['stock_piezas']; ?>"
                                                         data-unidad="<?php echo htmlspecialchars($ins['abreviatura']); ?>"
-                                                        data-contenido="<?php echo htmlspecialchars($ins['contenido_estandar'] ?? ''); ?>"
-                                                        style="width: 32px; height: 32px; border-radius: 8px; padding: 0;"
+                                                        style="width: 32px; height: 32px; border-radius: 8px; padding: 0; background-color: #0284c7;"
                                                         <?php echo $ins['stock_piezas'] <= 0 ? 'disabled' : ''; ?>>
                                                     <i class="bi bi-plus-lg"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            <?php elseif ($ins['estado'] == 1 && $ins['es_agrupador'] == 1): ?>
+                                <?php
+                                $variantesDisp = $productosAgrupados[$ins['id_insumo']]['variantes'] ?? [];
+                                $precioDesde   = !empty($variantesDisp) ? min(array_column($variantesDisp, 'precio')) : 0;
+                                $stockTotal    = !empty($variantesDisp) ? array_sum(array_column($variantesDisp, 'stock')) : 0;
+                                if (empty($variantesDisp)) continue;
+                                ?>
+                                <!-- TARJETA PADRE: producto con variantes de talla -->
+                                <div class="col product-card"
+                                     data-nombre="<?php echo htmlspecialchars(strtolower($ins['nombre'])); ?>"
+                                     data-categoria="<?php echo htmlspecialchars($ins['categoria']); ?>">
+                                    <div class="card h-100 border border-light shadow-sm hover-shadow-md transition-all position-relative" style="border-radius: 12px; overflow: hidden;">
+                                        <div class="position-absolute top-0 end-0 m-2">
+                                            <span class="badge bg-info text-dark rounded-pill px-2.5 py-1 fw-bold" style="font-size: 10px;"><i class="bi bi-rulers"></i> <?php echo count($variantesDisp); ?> tallas</span>
+                                        </div>
+                                        <div class="card-body p-3 d-flex flex-column justify-content-between">
+                                            <div class="mb-3 pt-2">
+                                                <span class="text-muted text-uppercase fw-bold" style="font-size: 9px; letter-spacing: 0.5px;"><?php echo htmlspecialchars($ins['categoria']); ?></span>
+                                                <h6 class="card-title fw-bold text-dark mb-1 text-truncate-2" style="font-size: 14px; min-height: 38px;"><?php echo htmlspecialchars($ins['nombre']); ?></h6>
+                                                <small class="text-muted" style="font-size: 11px;">Stock total: <?php echo number_format($stockTotal); ?> und.</small>
+                                            </div>
+                                            <div class="d-flex align-items-center justify-content-between pt-2 border-top">
+                                                <div class="d-flex flex-column">
+                                                    <span class="text-muted" style="font-size: 10px;">Desde</span>
+                                                    <span class="fw-bold text-primary" style="font-size: 15px;">S/ <?php echo number_format($precioDesde, 2); ?></span>
+                                                </div>
+                                                <button class="btn open-talla-picker-btn"
+                                                        data-padre-id="<?php echo $ins['id_insumo']; ?>"
+                                                        data-nombre="<?php echo htmlspecialchars($ins['nombre']); ?>"
+                                                        style="height: 32px; border-radius: 8px; padding: 0 10px; font-size: 12px; background: #eff6ff; border: 1.5px solid #0284c7; color: #0284c7; white-space: nowrap;">
+                                                    <i class="bi bi-rulers me-1"></i>Elegir talla
                                                 </button>
                                             </div>
                                         </div>
@@ -333,10 +372,10 @@ $cajaAbierta = $modelCaja->obtenerCajaAbierta($_SESSION['id_usuario']);
                 <div>
                     <div class="d-flex align-items-center justify-content-between mb-3 border-bottom pb-2">
                         <h6 class="mb-0 fw-bold text-dark d-flex align-items-center gap-2">
-                            <i class="bi bi-cart3 text-success"></i>
+                            <i class="bi bi-cart3 text-primary"></i>
                             Carrito de Venta
                         </h6>
-                        <span class="badge bg-success rounded-pill px-2" id="cartItemCountBadge">0 items</span>
+                        <span class="badge bg-primary rounded-pill px-2" id="cartItemCountBadge">0 items</span>
                     </div>
 
                     <!-- Listado Dinámico de Insumos Agregados -->
@@ -349,34 +388,12 @@ $cajaAbierta = $modelCaja->obtenerCajaAbierta($_SESSION['id_usuario']);
                     </div>
                 </div>
 
-                <!-- Banner de Vale Navideño -->
-                <div id="valeNavidenoBanner" class="alert alert-success d-none mb-3 p-2" style="font-size: 13px;">
-                    <div class="d-flex align-items-center gap-2 mb-2">
-                        <i class="bi bi-ticket-perforated-fill fs-4"></i>
-                        <div class="lh-sm">
-                            <strong>Canjear Vale Navideño</strong>
-                        </div>
-                    </div>
-                    <div class="input-group input-group-sm mb-2" id="valeInputGroup">
-                        <input type="text" id="codigoValeInput" class="form-control text-uppercase" placeholder="Código del vale">
-                        <button class="btn btn-success fw-bold" id="btnAplicarVale">Aplicar</button>
-                    </div>
-                    <div id="valeAplicadoInfo" class="d-none">
-                        <hr class="my-1">
-                        <div class="d-flex justify-content-between text-success fw-bold">
-                            <span>Vale Aplicado:</span>
-                            <span id="valeMontoText">S/ 0.00</span>
-                        </div>
-                    </div>
-                </div>
+
 
                 <!-- Resumen Financiero Desglosado con IGV -->
                 <div>
                     <div class="bg-light p-3 rounded-3 mb-3" style="font-size: 13px;">
-                        <div class="d-flex align-items-center justify-content-between mb-2">
-                            <span class="text-muted">Descuento Vale</span>
-                            <span class="fw-semibold text-danger" id="summaryDescuento">S/ 0.00</span>
-                        </div>
+
                         <div class="d-flex align-items-center justify-content-between mb-2">
                             <span class="text-muted">Subtotal</span>
                             <span class="fw-semibold text-dark" id="summarySubtotal">S/ 0.00</span>
@@ -387,20 +404,22 @@ $cajaAbierta = $modelCaja->obtenerCajaAbierta($_SESSION['id_usuario']);
                         </div>
                         <div class="d-flex align-items-center justify-content-between pt-2 border-top">
                             <span class="fw-bold text-dark" style="font-size: 14px;">Total</span>
-                            <span class="fw-bold text-success" style="font-size: 16px;" id="summaryTotal">S/ 0.00</span>
+                            <span class="fw-bold text-primary" style="font-size: 16px;" id="summaryTotal">S/ 0.00</span>
                         </div>
                     </div>
 
                     <div class="mb-3">
                         <label class="form-label fw-semibold text-muted mb-1" style="font-size: 12px;">Método de Pago</label>
                         <select id="metodoPagoSelect" class="form-select form-select-sm text-sm fw-semibold" style="height: 38px; border-color: #ced4da; box-shadow: none;">
-                            <option value="1" selected>Efectivo / Transferencia</option>
-                            <option value="2" id="optPlanilla" disabled>Cargo a Planilla (Solo Trabajadores)</option>
+                            <option value="1" selected>💵 Efectivo</option>
+                            <option value="2">📱 Yape / Plin</option>
+                            <option value="3">💳 Tarjeta POS</option>
                         </select>
+                        <div id="metodoPagoHint" class="badge bg-primary w-100 mt-2 py-2">Pago en efectivo</div>
                     </div>
 
                     <!-- Confirmar Venta -->
-                    <button class="gp-btn-primary w-100 border-0 py-2.5 d-flex align-items-center justify-content-center gap-2" id="submitSaleBtn" disabled>
+                    <button class="gp-btn-primary w-100 border-0 py-2.5 d-flex align-items-center justify-content-center gap-2" id="submitSaleBtn" style="background-color: #0284c7;" disabled>
                         <span>Registrar Venta</span>
                     </button>
                 </div>
@@ -409,56 +428,56 @@ $cajaAbierta = $modelCaja->obtenerCajaAbierta($_SESSION['id_usuario']);
     </div>
 </div>
 
-<!-- ============================================== -->
-<!-- MODAL DE PESAJE PARA INSUMOS DE PESO VARIABLE -->
-<!-- ============================================== -->
-<div class="modal fade" id="modalPesaje" tabindex="-1" aria-labelledby="modalPesajeLabel" aria-hidden="true" data-bs-backdrop="static">
-    <div class="modal-dialog modal-dialog-centered modal-sm">
-        <div class="modal-content border-0 shadow-lg" style="border-radius: 16px; overflow: hidden;">
-            <div class="modal-header bg-success bg-gradient text-white border-0 py-3">
-                <h5 class="modal-title fw-bold fs-6 d-flex align-items-center gap-2" id="modalPesajeLabel">
-                    <i class="bi bi-moisture"></i> Registrar Pesaje
-                </h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+
+
+<!-- Modal: Selector de Talla para Productos con Variantes (POS) -->
+<div class="modal fade" id="tallaPosModal" tabindex="-1" aria-labelledby="tallaPosModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" style="max-width: 480px;">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 16px;">
+            <div class="modal-header border-0 py-3 px-4" style="background: #1d4ed8; border-radius: 16px 16px 0 0;">
+                <div>
+                    <h6 class="modal-title fw-bold text-white mb-0" id="tallaPosModalLabel">Seleccionar Talla</h6>
+                    <small class="text-white opacity-75" id="tallaPosNombreProducto">Producto</small>
+                </div>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" style="box-shadow:none;"></button>
             </div>
-            <div class="modal-body p-4 bg-light">
-                <div class="text-center mb-4">
-                    <h6 id="pesajeNombre" class="fw-bold text-dark mb-1">Nombre Insumo</h6>
-                    <span class="badge bg-success bg-opacity-10 text-success rounded-pill px-3 py-1 fw-bold" style="font-size: 11px;">
-                        Precio x Kg: S/ <span id="pesajePrecioUnitario">0.00</span>
-                    </span>
-                    <p class="text-muted mt-2 mb-0" style="font-size: 11px;" id="pesajeStockInfo">Stock disponible: 0</p>
-                </div>
-
-                <div class="mb-3">
-                    <label class="form-label text-muted fw-semibold" style="font-size: 12px;">Nro. de Piezas (Animales)</label>
-                    <div class="input-group">
-                        <span class="input-group-text bg-white border-end-0"><i class="bi bi-hash text-muted"></i></span>
-                        <input type="number" class="form-control border-start-0 fw-bold fs-5" id="pesajePiezas" value="1" min="1" step="1">
-                    </div>
-                </div>
-
+            <div class="modal-body p-4">
+                <!-- Pills de tallas -->
                 <div class="mb-4">
-                    <label class="form-label text-muted fw-semibold" style="font-size: 12px;">Peso Total Registrado en Balanza (Kg)</label>
-                    <div class="input-group input-group-lg shadow-sm">
-                        <span class="input-group-text bg-white border-end-0 text-success fw-bold">Kg</span>
-                        <input type="number" class="form-control border-start-0 fw-bold text-dark" id="pesajePesoNeto" placeholder="0.00" min="0.01" step="0.01" style="font-size: 1.5rem;">
+                    <label class="form-label fw-semibold text-muted mb-2" style="font-size:12px; text-transform:uppercase; letter-spacing:.5px;">Talla disponible</label>
+                    <div id="tallaPosPickerPills" class="d-flex flex-wrap gap-2"></div>
+                </div>
+
+                <!-- Info de precio y stock -->
+                <div class="d-flex align-items-center gap-3 p-3 rounded-3 mb-4" style="background: #f0f4ff;">
+                    <i class="bi bi-tag-fill fs-4 text-primary"></i>
+                    <div class="flex-grow-1">
+                        <div class="text-muted" style="font-size:11px; text-transform:uppercase; letter-spacing:.5px;">Precio / Stock</div>
+                        <div class="d-flex gap-3 align-items-baseline">
+                            <span class="fw-bold fs-5 text-primary" id="tallaPosSelectedPrecio">S/ 0.00</span>
+                            <span class="text-muted" style="font-size:13px;" id="tallaPosSelectedStock">Seleccione una talla</span>
+                        </div>
                     </div>
                 </div>
 
-                <div class="d-flex justify-content-between align-items-center bg-white p-3 rounded-3 border border-success border-opacity-25 shadow-sm">
-                    <span class="text-muted fw-semibold" style="font-size: 12px;">Subtotal Calculado</span>
-                    <span class="fw-bold fs-4 text-success" id="pesajeSubtotal">S/ 0.00</span>
+                <!-- Cantidad -->
+                <div class="mb-3">
+                    <label class="form-label fw-semibold" style="font-size:13px;">Cantidad</label>
+                    <div class="d-flex align-items-center gap-3">
+                        <button type="button" class="btn btn-outline-secondary" id="tallaPosDecBtn"
+                                style="width:38px; height:38px; border-radius:10px; padding:0; font-size:18px; line-height:1;">−</button>
+                        <input type="number" id="tallaPosCantidad" class="form-control text-center fw-bold"
+                               value="1" min="1" style="width:80px; border-radius:10px; height:38px; font-size:15px; box-shadow:none;">
+                        <button type="button" class="btn btn-outline-secondary" id="tallaPosIncBtn"
+                                style="width:38px; height:38px; border-radius:10px; padding:0; font-size:18px; line-height:1;">+</button>
+                    </div>
                 </div>
-                
-                <input type="hidden" id="pesajeId">
-                <input type="hidden" id="pesajeUnidad">
-                <input type="hidden" id="pesajeStockMax">
             </div>
-            <div class="modal-footer border-0 p-3 bg-white">
-                <button type="button" class="btn btn-light text-muted fw-semibold w-100 mb-2" data-bs-dismiss="modal">Cancelar</button>
-                <button type="button" class="btn btn-success fw-bold w-100 py-2 shadow-sm" id="btnConfirmarPesaje">
-                    <i class="bi bi-cart-plus me-1"></i> Agregar al Carrito
+            <div class="modal-footer border-0 px-4 pb-4 pt-0">
+                <button type="button" class="btn btn-light fw-semibold" data-bs-dismiss="modal" style="border-radius:10px;">Cancelar</button>
+                <button type="button" class="btn fw-semibold" id="tallaPosAddBtn" disabled
+                        style="border-radius:10px; background:#1d4ed8; color:#fff; border:none; padding: 8px 20px;">
+                    <i class="bi bi-cart-plus-fill me-1"></i> Agregar al carrito
                 </button>
             </div>
         </div>
@@ -496,7 +515,7 @@ $cajaAbierta = $modelCaja->obtenerCajaAbierta($_SESSION['id_usuario']);
                         <label class="form-label text-muted fw-semibold mb-1">Número <span class="text-danger">*</span></label>
                         <div class="input-group input-group-sm">
                             <input type="text" class="form-control" id="modalNumDoc" placeholder="Ej. 78945612" style="box-shadow: none; height: 38px; font-size: 13.5px;">
-                            <button type="button" class="btn btn-success fw-semibold d-flex align-items-center gap-1 px-3" id="modalSearchApiBtn" style="height: 38px; border: none; background-color: #198754;">
+                            <button type="button" class="btn btn-primary fw-semibold d-flex align-items-center gap-1 px-3" id="modalSearchApiBtn" style="height: 38px; border: none; background-color: #0284c7;">
                                 <i class="bi bi-search"></i> <span id="modalSearchApiBtnText">RENIEC</span>
                             </button>
                         </div>
@@ -522,7 +541,7 @@ $cajaAbierta = $modelCaja->obtenerCajaAbierta($_SESSION['id_usuario']);
             </div>
             <div class="modal-footer border-top bg-light py-3 d-flex justify-content-end gap-2" style="border-radius: 0 0 12px 12px;">
                 <button type="button" class="btn btn-light fw-semibold px-4" data-bs-dismiss="modal" style="font-size: 13.5px; height: 38px;">Cancelar</button>
-                <button type="button" class="btn btn-success fw-semibold px-4" id="modalSaveClientBtn" style="font-size: 13.5px; height: 38px; background-color: #198754; border: none;">Guardar</button>
+                <button type="button" class="btn btn-primary fw-semibold px-4" id="modalSaveClientBtn" style="font-size: 13.5px; height: 38px; background-color: #0284c7; border: none;">Guardar</button>
             </div>
         </div>
     </div>
@@ -534,7 +553,7 @@ $cajaAbierta = $modelCaja->obtenerCajaAbierta($_SESSION['id_usuario']);
         <div class="modal-content border-0 shadow-lg" style="border-radius: 12px; height: 92vh;">
             <div class="modal-header bg-white border-bottom py-3" style="flex-shrink: 0; border-radius: 12px 12px 0 0;">
                 <h5 class="modal-title fw-bold text-dark d-flex align-items-center gap-2" style="font-size: 16px;">
-                    <i class="bi bi-check-circle-fill text-success"></i>
+                    <i class="bi bi-check-circle-fill text-primary"></i>
                     Comprobante registrado con éxito
                 </h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" style="box-shadow: none;" onclick="window.location.reload()"></button>
@@ -542,13 +561,13 @@ $cajaAbierta = $modelCaja->obtenerCajaAbierta($_SESSION['id_usuario']);
 
             <!-- Selector de formato de papel -->
             <div class="d-flex justify-content-center gap-2 py-2 bg-light border-bottom" style="flex-shrink: 0;">
-                <button class="btn btn-success btn-sm px-3 ticket-format-btn active" data-format="80mm">
+                <button class="btn btn-primary btn-sm px-3 ticket-format-btn active" data-format="80mm" style="background-color: #0284c7; border: none;">
                     <i class="bi bi-receipt"></i> Ticket 80mm
                 </button>
-                <button class="btn btn-outline-success btn-sm px-3 ticket-format-btn" data-format="58mm">
+                <button class="btn btn-outline-primary btn-sm px-3 ticket-format-btn" data-format="58mm" style="border-color: #0284c7; color: #0284c7;">
                     <i class="bi bi-receipt"></i> Ticket 58mm
                 </button>
-                <button class="btn btn-outline-success btn-sm px-3 ticket-format-btn" data-format="a4">
+                <button class="btn btn-outline-primary btn-sm px-3 ticket-format-btn" data-format="a4" style="border-color: #0284c7; color: #0284c7;">
                     <i class="bi bi-file-earmark-text"></i> A4
                 </button>
             </div>
@@ -568,14 +587,14 @@ $cajaAbierta = $modelCaja->obtenerCajaAbierta($_SESSION['id_usuario']);
 
             <!-- Botones de Acción -->
             <div class="modal-footer border-top bg-white py-2 px-4 d-flex justify-content-between align-items-center" style="flex-shrink: 0; border-radius: 0 0 12px 12px;">
-                <button class="btn btn-success d-flex align-items-center gap-2 px-4" onclick="printCurrentIframe()">
+                <button class="btn btn-primary d-flex align-items-center gap-2 px-4" onclick="printCurrentIframe()" style="background-color: #0284c7; border: none;">
                     <i class="bi bi-printer-fill"></i> Imprimir
                 </button>
                 <div class="d-flex gap-2">
                     <button class="btn btn-outline-secondary px-4" onclick="window.location.href='index.php?modulo=historial'">
                         <i class="bi bi-list-ul"></i> Ir al listado
                     </button>
-                    <button class="btn btn-success px-4" onclick="window.location.reload()">
+                    <button class="btn btn-primary px-4" onclick="window.location.reload()" style="background-color: #0284c7; border: none;">
                         <i class="bi bi-plus-lg"></i> Nueva venta
                     </button>
                 </div>
@@ -607,7 +626,6 @@ $cajaAbierta = $modelCaja->obtenerCajaAbierta($_SESSION['id_usuario']);
         const clearClientSelectionBtn = document.getElementById('clearClientSelectionBtn');
         const clientAutocompleteDropdown = document.getElementById('clientAutocompleteDropdown');
         const cartClientId = document.getElementById('cartClientId');
-        const cartTrabajadorId = document.getElementById('cartTrabajadorId');
         const selectedClientBadge = document.getElementById('selectedClientBadge');
         const selectedClientText = document.getElementById('selectedClientText');
 
@@ -618,6 +636,27 @@ $cajaAbierta = $modelCaja->obtenerCajaAbierta($_SESSION['id_usuario']);
         const summarySubtotal = document.getElementById('summarySubtotal');
         const summaryIgv = document.getElementById('summaryIgv');
         const summaryTotal = document.getElementById('summaryTotal');
+
+        const metodoPagoSelect = document.getElementById('metodoPagoSelect');
+        const metodoPagoHint = document.getElementById('metodoPagoHint');
+
+        if (metodoPagoSelect && metodoPagoHint) {
+            metodoPagoSelect.addEventListener('change', (e) => {
+                const val = e.target.value;
+                metodoPagoHint.className = 'badge w-100 mt-2 py-2';
+                metodoPagoHint.style.backgroundColor = '';
+                if (val === '1') {
+                    metodoPagoHint.classList.add('bg-primary');
+                    metodoPagoHint.innerText = 'Pago en efectivo';
+                } else if (val === '2') {
+                    metodoPagoHint.style.backgroundColor = 'purple';
+                    metodoPagoHint.innerText = 'Solicitar captura de pantalla Yape/Plin';
+                } else if (val === '3') {
+                    metodoPagoHint.classList.add('bg-success');
+                    metodoPagoHint.innerText = 'Verificar voucher del POS';
+                }
+            });
+        }
 
         // Elementos del formulario de registro rápido
         const modalTipoDoc = document.getElementById('modalTipoDoc');
@@ -641,10 +680,10 @@ $cajaAbierta = $modelCaja->obtenerCajaAbierta($_SESSION['id_usuario']);
         tabButtons.forEach(btn => {
             btn.addEventListener('click', () => {
                 tabButtons.forEach(b => {
-                    b.classList.remove('active', 'text-success', 'border-bottom', 'border-3', 'border-success');
+                    b.classList.remove('active', 'text-primary', 'border-bottom', 'border-3', 'border-primary');
                     b.classList.add('text-muted');
                 });
-                btn.classList.add('active', 'text-success', 'border-bottom', 'border-3', 'border-success');
+                btn.classList.add('active', 'text-primary', 'border-bottom', 'border-3', 'border-primary');
                 btn.classList.remove('text-muted');
             });
         });
@@ -666,13 +705,11 @@ $cajaAbierta = $modelCaja->obtenerCajaAbierta($_SESSION['id_usuario']);
             
             if (docType === '1' || docType === '3') {
                 cartClientId.value = '1';
-                cartTrabajadorId.value = '';
                 selectedClientText.innerText = 'Público General';
                 clientAutocompleteInput.value = '';
                 clearClientSelectionBtn.classList.add('d-none');
             } else {
                 cartClientId.value = '';
-                cartTrabajadorId.value = '';
                 selectedClientText.innerText = 'Se requiere RUC para Factura';
                 clientAutocompleteInput.value = '';
                 clearClientSelectionBtn.classList.add('d-none');
@@ -779,44 +816,13 @@ $cajaAbierta = $modelCaja->obtenerCajaAbierta($_SESSION['id_usuario']);
             clientAutocompleteDropdown.classList.remove('open');
         }
 
-        let currentVale = null;
-        let valeAplicado = false;
-        let montoDescuentoVale = 0;
-
-        // Fijar el cliente/trabajador seleccionado en el estado global de la venta
+        // Fijar el cliente seleccionado en el estado global de la venta
         async function selectClient(id_cliente, id_trabajador, es_trabajador, doc, name, tipo) {
             cartClientId.value = id_cliente || '';
-            cartTrabajadorId.value = id_trabajador || '';
             clientAutocompleteInput.value = `${doc} - ${name}`;
             selectedClientText.innerText = name;
             clearClientSelectionBtn.classList.remove('d-none');
             hideAutocompleteDropdown();
-            
-            currentVale = null;
-            valeAplicado = false;
-            montoDescuentoVale = 0;
-            document.getElementById('valeNavidenoBanner').classList.add('d-none');
-            
-            // Lógica de Método de Pago (Planilla solo para trabajadores UNP)
-            const optPlanilla = document.getElementById('optPlanilla');
-            const metodoPagoSelect = document.getElementById('metodoPagoSelect');
-            if (es_trabajador) {
-                optPlanilla.disabled = false;
-                optPlanilla.innerText = "Cargo a Planilla";
-                
-                // Mostrar banner de vale
-                document.getElementById('valeNavidenoBanner').classList.remove('d-none');
-                document.getElementById('valeInputGroup').classList.remove('d-none');
-                document.getElementById('valeAplicadoInfo').classList.add('d-none');
-                document.getElementById('codigoValeInput').value = '';
-                document.getElementById('codigoValeInput').disabled = false;
-                document.getElementById('btnAplicarVale').disabled = false;
-                document.getElementById('btnAplicarVale').innerText = 'Aplicar';
-            } else {
-                optPlanilla.disabled = true;
-                optPlanilla.innerText = "Cargo a Planilla (Solo Trabajadores)";
-                metodoPagoSelect.value = "1"; // Forzar a efectivo
-            }
             
             validateSubmitBtn();
             renderCart();
@@ -827,67 +833,19 @@ $cajaAbierta = $modelCaja->obtenerCajaAbierta($_SESSION['id_usuario']);
             const docType = docTypeSelect.value;
             if (docType === '1' || docType === '3') {
                 cartClientId.value = '1';
-                cartTrabajadorId.value = '';
                 selectedClientText.innerText = 'Público General';
             } else {
                 cartClientId.value = '';
-                cartTrabajadorId.value = '';
                 selectedClientText.innerText = 'Se requiere RUC para Factura';
             }
             clientAutocompleteInput.value = '';
             clearClientSelectionBtn.classList.add('d-none');
             
-            currentVale = null;
-            valeAplicado = false;
-            montoDescuentoVale = 0;
-            document.getElementById('valeNavidenoBanner').classList.add('d-none');
-            
             validateSubmitBtn();
             renderCart();
-            
-            const optPlanilla = document.getElementById('optPlanilla');
-            const metodoPagoSelect = document.getElementById('metodoPagoSelect');
-            optPlanilla.disabled = true;
-            optPlanilla.innerText = "Cargo a Planilla (Solo Trabajadores)";
-            metodoPagoSelect.value = "1";
         });
 
-        // Aplicar Vale Navideño
-        document.getElementById('btnAplicarVale').addEventListener('click', async () => {
-            const codigo = document.getElementById('codigoValeInput').value.trim();
-            if (!codigo) return;
-            
-            try {
-                const res = await fetch(`./controllers/C_Vale.php?action=buscar_codigo&codigo=${codigo}`);
-                const data = await res.json();
-                
-                if (data.success && data.data) {
-                    const vale = data.data;
-                    if (vale.estado != 1) {
-                        Swal.fire({ icon: 'error', text: 'El vale ya ha sido canjeado o está inactivo.' });
-                        return;
-                    }
-                    // Validar si el vale pertenece al cliente O al trabajador
-                    if (vale.id_cliente != cartClientId.value && vale.id_trabajador != cartTrabajadorId.value) {
-                        Swal.fire({ icon: 'error', text: 'El vale no pertenece a la persona seleccionada.' });
-                        return;
-                    }
-                    
-                    currentVale = vale;
-                    valeAplicado = true;
-                    
-                    document.getElementById('valeInputGroup').classList.add('d-none');
-                    document.getElementById('valeAplicadoInfo').classList.remove('d-none');
-                    document.getElementById('valeMontoText').innerText = `S/ ${parseFloat(vale.monto).toFixed(2)}`;
-                    
-                    renderCart();
-                } else {
-                    Swal.fire({ icon: 'error', text: 'Código de vale no encontrado.' });
-                }
-            } catch (e) {
-                Swal.fire({ icon: 'error', text: 'Error al buscar el vale.' });
-            }
-        });
+
 
         // Filtrar entrada numérica o caracteres de texto
         clientAutocompleteInput.addEventListener('input', () => {
@@ -948,10 +906,10 @@ $cajaAbierta = $modelCaja->obtenerCajaAbierta($_SESSION['id_usuario']);
 
             tabButtons.forEach((b, idx) => {
                 if (idx === 0) {
-                    b.classList.add('active', 'text-success', 'border-bottom', 'border-3', 'border-success');
+                    b.classList.add('active', 'text-primary', 'border-bottom', 'border-3', 'border-primary');
                     b.classList.remove('text-muted');
                 } else {
-                    b.classList.remove('active', 'text-success', 'border-bottom', 'border-3', 'border-success');
+                    b.classList.remove('active', 'text-primary', 'border-bottom', 'border-3', 'border-primary');
                     b.classList.add('text-muted');
                 }
             });
@@ -972,17 +930,17 @@ $cajaAbierta = $modelCaja->obtenerCajaAbierta($_SESSION['id_usuario']);
             const docType = modalTipoDoc.value;
 
             if (docNum === '') {
-                Swal.fire({ icon: 'warning', title: 'Número requerido', text: 'Debe ingresar el número de documento para realizar la consulta.', confirmButtonColor: '#15803d' });
+                Swal.fire({ icon: 'warning', title: 'Número requerido', text: 'Debe ingresar el número de documento para realizar la consulta.', confirmButtonColor: '#0284c7' });
                 return;
             }
 
             if (docType === '1' && docNum.length !== 8) {
-                Swal.fire({ icon: 'warning', title: 'DNI Inválido', text: 'El DNI debe tener exactamente 8 dígitos.', confirmButtonColor: '#15803d' });
+                Swal.fire({ icon: 'warning', title: 'DNI Inválido', text: 'El DNI debe tener exactamente 8 dígitos.', confirmButtonColor: '#0284c7' });
                 return;
             }
 
             if (docType === '2' && docNum.length !== 11) {
-                Swal.fire({ icon: 'warning', title: 'RUC Inválido', text: 'El RUC debe tener exactamente 11 dígitos.', confirmButtonColor: '#15803d' });
+                Swal.fire({ icon: 'warning', title: 'RUC Inválido', text: 'El RUC debe tener exactamente 11 dígitos.', confirmButtonColor: '#0284c7' });
                 return;
             }
 
@@ -1006,10 +964,10 @@ $cajaAbierta = $modelCaja->obtenerCajaAbierta($_SESSION['id_usuario']);
 
                     Swal.fire({ icon: 'success', title: '¡Datos Obtenidos!', text: 'Los datos del cliente se cargaron exitosamente.', showConfirmButton: false, timer: 1500 });
                 } else {
-                    Swal.fire({ icon: 'error', title: 'Error de consulta', text: res.mensaje, confirmButtonColor: '#15803d' });
+                    Swal.fire({ icon: 'error', title: 'Error de consulta', text: res.mensaje, confirmButtonColor: '#0284c7' });
                 }
             } catch (err) {
-                Swal.fire({ icon: 'error', title: 'Error de red', text: 'No se pudo conectar con el servidor para la consulta de API.', confirmButtonColor: '#15803d' });
+                Swal.fire({ icon: 'error', title: 'Error de red', text: 'No se pudo conectar con el servidor para la consulta de API.', confirmButtonColor: '#0284c7' });
             } finally {
                 modalSearchApiBtn.disabled = false;
                 modalSearchApiBtnText.innerText = originalText;
@@ -1039,7 +997,7 @@ $cajaAbierta = $modelCaja->obtenerCajaAbierta($_SESSION['id_usuario']);
             }
 
             if (numero_documento === '' || nombres_razon_social === '') {
-                Swal.fire({ icon: 'warning', title: 'Campos obligatorios', text: 'Debe ingresar el Número de documento y el Nombre / Razón Social.', confirmButtonColor: '#15803d' });
+                Swal.fire({ icon: 'warning', title: 'Campos obligatorios', text: 'Debe ingresar el Número de documento y el Nombre / Razón Social.', confirmButtonColor: '#0284c7' });
                 return;
             }
 
@@ -1078,10 +1036,10 @@ $cajaAbierta = $modelCaja->obtenerCajaAbierta($_SESSION['id_usuario']);
                         modalInstance.hide();
                     }
                 } else {
-                    Swal.fire({ icon: 'error', title: 'Error al registrar', text: res.mensaje, confirmButtonColor: '#15803d' });
+                    Swal.fire({ icon: 'error', title: 'Error al registrar', text: res.mensaje, confirmButtonColor: '#0284c7' });
                 }
             } catch (err) {
-                Swal.fire({ icon: 'error', title: 'Error de red', text: 'No se pudo contactar al servidor para registrar el cliente.', confirmButtonColor: '#15803d' });
+                Swal.fire({ icon: 'error', title: 'Error de red', text: 'No se pudo contactar al servidor para registrar el cliente.', confirmButtonColor: '#0284c7' });
             } finally {
                 modalSaveClientBtn.disabled = false;
             }
@@ -1109,34 +1067,129 @@ $cajaAbierta = $modelCaja->obtenerCajaAbierta($_SESSION['id_usuario']);
         catFilterBtns.forEach(btn => {
             btn.addEventListener('click', () => {
                 catFilterBtns.forEach(b => {
-                    b.classList.remove('btn-success', 'active');
-                    b.classList.add('btn-outline-secondary');
-                    b.style.borderColor = '#e5e7eb';
-                    b.style.color = '#4b5563';
+                    b.classList.remove('btn-primary', 'active');
+                    b.classList.add('btn-outline-primary');
+                    b.style.borderColor = '#0284c7';
+                    b.style.color = '#0284c7';
+                    b.style.backgroundColor = 'transparent';
                 });
-                btn.classList.add('btn-success', 'active');
-                btn.classList.remove('btn-outline-secondary');
+                btn.classList.add('btn-primary', 'active');
+                btn.classList.remove('btn-outline-primary');
                 btn.style.borderColor = '';
-                btn.style.color = '';
+                btn.style.color = '#fff';
+                btn.style.backgroundColor = '#0284c7';
                 
                 currentCategory = btn.dataset.cat;
                 filterCatalog();
             });
         });
 
-        // Lógica del modal de pesaje
-        const modalPesajeObj = new bootstrap.Modal(document.getElementById('modalPesaje'));
-        const pesajePiezasInput = document.getElementById('pesajePiezas');
-        const pesajePesoNetoInput = document.getElementById('pesajePesoNeto');
-        const pesajeSubtotalText = document.getElementById('pesajeSubtotal');
-        
-        function calcularSubtotalPesaje() {
-            const peso = parseFloat(pesajePesoNetoInput.value) || 0;
-            const precio = parseFloat(document.getElementById('pesajePrecioUnitario').innerText);
-            pesajeSubtotalText.innerText = `S/ ${(peso * precio).toFixed(2)}`;
+
+
+        // ── Lógica del Modal de Selección de Talla (POS) ──
+        const productosAgrupados = <?php echo json_encode($productosAgrupados); ?>;
+        const tallaPosModal    = new bootstrap.Modal(document.getElementById('tallaPosModal'));
+        const tallaPosNombre   = document.getElementById('tallaPosNombreProducto');
+        const tallaPosPills    = document.getElementById('tallaPosPickerPills');
+        const tallaPosPrec     = document.getElementById('tallaPosSelectedPrecio');
+        const tallaPosSt       = document.getElementById('tallaPosSelectedStock');
+        const tallaPosCant     = document.getElementById('tallaPosCantidad');
+        const tallaPosDecBtn   = document.getElementById('tallaPosDecBtn');
+        const tallaPosIncBtn   = document.getElementById('tallaPosIncBtn');
+        const tallaPosAddBtn   = document.getElementById('tallaPosAddBtn');
+
+        let tallaSeleccionada  = null; // { id_insumo, talla, precio, stock, unidad }
+
+        function seleccionarTalla(variante, pillEl) {
+            tallaSeleccionada = variante;
+            // Actualizar pills
+            tallaPosPills.querySelectorAll('.talla-pill').forEach(p => {
+                p.classList.remove('active');
+                p.style.background   = '#f3f4f6';
+                p.style.color        = '#374151';
+                p.style.borderColor  = '#e5e7eb';
+                p.style.fontWeight   = '500';
+            });
+            pillEl.classList.add('active');
+            pillEl.style.background  = '#1d4ed8';
+            pillEl.style.color       = '#fff';
+            pillEl.style.borderColor = '#1d4ed8';
+            pillEl.style.fontWeight  = '700';
+            // Actualizar info
+            tallaPosPrec.textContent = 'S/ ' + parseFloat(variante.precio).toFixed(2);
+            tallaPosSt.textContent   = variante.stock + ' disponibles';
+            tallaPosCant.value = 1;
+            tallaPosCant.max   = variante.stock;
+            tallaPosAddBtn.disabled  = false;
         }
 
-        pesajePesoNetoInput.addEventListener('input', calcularSubtotalPesaje);
+        document.querySelectorAll('.open-talla-picker-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const idPadre  = parseInt(btn.dataset.padreId);
+                const nombre   = btn.dataset.nombre;
+                const producto = productosAgrupados[idPadre];
+                if (!producto) return;
+
+                tallaPosNombre.textContent = nombre;
+                tallaSeleccionada = null;
+                tallaPosCant.value = 1;
+                tallaPosPrec.textContent = 'S/ 0.00';
+                tallaPosSt.textContent   = 'Seleccione una talla';
+                tallaPosAddBtn.disabled  = true;
+
+                // Renderizar pills de tallas
+                tallaPosPills.innerHTML = '';
+                producto.variantes.forEach(v => {
+                    const pill = document.createElement('button');
+                    pill.type        = 'button';
+                    pill.className   = 'talla-pill btn fw-semibold';
+                    pill.textContent = v.talla;
+                    pill.style.cssText = 'min-width:48px; height:38px; border-radius:8px; font-size:13px; border:1.5px solid #e5e7eb; background:#f3f4f6; color:#374151;';
+                    pill.addEventListener('click', () => seleccionarTalla(v, pill));
+                    tallaPosPills.appendChild(pill);
+                });
+
+                tallaPosModal.show();
+            });
+        });
+
+        tallaPosDecBtn.addEventListener('click', () => {
+            const val = parseInt(tallaPosCant.value) - 1;
+            tallaPosCant.value = Math.max(1, val);
+        });
+
+        tallaPosIncBtn.addEventListener('click', () => {
+            if (!tallaSeleccionada) return;
+            const val = parseInt(tallaPosCant.value) + 1;
+            tallaPosCant.value = Math.min(tallaSeleccionada.stock, val);
+        });
+
+        tallaPosAddBtn.addEventListener('click', () => {
+            if (!tallaSeleccionada) return;
+            const cantidad = parseInt(tallaPosCant.value) || 1;
+            const nombre   = tallaPosNombre.textContent + ' (T-' + tallaSeleccionada.talla + ')';
+            // Reutilizar la misma función de carrito que el botón add-to-cart
+            const id       = tallaSeleccionada.id_insumo;
+            const precio   = tallaSeleccionada.precio;
+            const stock    = tallaSeleccionada.stock;
+            const unidad   = tallaSeleccionada.unidad || 'Und';
+
+            const existing = cart.find(item => item.id_insumo === id);
+            if (existing) {
+                const newQty = existing.cantidad + cantidad;
+                if (newQty > stock) {
+                    Swal.fire({ icon: 'warning', title: 'Stock insuficiente', text: `Solo hay ${stock} unidades de esta talla.`, confirmButtonColor: '#1d4ed8' });
+                    return;
+                }
+                existing.cantidad = newQty;
+                existing.subtotal = existing.cantidad * precio;
+            } else {
+                cart.push({ id_insumo: id, nombre, precio, stock, unidad, cantidad, subtotal: cantidad * precio });
+            }
+            tallaPosAddBtn.blur();
+            tallaPosModal.hide();
+            renderCart();
+        });
 
         // Agregar artículo al carrito y evaluar stock en vivo
         document.querySelectorAll('.add-to-cart-btn').forEach(btn => {
@@ -1146,37 +1199,14 @@ $cajaAbierta = $modelCaja->obtenerCajaAbierta($_SESSION['id_usuario']);
                 const precio = parseFloat(btn.dataset.precio);
                 const stock = parseFloat(btn.dataset.stock);
                 const unidad = btn.dataset.unidad;
-                const contenido = btn.dataset.contenido;
 
-                // Si contenido === '' o null, es un producto de peso variable (Ej: Pavo Vivo)
-                if (!contenido || contenido === '') {
-                    // Configurar y Abrir Modal de Pesaje
-                    document.getElementById('pesajeId').value = id;
-                    document.getElementById('pesajeNombre').innerText = nombre;
-                    document.getElementById('pesajePrecioUnitario').innerText = precio.toFixed(2);
-                    document.getElementById('pesajeStockInfo').innerText = `Stock disponible: ${stock} piezas`;
-                    document.getElementById('pesajeUnidad').value = unidad;
-                    document.getElementById('pesajeStockMax').value = stock;
-                    
-                    pesajePiezasInput.value = 1;
-                    pesajePiezasInput.max = stock;
-                    pesajePesoNetoInput.value = '';
-                    pesajeSubtotalText.innerText = 'S/ 0.00';
-                    
-                    modalPesajeObj.show();
-                    setTimeout(() => pesajePesoNetoInput.focus(), 500); // Autofocus en balanza
-                    return; // Detener flujo normal
-                }
-
-                // LÓGICA NORMAL (Para insumos con peso estándar fijo o unitarios)
                 const existing = cart.find(item => item.id_insumo === id);
                 if (existing) {
                     if (existing.cantidad + 1 > stock) {
-                        Swal.fire({ icon: 'warning', title: 'Stock Insuficiente', text: `Solo hay ${stock} unidades disponibles de este insumo.`, confirmButtonColor: '#15803d' });
+                        Swal.fire({ icon: 'warning', title: 'Stock Insuficiente', text: `Solo hay ${stock} unidades disponibles de este insumo.`, confirmButtonColor: '#0284c7' });
                         return;
                     }
                     existing.cantidad += 1;
-                    existing.peso_neto = existing.cantidad * parseFloat(contenido);
                     existing.subtotal = existing.cantidad * existing.precio;
                 } else {
                     cart.push({
@@ -1185,10 +1215,8 @@ $cajaAbierta = $modelCaja->obtenerCajaAbierta($_SESSION['id_usuario']);
                         precio: precio,
                         stock: stock,
                         unidad: unidad,
-                        cantidad: 1, // esto actúa como 'piezas' físicas
-                        peso_neto: parseFloat(contenido), // Calculado automático base
-                        subtotal: precio,
-                        es_variable: false
+                        cantidad: 1,
+                        subtotal: precio
                     });
                 }
 
@@ -1196,51 +1224,7 @@ $cajaAbierta = $modelCaja->obtenerCajaAbierta($_SESSION['id_usuario']);
             });
         });
 
-        // Confirmar pesaje e insertar al carrito desde el modal
-        document.getElementById('btnConfirmarPesaje').addEventListener('click', () => {
-            const id = parseInt(document.getElementById('pesajeId').value);
-            const nombre = document.getElementById('pesajeNombre').innerText;
-            const precio = parseFloat(document.getElementById('pesajePrecioUnitario').innerText);
-            const stockMax = parseFloat(document.getElementById('pesajeStockMax').value);
-            const unidad = document.getElementById('pesajeUnidad').value;
-            
-            const piezas = parseInt(pesajePiezasInput.value) || 0;
-            const pesoNeto = parseFloat(pesajePesoNetoInput.value) || 0;
 
-            if (piezas <= 0 || pesoNeto <= 0) {
-                Swal.fire({ icon: 'error', title: 'Datos inválidos', text: 'Debe ingresar un número de piezas y el peso en balanza.'});
-                return;
-            }
-
-            const existing = cart.find(item => item.id_insumo === id);
-            const currentPiezas = existing ? existing.cantidad : 0;
-
-            if (currentPiezas + piezas > stockMax) {
-                Swal.fire({ icon: 'warning', title: 'Stock Insuficiente', text: `Intentas sacar ${currentPiezas + piezas} piezas, pero solo hay ${stockMax} en stock.` });
-                return;
-            }
-
-            if (existing) {
-                existing.cantidad += piezas;
-                existing.peso_neto += pesoNeto; // Suma acumulativa de peso
-                existing.subtotal = existing.peso_neto * existing.precio;
-            } else {
-                cart.push({
-                    id_insumo: id,
-                    nombre: nombre,
-                    precio: precio,
-                    stock: stockMax,
-                    unidad: unidad,
-                    cantidad: piezas,
-                    peso_neto: pesoNeto,
-                    subtotal: (pesoNeto * precio),
-                    es_variable: true
-                });
-            }
-
-            modalPesajeObj.hide();
-            renderCart();
-        });
 
         if (clearCartBtn) {
             clearCartBtn.addEventListener('click', () => {
@@ -1254,28 +1238,14 @@ $cajaAbierta = $modelCaja->obtenerCajaAbierta($_SESSION['id_usuario']);
             const item = cart.find(i => i.id_insumo === id);
             if (!item) return;
 
-            if (item.es_variable) {
-                Swal.fire({ 
-                    icon: 'info', 
-                    title: 'Producto pesado', 
-                    text: 'No se puede cambiar la cantidad de un producto pesado en línea. Elimínelo del carrito y vuelva a pesarlo.',
-                    confirmButtonColor: '#15803d' 
-                });
-                if (newQty <= 0) renderCart(); // restaurar vista
-                return;
-            }
-
             if (newQty <= 0) {
                 cart = cart.filter(i => i.id_insumo !== id);
             } else if (newQty > item.stock) {
-                Swal.fire({ icon: 'warning', title: 'Stock Insuficiente', text: `El stock disponible es de ${item.stock} ${item.unidad}.`, confirmButtonColor: '#15803d' });
+                Swal.fire({ icon: 'warning', title: 'Stock Insuficiente', text: `El stock disponible es de ${item.stock} ${item.unidad}.`, confirmButtonColor: '#0284c7' });
                 item.cantidad = item.stock;
-                item.peso_neto = item.cantidad * (item.peso_neto / (item.cantidad - 1 || 1));
                 item.subtotal = item.cantidad * item.precio;
             } else {
-                const contenidoEstandar = (item.peso_neto && item.cantidad > 0) ? (item.peso_neto / item.cantidad) : 0;
                 item.cantidad = newQty;
-                item.peso_neto = newQty * contenidoEstandar;
                 item.subtotal = item.cantidad * item.precio;
             }
             renderCart();
@@ -1284,7 +1254,7 @@ $cajaAbierta = $modelCaja->obtenerCajaAbierta($_SESSION['id_usuario']);
         // Validar si la venta cumple las condiciones mínimas para ser cobrada
         function validateSubmitBtn() {
             const hasItems = cart.length > 0;
-            const hasClient = (cartClientId.value && cartClientId.value !== '') || (cartTrabajadorId.value && cartTrabajadorId.value !== '');
+            const hasClient = (cartClientId.value && cartClientId.value !== '');
             submitSaleBtn.disabled = !(hasItems && hasClient);
         }
 
@@ -1339,12 +1309,7 @@ $cajaAbierta = $modelCaja->obtenerCajaAbierta($_SESSION['id_usuario']);
                                     }
                                 </style>`;
                 
-                if (item.es_variable) {
-                    renderQtyInfo = `<div class="d-flex flex-column align-items-end justify-content-center px-2" style="width: 90px;">
-                                        <div class="fw-bold text-dark" style="font-size: 13px;">${item.cantidad} pzs</div>
-                                        <div class="text-muted" style="font-size: 11px;">${item.peso_neto.toFixed(2)} Kg</div>
-                                     </div>`;
-                }
+
 
                 cartHtml += `
                     <div class="list-group-item px-0 py-2.5 border-bottom bg-transparent d-flex flex-column gap-1">
@@ -1355,7 +1320,7 @@ $cajaAbierta = $modelCaja->obtenerCajaAbierta($_SESSION['id_usuario']);
                         <div class="d-flex align-items-center justify-content-between">
                             ${renderQtyInfo}
                             <div class="d-flex align-items-center gap-2">
-                                <span class="text-muted" style="font-size: 11px;">S/ ${item.precio.toFixed(2)} ${item.es_variable ? 'x Kg' : '/ ' + item.unidad}</span>
+                                <span class="text-muted" style="font-size: 11px;">S/ ${item.precio.toFixed(2)} / ${item.unidad}</span>
                                 <button class="btn btn-link text-danger p-0 border-0" onclick="window.posRemove(${item.id_insumo})">
                                     <i class="bi bi-trash3-fill"></i>
                                 </button>
@@ -1369,17 +1334,10 @@ $cajaAbierta = $modelCaja->obtenerCajaAbierta($_SESSION['id_usuario']);
             cartList.innerHTML = cartHtml;
 
             // Desglose tributario (Total es precio con IGV incluido, subtotal = total/1.18)
-            // Lógica Vale
-            montoDescuentoVale = 0;
-            if (valeAplicado && currentVale) {
-                montoDescuentoVale = parseFloat(currentVale.monto);
-            }
-
-            const totalFinal = Math.max(0, totalGeneral - montoDescuentoVale);
+            const totalFinal = Math.max(0, totalGeneral);
             const subtotalVal = totalFinal / 1.18;
             const igvVal = totalFinal - subtotalVal;
 
-            document.getElementById('summaryDescuento').innerText = `- S/ ${montoDescuentoVale.toFixed(2)}`;
             summarySubtotal.innerText = `S/ ${subtotalVal.toFixed(2)}`;
             summaryIgv.innerText = `S/ ${igvVal.toFixed(2)}`;
             summaryTotal.innerText = `S/ ${totalFinal.toFixed(2)}`;
@@ -1412,36 +1370,25 @@ $cajaAbierta = $modelCaja->obtenerCajaAbierta($_SESSION['id_usuario']);
         if (submitSaleBtn) {
             submitSaleBtn.addEventListener('click', async () => {
                 const id_cliente = parseInt(cartClientId.value) || null;
-                const id_trabajador = parseInt(cartTrabajadorId.value) || null;
                 const tipo_comprobante = parseInt(docTypeSelect.value);
                 const metodo_pago = parseInt(document.getElementById('metodoPagoSelect').value);
                 
-                // Si es planilla, debe haber un trabajador seleccionado
-                if (metodo_pago === 2 && !id_trabajador) {
-                    Swal.fire({ icon: 'warning', text: 'Para pago por planilla, debe seleccionar un trabajador.'});
-                    return;
-                }
-                
                 let totalGeneral = 0;
                 cart.forEach(item => totalGeneral += item.subtotal);
-                const totalFinal = Math.max(0, totalGeneral - montoDescuentoVale);
                 
-                const pago_vale_aplicado = Math.min(totalGeneral, montoDescuentoVale);
-                const pago_efectivo = totalFinal;
-
                 const dataToSend = {
                     id_cliente,
-                    id_trabajador,
+                    id_trabajador: null,
                     tipo_comprobante,
                     metodo_pago,
                     total: totalGeneral,
-                    id_vale: (valeAplicado && currentVale) ? currentVale.id_vale : null,
-                    pago_vale: pago_vale_aplicado,
-                    pago_efectivo: pago_efectivo,
+                    id_vale: null,
+                    pago_vale: 0,
+                    pago_efectivo: totalGeneral,
                     cart: cart.map(item => ({
                         id_insumo: item.id_insumo,
                         piezas: item.cantidad,
-                        peso_neto: item.peso_neto || 0,
+                        peso_neto: 0,
                         precio: item.precio,
                         subtotal: item.subtotal
                     }))
@@ -1453,10 +1400,10 @@ $cajaAbierta = $modelCaja->obtenerCajaAbierta($_SESSION['id_usuario']);
                 
                 Swal.fire({
                     title: '¿Confirmar venta?',
-                    text: `Se registrará una ${docLabel} por un total de S/ ${totalFinal.toFixed(2)}`,
+                    text: `Se registrará una ${docLabel} por un total de S/ ${totalGeneral.toFixed(2)}`,
                     icon: 'question',
                     showCancelButton: true,
-                    confirmButtonColor: '#15803d',
+                    confirmButtonColor: '#0284c7',
                     cancelButtonColor: '#6b7280',
                     confirmButtonText: 'Registrar',
                     cancelButtonText: 'Cancelar'
@@ -1486,7 +1433,7 @@ $cajaAbierta = $modelCaja->obtenerCajaAbierta($_SESSION['id_usuario']);
                                     openPrintModal(result.id_venta);
                                 });
                             } else {
-                                Swal.fire({ icon: 'error', title: 'Error', text: result.mensaje, confirmButtonColor: '#15803d' });
+                                Swal.fire({ icon: 'error', title: 'Error', text: result.mensaje, confirmButtonColor: '#0284c7' });
                                 submitSaleBtn.disabled = false;
                             }
                         } catch (err) {
@@ -1513,11 +1460,11 @@ $cajaAbierta = $modelCaja->obtenerCajaAbierta($_SESSION['id_usuario']);
         formatBtns.forEach(btn => {
             btn.addEventListener('click', () => {
                 formatBtns.forEach(b => {
-                    b.classList.remove('btn-success', 'active');
-                    b.classList.add('btn-outline-success');
+                    b.classList.remove('btn-primary', 'active');
+                    b.classList.add('btn-outline-primary');
                 });
-                btn.classList.add('btn-success', 'active');
-                btn.classList.remove('btn-outline-success');
+                btn.classList.add('btn-primary', 'active');
+                btn.classList.remove('btn-outline-primary');
                 
                 currentPrintFormat = btn.dataset.format;
                 loadIframePreview();

@@ -25,10 +25,114 @@ class M_Ecommerce {
                     INNER JOIN unidades_medida um ON i.id_unidad = um.id_unidad
                     INNER JOIN categorias c ON i.id_categoria = c.id_categoria
                     WHERE i.estado = 1 AND i.stock_piezas > 0
+                      AND i.es_agrupador = 0
                     ORDER BY c.nombre, i.nombre";
             $stmt = $this->conexion->prepare($sql);
             $stmt->execute();
             return $stmt->fetchAll();
+        } catch (PDOException $e) {
+            return [];
+        }
+    }
+
+    /**
+     * Retorna el catálogo agrupado para la tienda pública y el POS.
+     * - Los productos con variantes de talla se entregan como un solo bloque con su lista de variantes.
+     * - Los productos simples (sin padre) se entregan con una sola variante que es el producto mismo.
+     * El producto padre (es_agrupador=1) NUNCA aparece como item vendible.
+     *
+     * @return array Array de grupos: cada grupo tiene 'tiene_tallas', 'nombre', 'imagen', 'categoria',
+     *               'precio_desde', 'stock_total', 'variantes' (array de variantes con id_insumo, talla, precio, stock)
+     */
+    public function getCatalogoAgrupado(): array {
+        try {
+            $grupos = [];
+
+            // 1. Productos padre con sus hijos (variantes de talla)
+            $sqlPadres = "SELECT p.id_insumo AS id_padre, p.nombre, p.imagen,
+                                 c.nombre AS categoria, c.id_categoria,
+                                 h.id_insumo AS var_id, h.precio_unitario AS var_precio,
+                                 h.stock_piezas AS var_stock,
+                                 t.nombre AS var_talla, t.id_talla, t.orden AS var_orden
+                          FROM insumos p
+                          INNER JOIN categorias c ON p.id_categoria = c.id_categoria
+                          INNER JOIN insumos h ON h.id_producto_padre = p.id_insumo
+                                               AND h.estado = 1
+                          LEFT JOIN tallas t ON h.id_talla = t.id_talla
+                          WHERE p.es_agrupador = 1 AND p.estado = 1
+                          ORDER BY c.nombre ASC, p.nombre ASC, t.orden ASC, t.nombre ASC";
+            $stmtP = $this->conexion->prepare($sqlPadres);
+            $stmtP->execute();
+            $rowsPadres = $stmtP->fetchAll(PDO::FETCH_ASSOC);
+
+            foreach ($rowsPadres as $row) {
+                $key = 'p_' . $row['id_padre'];
+                if (!isset($grupos[$key])) {
+                    $grupos[$key] = [
+                        'id'          => $row['id_padre'],
+                        'nombre'      => $row['nombre'],
+                        'imagen'      => $row['imagen'],
+                        'categoria'   => $row['categoria'],
+                        'id_categoria'=> $row['id_categoria'],
+                        'tiene_tallas'=> true,
+                        'precio_desde'=> null,
+                        'stock_total' => 0,
+                        'variantes'   => [],
+                    ];
+                }
+                // Solo agregar variantes con stock disponible
+                if ($row['var_stock'] > 0) {
+                    $precio = floatval($row['var_precio']);
+                    $grupos[$key]['variantes'][] = [
+                        'id_insumo' => (int) $row['var_id'],
+                        'talla'     => $row['var_talla'],
+                        'id_talla'  => $row['id_talla'],
+                        'precio'    => $precio,
+                        'stock'     => (int) $row['var_stock'],
+                    ];
+                    $grupos[$key]['stock_total'] += (int) $row['var_stock'];
+                    if ($grupos[$key]['precio_desde'] === null || $precio < $grupos[$key]['precio_desde']) {
+                        $grupos[$key]['precio_desde'] = $precio;
+                    }
+                }
+            }
+
+            // 2. Productos simples (sin padre, no agrupador)
+            $sqlSimples = "SELECT i.id_insumo, i.nombre, i.imagen, i.precio_unitario, i.stock_piezas,
+                                  c.nombre AS categoria, c.id_categoria, um.abreviatura AS unidad
+                           FROM insumos i
+                           INNER JOIN categorias c ON i.id_categoria = c.id_categoria
+                           INNER JOIN unidades_medida um ON i.id_unidad = um.id_unidad
+                           WHERE i.estado = 1 AND i.stock_piezas > 0
+                             AND i.es_agrupador = 0 AND i.id_producto_padre IS NULL
+                           ORDER BY c.nombre ASC, i.nombre ASC";
+            $stmtS = $this->conexion->prepare($sqlSimples);
+            $stmtS->execute();
+            $simples = $stmtS->fetchAll(PDO::FETCH_ASSOC);
+
+            foreach ($simples as $s) {
+                $grupos['s_' . $s['id_insumo']] = [
+                    'id'          => (int) $s['id_insumo'],
+                    'nombre'      => $s['nombre'],
+                    'imagen'      => $s['imagen'],
+                    'categoria'   => $s['categoria'],
+                    'id_categoria'=> $s['id_categoria'],
+                    'tiene_tallas'=> false,
+                    'precio_desde'=> floatval($s['precio_unitario']),
+                    'stock_total' => (int) $s['stock_piezas'],
+                    'variantes'   => [[
+                        'id_insumo' => (int) $s['id_insumo'],
+                        'talla'     => null,
+                        'id_talla'  => null,
+                        'precio'    => floatval($s['precio_unitario']),
+                        'stock'     => (int) $s['stock_piezas'],
+                    ]],
+                ];
+            }
+
+            // Excluir grupos padre que quedaron sin variantes con stock
+            return array_values(array_filter($grupos, fn($g) => !empty($g['variantes'])));
+
         } catch (PDOException $e) {
             return [];
         }
@@ -204,11 +308,11 @@ class M_Ecommerce {
                 $stmtDetallesPedido->execute([$id_pedido]);
                 $detalles = $stmtDetallesPedido->fetchAll();
 
-                $stmtInsertDetalleVenta = $this->conexion->prepare("INSERT INTO detalle_ventas (id_venta, id_insumo, piezas, peso_neto, precio_venta, costo_unitario, subtotal) VALUES (?, ?, ?, ?, ?, (SELECT costo_produccion FROM insumos WHERE id_insumo = ?), ?)");
+                $stmtInsertDetalleVenta = $this->conexion->prepare("INSERT INTO detalle_ventas (id_venta, id_insumo, cantidad, precio_venta, costo_unitario, subtotal) VALUES (?, ?, ?, ?, (SELECT costo_produccion FROM insumos WHERE id_insumo = ?), ?)");
                 
                 foreach ($detalles as $d) {
                     $stmtInsertDetalleVenta->execute([
-                        $id_venta, $d['id_insumo'], $d['cantidad'], $d['peso_neto'], $d['precio_unitario'], $d['id_insumo'], $d['subtotal']
+                        $id_venta, $d['id_insumo'], $d['cantidad'], $d['precio_unitario'], $d['id_insumo'], $d['subtotal']
                     ]);
                 }
 

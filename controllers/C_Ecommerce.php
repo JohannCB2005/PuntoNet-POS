@@ -11,6 +11,11 @@ switch ($action) {
         echo json_encode(['success' => true, 'data' => $items]);
         break;
 
+    case 'catalogo_agrupado':
+        $grupos = M_Ecommerce::singleton()->getCatalogoAgrupado();
+        echo json_encode(['success' => true, 'data' => $grupos]);
+        break;
+
     case 'get_pedido':
         $id = intval($_GET['id'] ?? 0);
         if ($id <= 0) {

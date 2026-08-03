@@ -16,7 +16,6 @@ class DetalleVenta {
     public $id_detalle;
     public $id_insumo;
     public $piezas;       // Unidades físicas que salen del inventario
-    public $peso_neto;    // Peso real en Kg (balanza). 0 si no aplica
     public $precio_venta;
     public $costo_unitario; // Snapshot del costo de producción al momento de la venta
     public $subtotal;
@@ -25,7 +24,6 @@ class DetalleVenta {
         $id_detalle  = null,
         $id_insumo   = null,
         $piezas      = 0,
-        $peso_neto   = 0.0,
         $precio_venta= 0.0,
         $costo_unitario = 0.0,
         $subtotal    = 0.0
@@ -33,7 +31,6 @@ class DetalleVenta {
         $this->id_detalle  = $id_detalle;
         $this->id_insumo   = $id_insumo;
         $this->piezas      = $piezas;
-        $this->peso_neto   = $peso_neto;
         $this->precio_venta= $precio_venta;
         $this->costo_unitario = $costo_unitario;
         $this->subtotal    = $subtotal;

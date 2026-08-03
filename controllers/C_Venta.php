@@ -42,13 +42,7 @@ switch ($action) {
     // Registra una nueva venta con sus respectivas líneas de detalle
     case 'crear':
         $id_usuario = $_SESSION['id_usuario'];
-        $id_trabajador = isset($input['id_trabajador']) && $input['id_trabajador'] ? intval($input['id_trabajador']) : null;
-        $id_cliente = isset($input['id_cliente']) && $input['id_cliente'] ? intval($input['id_cliente']) : 1; 
-        
-        // Regla: si es trabajador, el cliente referencial es Público General (1)
-        if ($id_trabajador) {
-            $id_cliente = 1;
-        }
+        $id_cliente = isset($input['id_cliente']) && $input['id_cliente'] ? intval($input['id_cliente']) : 1;
 
         $tipo_comprobante = isset($input['tipo_comprobante']) ? intval($input['tipo_comprobante']) : 1; // 1 = Boleta, 2 = Factura, 3 = Nota de venta
         $total = isset($input['total']) ? floatval($input['total']) : 0.0;
@@ -68,24 +62,18 @@ switch ($action) {
             exit;
         }
 
-        $id_vale = isset($input['id_vale']) && $input['id_vale'] ? intval($input['id_vale']) : null;
-        $pago_efectivo = isset($input['pago_efectivo']) ? floatval($input['pago_efectivo']) : 0.0;
-        $pago_vale = isset($input['pago_vale']) ? floatval($input['pago_vale']) : 0.0;
-
         // Crear la entidad principal de Venta
-        $venta = new Venta(null, $id_usuario, $id_cliente, $id_trabajador, '', $tipo_comprobante, $total, $metodo_pago, $id_vale, $pago_efectivo, $pago_vale);
+        $venta = new Venta(null, $id_usuario, $id_cliente, '', $tipo_comprobante, $total, $metodo_pago);
         
         // Cargar los items del carrito dentro de la entidad de venta
         foreach ($cart as $item) {
             $id_insumo  = intval($item['id_insumo']);
             // piezas: unidades físicas vendidas (descuenta stock)
             $piezas     = floatval($item['piezas'] ?? $item['cantidad'] ?? 0);
-            // peso_neto: peso real de balanza (pavos) o calculado (sacos)
-            $peso_neto  = floatval($item['peso_neto'] ?? 0.0);
             $precio     = floatval($item['precio']);
             $subtotal   = floatval($item['subtotal']);
 
-            $detalle = new DetalleVenta(null, $id_insumo, $piezas, $peso_neto, $precio, $subtotal);
+            $detalle = new DetalleVenta(null, $id_insumo, $piezas, $precio, 0.0, $subtotal);
             $venta->agregarDetalle($detalle);
         }
 
@@ -159,19 +147,6 @@ switch ($action) {
 
         // Obtener detalles desde el modelo de base de datos
         echo json_encode($model->obtenerDetallesPorVenta($id_venta));
-        break;
-
-    case 'reporte_planilla':
-        if ($_SESSION['rol'] !== 'Administrador') {
-            echo json_encode(["success" => false, "mensaje" => "No autorizado."]);
-            exit;
-        }
-        $fecha_inicio = isset($_GET['desde']) ? $_GET['desde'] : date('Y-m-d');
-        $fecha_fin = isset($_GET['hasta']) ? $_GET['hasta'] : date('Y-m-d');
-        $id_dependencia = isset($_GET['id_dependencia']) && $_GET['id_dependencia'] !== '' ? intval($_GET['id_dependencia']) : null;
-        
-        $data = $model->reportePlanilla($fecha_inicio, $fecha_fin, $id_dependencia);
-        echo json_encode(["success" => true, "data" => $data]);
         break;
 
     default:

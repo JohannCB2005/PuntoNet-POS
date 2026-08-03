@@ -64,8 +64,8 @@ class M_Reporte {
         $sql = "SELECT 
                     i.nombre, 
                     c.nombre as categoria,
-                    SUM(dv.piezas) as piezas_vendidas,
-                    SUM(dv.peso_neto) as kg_vendidos,
+                    SUM(dv.cantidad) as piezas_vendidas,
+                    NULL as kg_vendidos,
                     SUM(dv.subtotal) as ingresos,
                     um.abreviatura as unidad
                 FROM detalle_ventas dv
@@ -167,11 +167,11 @@ class M_Reporte {
         $sql = "SELECT 
                     i.nombre as insumo,
                     c.nombre as categoria,
-                    SUM(dv.piezas) as cantidad_vendida,
-                    SUM(dv.peso_neto) as peso_vendido,
+                    SUM(dv.cantidad) as cantidad_vendida,
+                    NULL as peso_vendido,
                     SUM(dv.subtotal) as ingresos,
-                    SUM(IF(dv.peso_neto > 0, dv.peso_neto * dv.costo_unitario, dv.piezas * dv.costo_unitario)) as costo_total,
-                    SUM(dv.subtotal) - SUM(IF(dv.peso_neto > 0, dv.peso_neto * dv.costo_unitario, dv.piezas * dv.costo_unitario)) as beneficio
+                    SUM(dv.cantidad * dv.costo_unitario) as costo_total,
+                    SUM(dv.subtotal) - SUM(dv.cantidad * dv.costo_unitario) as beneficio
                 FROM detalle_ventas dv
                 INNER JOIN ventas v ON dv.id_venta = v.id_venta
                 INNER JOIN insumos i ON dv.id_insumo = i.id_insumo

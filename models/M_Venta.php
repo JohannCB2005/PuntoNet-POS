@@ -51,19 +51,15 @@ class M_Venta {
 
             // --- PASO 1: Insertar cabecera de venta ---
             $stmtVenta = $this->conexion->prepare(
-                "INSERT INTO ventas (id_usuario, id_cliente, id_trabajador, tipo_comprobante, total, metodo_pago, id_vale, pago_efectivo, pago_vale, estado)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1)"
+                "INSERT INTO ventas (id_usuario, id_cliente, tipo_comprobante, total, metodo_pago, estado)
+                 VALUES (?, ?, ?, ?, ?, 1)"
             );
             $stmtVenta->execute([
                 $venta->id_usuario,
                 $venta->id_cliente,
-                $venta->id_trabajador,
                 $venta->tipo_comprobante,
                 $venta->total,
-                $venta->metodo_pago,
-                $venta->id_vale,
-                $venta->pago_efectivo,
-                $venta->pago_vale
+                $venta->metodo_pago
             ]);
             $id_venta = (int) $this->conexion->lastInsertId();
 
@@ -72,8 +68,8 @@ class M_Venta {
                 "SELECT stock_piezas, costo_produccion FROM insumos WHERE id_insumo = ? FOR UPDATE"
             );
             $stmtDetalle = $this->conexion->prepare(
-                "INSERT INTO detalle_ventas (id_venta, id_insumo, piezas, peso_neto, precio_venta, costo_unitario, subtotal)
-                 VALUES (?, ?, ?, ?, ?, ?, ?)"
+                "INSERT INTO detalle_ventas (id_venta, id_insumo, cantidad, precio_venta, costo_unitario, subtotal)
+                 VALUES (?, ?, ?, ?, ?, ?)"
             );
             $stmtDescuento = $this->conexion->prepare(
                 "UPDATE insumos SET stock_piezas = stock_piezas - ? WHERE id_insumo = ?"
@@ -83,7 +79,6 @@ class M_Venta {
             foreach ($venta->detalles as $detalle) {
                 $id_insumo  = (int)   $detalle->id_insumo;
                 $piezas     = (float) $detalle->piezas;
-                $peso_neto  = (float) $detalle->peso_neto;
                 $precio     = (float) $detalle->precio_venta;
                 $subtotal   = (float) $detalle->subtotal;
 
@@ -104,22 +99,12 @@ class M_Venta {
                 }
 
                 // c. Insertar línea de detalle
-                $stmtDetalle->execute([$id_venta, $id_insumo, $piezas, $peso_neto, $precio, $costo_actual, $subtotal]);
+                $stmtDetalle->execute([$id_venta, $id_insumo, $piezas, $precio, $costo_actual, $subtotal]);
 
                 // d. Descontar stock
                 $stmtDescuento->execute([$piezas, $id_insumo]);
             }
 
-            // --- PASO 2.5: Marcar vale como canjeado si se aplicó ---
-            if ($venta->id_vale) {
-                $stmtVale = $this->conexion->prepare("SELECT id_vale FROM vales WHERE id_vale = ? AND id_trabajador = ? AND estado = 1 FOR UPDATE");
-                $stmtVale->execute([$venta->id_vale, $venta->id_trabajador]);
-                if (!$stmtVale->fetch()) {
-                    throw new Exception("El vale seleccionado no es válido, no pertenece a este cliente o ya fue canjeado.");
-                }
-                $stmtUpdateVale = $this->conexion->prepare("UPDATE vales SET estado = 0 WHERE id_vale = ?");
-                $stmtUpdateVale->execute([$venta->id_vale]);
-            }
 
             $this->conexion->commit();
             return ['ok' => true, 'id_venta' => $id_venta, 'mensaje' => ''];
@@ -158,7 +143,7 @@ class M_Venta {
 
             // --- PASO 2: Obtener ítems de la venta ---
             $stmtDetalles = $this->conexion->prepare(
-                "SELECT id_insumo, piezas FROM detalle_ventas WHERE id_venta = ?"
+                "SELECT id_insumo, cantidad FROM detalle_ventas WHERE id_venta = ?"
             );
             $stmtDetalles->execute([$id_venta]);
             $detalles = $stmtDetalles->fetchAll();
@@ -168,7 +153,7 @@ class M_Venta {
                 "UPDATE insumos SET stock_piezas = stock_piezas + ? WHERE id_insumo = ?"
             );
             foreach ($detalles as $detalle) {
-                $stmtRevertir->execute([$detalle['piezas'], $detalle['id_insumo']]);
+                $stmtRevertir->execute([$detalle['cantidad'], $detalle['id_insumo']]);
             }
 
             $this->conexion->commit();
@@ -191,7 +176,6 @@ class M_Venta {
     public function listar($id_usuario = null) {
         try {
             $sql = "SELECT v.id_venta, v.tipo_comprobante, v.fecha, v.total, v.estado, v.metodo_pago,
-                           v.id_vale, v.pago_efectivo, v.pago_vale,
                            u.username AS vendedor, 
                            IF(p.apellidos IS NOT NULL AND p.apellidos != '', 
                               CONCAT(p.apellidos, ', ', p.nombres_razon_social), 
@@ -199,8 +183,7 @@ class M_Venta {
                      FROM ventas v
                      INNER JOIN usuarios u ON v.id_usuario = u.id_usuario
                      LEFT JOIN clientes c ON v.id_cliente = c.id_cliente
-                     LEFT JOIN trabajadores t ON v.id_trabajador = t.id_trabajador
-                     LEFT JOIN personas p ON p.id_persona = COALESCE(c.id_persona, t.id_persona)";
+                     LEFT JOIN personas p ON c.id_persona = p.id_persona";
             
             if ($id_usuario !== null) {
                 $sql .= " WHERE v.id_usuario = ?";
@@ -228,11 +211,19 @@ class M_Venta {
      */
     public function obtenerDetallesPorVenta($id_venta) {
         try {
-            $sql = "SELECT dv.piezas, dv.peso_neto, dv.precio_venta, dv.costo_unitario, dv.subtotal, 
-                    i.nombre AS insumo_nombre, i.contenido_estandar, um.abreviatura
+            $sql = "SELECT dv.cantidad AS piezas, dv.precio_venta, dv.costo_unitario, dv.subtotal,
+                    CASE
+                        WHEN i.id_talla IS NOT NULL AND t.nombre IS NOT NULL
+                        THEN CONCAT(i.nombre, ' - T.', t.nombre)
+                        ELSE i.nombre
+                    END AS insumo_nombre,
+                    t.nombre AS talla_nombre,
+                    i.id_talla,
+                    um.abreviatura
                     FROM detalle_ventas dv
                     INNER JOIN insumos i ON dv.id_insumo = i.id_insumo
                     INNER JOIN unidades_medida um ON i.id_unidad = um.id_unidad
+                    LEFT JOIN tallas t ON i.id_talla = t.id_talla
                     WHERE dv.id_venta = ?";
             
             $stmt = $this->conexion->prepare($sql);
@@ -244,38 +235,6 @@ class M_Venta {
         }
     }
 
-    /**
-     * Obtiene el reporte de ventas cobradas a planilla.
-     */
-    public function reportePlanilla($fecha_inicio, $fecha_fin, $id_dependencia = null) {
-        try {
-            $sql = "SELECT p.nombres_razon_social, p.apellidos, p.numero_documento,
-                           tr.codigo_planilla, d.nombre as dependencia, tt.nombre as tipo_trabajador,
-                           v.id_venta, v.fecha, v.total
-                    FROM ventas v
-                    INNER JOIN trabajadores tr ON v.id_trabajador = tr.id_trabajador
-                    INNER JOIN personas p ON tr.id_persona = p.id_persona
-                    INNER JOIN dependencias d ON tr.id_dependencia = d.id_dependencia
-                    INNER JOIN tipos_trabajador tt ON tr.id_tipo_trabajador = tt.id_tipo
-                    WHERE v.estado = 1 AND v.metodo_pago = 2 
-                    AND DATE(v.fecha) BETWEEN ? AND ?";
-            
-            $params = [$fecha_inicio, $fecha_fin];
-            
-            if ($id_dependencia) {
-                $sql .= " AND tr.id_dependencia = ?";
-                $params[] = $id_dependencia;
-            }
-            
-            $sql .= " ORDER BY d.nombre ASC, p.apellidos ASC";
-            
-            $stmt = $this->conexion->prepare($sql);
-            $stmt->execute($params);
-            
-            return $stmt->fetchAll(PDO::FETCH_ASSOC);
-        } catch (PDOException $e) {
-            return [];
-        }
-    }
+
 }
 ?>

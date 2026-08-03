@@ -20,21 +20,20 @@ $modulo = isset($_GET['modulo']) ? $_GET['modulo'] : $defaultModule;
 
 // 3. Define route permissions
 $routes = [
-    'dashboard' => ['Administrador'],
-    'categorias' => ['Administrador'],
-    'insumos' => ['Administrador'],
-    'kardex' => ['Administrador'],
-    'usuarios' => ['Administrador'],
-    'clientes' => ['Administrador', 'Vendedor'],
-    'nueva-venta' => ['Administrador', 'Vendedor'],
-    'historial' => ['Administrador', 'Vendedor'],
-    'reportes' => ['Administrador'],
-    'reportes-planilla' => ['Administrador'],
-    'trabajadores' => ['Administrador'],
-    'vales' => ['Administrador'],
+    'dashboard'      => ['Administrador'],
+    'categorias'     => ['Administrador'],
+    'insumos'        => ['Administrador'],
+    'kardex'         => ['Administrador'],
+    'usuarios'       => ['Administrador'],
+    'clientes'       => ['Administrador', 'Vendedor'],
+    'nueva-venta'    => ['Administrador', 'Vendedor'],
+    'historial'      => ['Administrador', 'Vendedor'],
+    'reportes'       => ['Administrador'],
     'pedidos-online' => ['Administrador', 'Vendedor'],
-    'caja' => ['Administrador', 'Vendedor'],
-    'control-cajas' => ['Administrador']
+    'cotizaciones'   => ['Administrador', 'Vendedor'],
+    'nueva-cotizacion' => ['Administrador', 'Vendedor'],
+    'caja'           => ['Administrador', 'Vendedor'],
+    'control-cajas'  => ['Administrador']
 ];
 
 // 4. Validate route exists and is allowed for the user's role
@@ -50,23 +49,22 @@ if (!in_array($rol, $routes[$modulo])) {
 
 // 5. Title for the header
 $titles = [
-    'dashboard' => 'Dashboard - Granja POS',
-    'categorias' => 'Categorías - Granja POS',
-    'insumos' => 'Insumos - Granja POS',
-    'kardex' => 'Kardex - Granja POS',
-    'usuarios' => 'Usuarios - Granja POS',
-    'clientes' => 'Clientes - Granja POS',
-    'nueva-venta' => 'Nueva Venta - Granja POS',
-    'historial' => 'Historial de Ventas - Granja POS',
-    'reportes' => 'Reportes - Granja POS',
-    'reportes-planilla' => 'Reporte Planilla - Granja POS',
-    'trabajadores' => 'Gestor de Trabajadores - Granja POS',
-    'vales' => 'Vales Navideños - Granja POS',
-    'pedidos-online' => 'Pedidos Online - Granja POS',
-    'caja' => 'Mi Caja - Granja POS',
-    'control-cajas' => 'Control de Cajas - Granja POS'
+    'dashboard'      => 'Dashboard - NISSI POS',
+    'categorias'     => 'Categorías - NISSI POS',
+    'insumos'        => 'Productos - NISSI POS',
+    'kardex'         => 'Kardex - NISSI POS',
+    'usuarios'       => 'Usuarios - NISSI POS',
+    'clientes'       => 'Clientes - NISSI POS',
+    'nueva-venta'    => 'Nueva Venta - NISSI POS',
+    'historial'      => 'Historial de Ventas - NISSI POS',
+    'reportes'       => 'Reportes - NISSI POS',
+    'pedidos-online' => 'Pedidos Online - NISSI POS',
+    'cotizaciones'   => 'Cotizaciones - NISSI POS',
+    'nueva-cotizacion' => 'Nueva Cotización - NISSI POS',
+    'caja'           => 'Mi Caja - NISSI POS',
+    'control-cajas'  => 'Control de Cajas - NISSI POS'
 ];
-$title = isset($titles[$modulo]) ? $titles[$modulo] : 'Granja POS';
+$title = isset($titles[$modulo]) ? $titles[$modulo] : 'NISSI POS';
 
 // 6. Include layout and render module view
 require_once 'views/layouts/header.php';
@@ -102,17 +100,14 @@ switch ($modulo) {
     case 'reportes':
         require_once 'views/V_reportes.php';
         break;
-    case 'reportes-planilla':
-        require_once 'views/V_reporte_planilla.php';
-        break;
-    case 'trabajadores':
-        require_once 'views/V_trabajadores.php';
-        break;
-    case 'vales':
-        require_once 'views/V_vales.php';
-        break;
     case 'pedidos-online':
         require_once 'views/V_pedidos_online.php';
+        break;
+    case 'cotizaciones':
+        require_once 'views/V_cotizaciones.php';
+        break;
+    case 'nueva-cotizacion':
+        require_once 'views/V_nueva_cotizacion.php';
         break;
     case 'caja':
         require_once 'views/V_caja.php';

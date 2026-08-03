@@ -192,7 +192,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         doc.setFontSize(22);
         doc.setFont("helvetica", "bold");
-        doc.text("Granja UNP", 40, 50);
+        doc.text("PuntoNet", 40, 50);
         
         doc.setFontSize(14);
         doc.text("Reporte de Descuentos por Planilla", 40, 80);

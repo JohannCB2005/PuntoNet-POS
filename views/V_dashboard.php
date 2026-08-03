@@ -81,7 +81,7 @@ $chartData = array_values($ventasPorDia);
     <div class="d-flex align-items-center justify-content-between mb-4">
         <div>
             <h4 class="mb-1 fw-bold text-dark">Dashboard</h4>
-            <p class="text-muted mb-0" style="font-size: 14px;">Resumen general de la operación de Granja POS.</p>
+            <p class="text-muted mb-0" style="font-size: 14px;">Resumen general de la operación de NISSI POS.</p>
         </div>
     </div>
 
@@ -92,13 +92,13 @@ $chartData = array_values($ventasPorDia);
             <div class="gp-card d-flex flex-column h-full">
                 <div class="d-flex align-items-center justify-content-between mb-2">
                     <span class="text-muted fw-medium" style="font-size: 13px;">Ventas Totales</span>
-                    <span class="d-flex align-items-center justify-content-center bg-success bg-opacity-10 text-success rounded-3" style="width: 36px; height: 36px;">
+                    <span class="d-flex align-items-center justify-content-center bg-primary bg-opacity-10 text-primary rounded-3" style="width: 36px; height: 36px;">
                         <i class="bi bi-graph-up-arrow"></i>
                     </span>
                 </div>
                 <h3 class="mb-1 fw-bold text-dark">S/ <?php echo number_format($totalSales, 2); ?></h3>
                 <div class="mt-2 d-flex align-items-center gap-2" style="font-size: 12px;">
-                    <span class="text-success fw-bold d-inline-flex align-items-center gap-1"><i class="bi bi-arrow-up-right"></i> +12.4%</span>
+                    <span class="text-primary fw-bold d-inline-flex align-items-center gap-1"><i class="bi bi-arrow-up-right"></i> +12.4%</span>
                     <span class="text-muted">vs. semana anterior</span>
                 </div>
             </div>
@@ -109,13 +109,13 @@ $chartData = array_values($ventasPorDia);
             <div class="gp-card d-flex flex-column h-full">
                 <div class="d-flex align-items-center justify-content-between mb-2">
                     <span class="text-muted fw-medium" style="font-size: 13px;">Comprobantes</span>
-                    <span class="d-flex align-items-center justify-content-center bg-success bg-opacity-10 text-success rounded-3" style="width: 36px; height: 36px;">
+                    <span class="d-flex align-items-center justify-content-center bg-primary bg-opacity-10 text-primary rounded-3" style="width: 36px; height: 36px;">
                         <i class="bi bi-bag-check-fill"></i>
                     </span>
                 </div>
                 <h3 class="mb-1 fw-bold text-dark"><?php echo $completedCount; ?></h3>
                 <div class="mt-2 d-flex align-items-center gap-2" style="font-size: 12px;">
-                    <span class="text-success fw-bold d-inline-flex align-items-center gap-1"><i class="bi bi-plus"></i> Reciente</span>
+                    <span class="text-primary fw-bold d-inline-flex align-items-center gap-1"><i class="bi bi-plus"></i> Reciente</span>
                     <span class="text-muted">emitidos hoy</span>
                 </div>
             </div>
@@ -126,7 +126,7 @@ $chartData = array_values($ventasPorDia);
             <div class="gp-card d-flex flex-column h-full">
                 <div class="d-flex align-items-center justify-content-between mb-2">
                     <span class="text-muted fw-medium" style="font-size: 13px;">Usuarios Activos</span>
-                    <span class="d-flex align-items-center justify-content-center bg-success bg-opacity-10 text-success rounded-3" style="width: 36px; height: 36px;">
+                    <span class="d-flex align-items-center justify-content-center bg-primary bg-opacity-10 text-primary rounded-3" style="width: 36px; height: 36px;">
                         <i class="bi bi-people-fill"></i>
                     </span>
                 </div>
@@ -143,7 +143,7 @@ $chartData = array_values($ventasPorDia);
             <div class="gp-card d-flex flex-column h-full">
                 <div class="d-flex align-items-center justify-content-between mb-2">
                     <span class="text-muted fw-medium" style="font-size: 13px;">Stock Bajo</span>
-                    <span class="d-flex align-items-center justify-content-center <?php echo $lowStockCount > 0 ? 'bg-danger bg-opacity-10 text-danger' : 'bg-success bg-opacity-10 text-success'; ?> rounded-3" style="width: 36px; height: 36px;">
+                    <span class="d-flex align-items-center justify-content-center <?php echo $lowStockCount > 0 ? 'bg-danger bg-opacity-10 text-danger' : 'bg-primary bg-opacity-10 text-primary'; ?> rounded-3" style="width: 36px; height: 36px;">
                         <i class="bi bi-exclamation-triangle-fill"></i>
                     </span>
                 </div>
@@ -153,7 +153,7 @@ $chartData = array_values($ventasPorDia);
                         <span class="text-danger fw-bold d-inline-flex align-items-center">Atención</span>
                         <span class="text-muted">insumos por reponer</span>
                     <?php else: ?>
-                        <span class="text-success fw-bold d-inline-flex align-items-center">Al día</span>
+                        <span class="text-primary fw-bold d-inline-flex align-items-center">Al día</span>
                         <span class="text-muted">sin alertas de stock</span>
                     <?php endif; ?>
                 </div>
@@ -208,7 +208,7 @@ $chartData = array_values($ventasPorDia);
                                         <p class="mb-1 fw-bold text-dark" style="font-size: 14px;">
                                             S/ <?php echo number_format($sale['total'], 2); ?>
                                         </p>
-                                        <span class="<?php echo $sale['estado'] == 1 ? 'gp-badge-success' : 'gp-badge-danger'; ?>">
+                                        <span class="<?php echo $sale['estado'] == 1 ? 'gp-badge-primary' : 'gp-badge-danger'; ?>">
                                             <?php echo $sale['estado'] == 1 ? 'Completada' : 'Anulada'; ?>
                                         </span>
                                     </div>
@@ -231,10 +231,10 @@ $chartData = array_values($ventasPorDia);
         
         const ctx = document.getElementById('salesChart').getContext('2d');
         
-        // Relleno de degradado lineal verde para el gráfico de línea/área
+        // Relleno de degradado lineal azul para el gráfico de línea/área
         const gradient = ctx.createLinearGradient(0, 0, 0, 300);
-        gradient.addColorStop(0, 'rgba(21, 128, 61, 0.3)');
-        gradient.addColorStop(1, 'rgba(21, 128, 61, 0.01)');
+        gradient.addColorStop(0, 'rgba(2, 132, 199, 0.3)');
+        gradient.addColorStop(1, 'rgba(2, 132, 199, 0.01)');
 
         let chartType = 'line';
         let salesChart;
@@ -252,9 +252,9 @@ $chartData = array_values($ventasPorDia);
                     datasets: [{
                         label: 'Ventas (S/)',
                         data: dataValues,
-                        borderColor: '#15803d',
+                        borderColor: '#0284c7',
                         borderWidth: 2.5,
-                        backgroundColor: type === 'line' ? gradient : '#15803d',
+                        backgroundColor: type === 'line' ? gradient : '#0284c7',
                         fill: type === 'line',
                         tension: 0.3,
                         borderRadius: type === 'bar' ? 6 : 0,

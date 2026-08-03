@@ -12,7 +12,7 @@ if (!isset($_SESSION['id_usuario'])) {
             <p class="text-muted mb-0" style="font-size: 14px;">Gestiona las compras realizadas a través de la tienda web.</p>
         </div>
         <div>
-            <button class="btn btn-outline-success fw-semibold shadow-sm" id="btnActualizar">
+            <button class="btn btn-outline-primary fw-semibold shadow-sm" id="btnActualizar">
                 <i class="bi bi-arrow-clockwise me-1"></i> Actualizar
             </button>
         </div>
@@ -100,7 +100,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             `;
                         } else if (p.estado == 2) {
                             estadoBadge = '<span class="badge bg-success">Aprobado / Entregado</span>';
-                            acciones += `<a href="index.php?modulo=historial&buscar=${p.id_venta}" class="btn btn-sm btn-outline-success fw-bold">Ver Venta #${p.id_venta}</a>`;
+                            acciones += `<a href="index.php?modulo=historial&buscar=${p.id_venta}" class="btn btn-sm btn-outline-primary fw-bold">Ver Venta #${p.id_venta}</a>`;
                         } else {
                             estadoBadge = '<span class="badge bg-danger">Rechazado</span>';
                         }

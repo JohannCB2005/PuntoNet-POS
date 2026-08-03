@@ -40,7 +40,7 @@ $postFields = http_build_query([
     'amount'                             => $amountCentavos,
     'currency'                           => 'pen',           // Soles peruanos (S/)
     'automatic_payment_methods[enabled]' => 'true',
-    'description'                        => 'Pedido Granja UNP - Click & Collect',
+    'description'                        => 'Pedido PuntoNet - Click & Collect',
     'metadata[cliente_dni]'              => $clienteDni,
     'metadata[cliente_nombres]'          => $clienteNombres,
 ]);

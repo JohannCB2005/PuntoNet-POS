@@ -23,8 +23,8 @@ if (!isset($_SESSION['id_usuario']) || $_SESSION['rol'] !== 'Administrador') {
         transition: all 0.2s ease;
     }
     .nav-tabs .nav-link.active {
-        color: #15803d;
-        border-bottom: 3px solid #15803d;
+        color: #0284c7;
+        border-bottom: 3px solid #0284c7;
         background: transparent;
     }
     .nav-tabs .nav-link:hover:not(.active) {
@@ -57,7 +57,7 @@ if (!isset($_SESSION['id_usuario']) || $_SESSION['rol'] !== 'Administrador') {
                 <label class="form-label text-muted fw-semibold mb-1" style="font-size: 12px;">Hasta</label>
                 <input type="date" id="filtroHasta" class="form-control form-control-sm" value="<?php echo date('Y-m-d'); ?>">
             </div>
-            <button class="btn btn-success btn-sm px-3 fw-semibold" id="btnFiltrar" style="height: 31px;">
+            <button class="btn btn-primary btn-sm px-3 fw-semibold" id="btnFiltrar" style="height: 31px; background-color: #0284c7; border: none;">
                 <i class="bi bi-funnel"></i> Aplicar
             </button>
             <div class="dropdown">
@@ -345,7 +345,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 datasets: [{
                     label: 'Ingresos S/',
                     data: values,
-                    borderColor: '#15803d',
+                    borderColor: '#0284c7',
                     backgroundColor: gradient,
                     fill: true,
                     tension: 0.3
@@ -526,7 +526,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Cabecera Documento
         doc.setFontSize(22);
         doc.setFont("helvetica", "bold");
-        doc.text("Granja UNP", 40, 50);
+        doc.text("PuntoNet", 40, 50);
         
         doc.setFontSize(14);
         doc.text(title, 40, 80);

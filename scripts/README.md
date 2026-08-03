@@ -30,7 +30,7 @@ php scripts/setup_ecommerce.php
 
 Como `.htaccess` bloquea el acceso HTTP, **copiar el SQL** de cada script y ejecutarlo manualmente en:
 
-> **app.infinityfree.com → phpMyAdmin → Base de datos `if0_42381931_granja_pos`**
+> **app.infinityfree.com → phpMyAdmin → Base de datos `if0_42381931_puntonet_pos`**
 
 ---
 

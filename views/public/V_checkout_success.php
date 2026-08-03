@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pedido Confirmado — Granja UNP</title>
-    <link rel="icon" type="image/png" href="../../assets/logo_unp.png">
+    <title>Pedido Confirmado — PuntoNet</title>
+    <link rel="icon" type="image/png" href="../../assets/Logo navegador PuntoNet.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
@@ -13,27 +13,21 @@
 
     <style>
         :root {
-            --primary:      #15803d;
-            --primary-dark: #166534;
-            --primary-light:#dcfce7;
-            --bg:           #f1f5f9;
+            --primary:      #0284c7;
+            --primary-dark: #0369a1;
             --surface:      #ffffff;
+            --bg:           #f8fafc;
             --border:       #e2e8f0;
             --text:         #0f172a;
             --muted:        #64748b;
         }
 
         body {
-            font-family: 'Inter', sans-serif;
-            background: var(--bg);
+            background-color: var(--bg);
             color: var(--text);
+            font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
             min-height: 100vh;
             display: flex;
-            flex-direction: column;
-            align-items: center;
-            padding: 40px 16px 80px;
-        }
-
         /* ─── Success Check Animation ──────────────────── */
         .check-circle {
             width: 90px;
@@ -379,7 +373,7 @@
                     </div>
                     <div class="total-row">
                         <span>Envío / Recojo</span>
-                        <span style="color:#15803d;font-weight:700">GRATIS</span>
+                        <span style="color:#0284c7;font-weight:700">GRATIS</span>
                     </div>
                     <div class="total-row grand">
                         <span>Total Pagado</span>
@@ -411,7 +405,7 @@
             <div class="pickup-box">
                 <i class="bi bi-geo-alt-fill"></i>
                 <p><strong>¿Cómo recoger tu pedido?</strong><br>
-                Acércate a las instalaciones de la <strong>Granja UNP</strong> con tu número de ticket. El personal verificará tu compra y hará entrega de tus productos.</p>
+                Acércate a las instalaciones de <strong>PuntoNet</strong> con tu número de ticket. El personal verificará tu compra y hará entrega de tus productos.</p>
             </div>
 
             <!-- Actions -->
@@ -495,7 +489,7 @@
             document.getElementById('ticketContent').style.display = 'block';
 
             // Clear cart from session after successful display
-            sessionStorage.removeItem('granja_cart');
+            sessionStorage.removeItem('puntonet_cart');
         }
 
         function showError() {

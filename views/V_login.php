@@ -13,8 +13,8 @@ if (empty($_SESSION['csrf_token'])) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Iniciar Sesión — Granja POS</title>
-    <link rel="icon" type="image/png" href="assets/logo_unp.png">
+    <title>Iniciar Sesión — NISSI POS</title>
+    <link rel="icon" type="image/png" href="assets/Logo navegador PuntoNet.png">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -28,7 +28,7 @@ if (empty($_SESSION['csrf_token'])) {
             display: flex;
             align-items: center;
             justify-content: center;
-            background: #f0f4f0;
+            background: #e8eeff;
         }
 
         /* ── Contenedor principal ── */
@@ -47,7 +47,7 @@ if (empty($_SESSION['csrf_token'])) {
         .login-hero {
             flex: 0 0 42%;
             position: relative;
-            background: url('assets/login_hero.jpg') center center / cover no-repeat;
+            background: url('assets/Login Cajera.jpeg') center center / cover no-repeat;
             display: flex;
             flex-direction: column;
             justify-content: flex-end;
@@ -61,7 +61,7 @@ if (empty($_SESSION['csrf_token'])) {
             background: linear-gradient(
                 180deg,
                 rgba(0,0,0,0.08) 0%,
-                rgba(10,50,20,0.72) 100%
+                rgba(10,30,80,0.78) 100%
             );
         }
 
@@ -80,7 +80,7 @@ if (empty($_SESSION['csrf_token'])) {
         }
 
         .hero-text h2 span {
-            color: #4ade80;
+            color: #93c5fd;
         }
 
         .hero-text p {
@@ -101,14 +101,14 @@ if (empty($_SESSION['csrf_token'])) {
         .brand-name {
             font-size: 32px;
             font-weight: 800;
-            color: #15803d;
+            color: #1d4ed8;
             letter-spacing: -1px;
             margin-bottom: 28px;
             text-transform: uppercase;
         }
 
         .brand-name span {
-            color: #1e3a2f;
+            color: #1e3a8a;
         }
 
         .login-title {
@@ -143,8 +143,8 @@ if (empty($_SESSION['csrf_token'])) {
         }
 
         .form-control:focus {
-            border-color: #15803d;
-            box-shadow: 0 0 0 3px rgba(21,128,61,0.12) !important;
+            border-color: #1d4ed8;
+            box-shadow: 0 0 0 3px rgba(29,78,216,0.12) !important;
         }
 
         .input-group .form-control {
@@ -162,21 +162,21 @@ if (empty($_SESSION['csrf_token'])) {
             transition: color 0.15s;
         }
 
-        .input-group .btn-toggle-pass:hover { color: #15803d; }
+        .input-group .btn-toggle-pass:hover { color: #1d4ed8; }
 
         .input-group:focus-within .form-control,
         .input-group:focus-within .btn-toggle-pass {
-            border-color: #15803d;
+            border-color: #1d4ed8;
         }
 
         .input-group:focus-within .btn-toggle-pass {
-            box-shadow: 0 0 0 3px rgba(21,128,61,0.12);
+            box-shadow: 0 0 0 3px rgba(29,78,216,0.12);
         }
 
         .btn-login {
             height: 48px;
             border-radius: 10px;
-            background: #15803d;
+            background: #1d4ed8;
             border: none;
             color: #fff;
             font-size: 14px;
@@ -188,7 +188,7 @@ if (empty($_SESSION['csrf_token'])) {
             margin-top: 24px;
         }
 
-        .btn-login:hover { background: #166534; }
+        .btn-login:hover { background: #1e40af; }
         .btn-login:active { transform: scale(0.985); }
 
         .btn-login:disabled {
@@ -204,7 +204,7 @@ if (empty($_SESSION['csrf_token'])) {
         }
 
         .login-footer a {
-            color: #15803d;
+            color: #1d4ed8;
             font-weight: 600;
             text-decoration: none;
         }
@@ -224,18 +224,20 @@ if (empty($_SESSION['csrf_token'])) {
     <!-- PANEL IZQUIERDO: Héroe Visual -->
     <div class="login-hero">
         <div class="hero-text">
-            <h2>La forma moderna<br>de <span>gestionar tu granja</span></h2>
-            <p>Controla ventas, inventario y clientes desde un solo lugar. Simple, rápido y confiable.</p>
+            <h2>Tu tienda de uniformes<br>en <span>un solo lugar</span></h2>
+            <p>Gestiona ventas, inventario de uniformes y módulos escolares de forma rápida y profesional.</p>
         </div>
     </div>
 
     <!-- PANEL DERECHO: Formulario de Credenciales -->
     <div class="login-form-panel">
-        <div class="brand-name">Granja <span>POS</span></div>
+        <div class="brand-logo mb-4">
+            <img src="assets/Logo Login PuntoNet.png" alt="PuntoNet" style="max-height: 65px; max-width: 100%; object-fit: contain;">
+        </div>
 
         <h1 class="login-title">Iniciar Sesión 👋</h1>
         <p class="login-subtitle">
-            Bienvenido al sistema de gestión de insumos y ventas.<br>
+            Bienvenido al sistema de gestión de uniforms y módulos escolares.<br>
             Ingresa tus credenciales para continuar.
         </p>
 
@@ -308,7 +310,7 @@ if (empty($_SESSION['csrf_token'])) {
                 icon: 'warning',
                 title: 'Campos requeridos',
                 text: 'Por favor ingresa tu usuario y contraseña.',
-                confirmButtonColor: '#15803d'
+                confirmButtonColor: '#0284c7'
             });
             return;
         }
@@ -341,7 +343,7 @@ if (empty($_SESSION['csrf_token'])) {
                     icon: 'error',
                     title: 'Acceso denegado',
                     text: data.mensaje,
-                    confirmButtonColor: '#15803d'
+                    confirmButtonColor: '#1d4ed8'
                 });
                 btn.disabled = false;
                 btn.innerHTML = 'Iniciar Sesión';
@@ -351,7 +353,7 @@ if (empty($_SESSION['csrf_token'])) {
                 icon: 'error',
                 title: 'Error de conexión',
                 text: 'No se pudo contactar al servidor.',
-                confirmButtonColor: '#15803d'
+                confirmButtonColor: '#0284c7'
             });
             btn.disabled = false;
             btn.innerHTML = 'Iniciar Sesión';

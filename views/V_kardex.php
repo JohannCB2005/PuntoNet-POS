@@ -36,15 +36,54 @@ $insumos = $modelKardex->listarInsumos();
                 <label class="form-label fw-semibold text-muted mb-1" style="font-size:12px; text-transform:uppercase; letter-spacing:.5px;">Producto / Artículo</label>
                 <select class="form-select" id="selectInsumo" style="font-size:14px; box-shadow:none;">
                     <option value="">— Seleccione un producto —</option>
-                    <?php foreach ($insumos as $ins): ?>
-                        <option value="<?= $ins['id_insumo'] ?>"
-                                data-precio="<?= $ins['precio_unitario'] ?>"
-                                data-stock="<?= $ins['stock_piezas'] ?>"
-                                data-unidad="<?= htmlspecialchars($ins['abreviatura']) ?>"
-                                data-categoria="<?= htmlspecialchars($ins['categoria']) ?>">
-                            <?= htmlspecialchars($ins['nombre']) ?>
-                        </option>
-                    <?php endforeach; ?>
+                    <?php
+                    // Agrupar por producto padre (o categoría si es simple)
+                    $gruposKardex = [];
+                    foreach ($insumos as $ins) {
+                        $grupo = $ins['nombre_padre'] ?? null;
+                        if ($grupo) {
+                            $gruposKardex[$grupo][] = $ins;
+                        } else {
+                            $gruposKardex['__simples__'][] = $ins;
+                        }
+                    }
+                    foreach ($gruposKardex as $nombreGrupo => $items):
+                        if ($nombreGrupo === '__simples__'):
+                    ?>
+                        <optgroup label="— Productos individuales —">
+                            <?php foreach ($items as $ins): ?>
+                                <option value="<?= $ins['id_insumo'] ?>"
+                                        data-precio="<?= $ins['precio_unitario'] ?>"
+                                        data-stock="<?= $ins['stock_piezas'] ?>"
+                                        data-unidad="<?= htmlspecialchars($ins['abreviatura']) ?>"
+                                        data-categoria="<?= htmlspecialchars($ins['categoria']) ?>"
+                                        data-shorttext="<?= htmlspecialchars($ins['nombre']) ?>"
+                                        data-fulltext="<?= htmlspecialchars($ins['nombre']) ?>">
+                                    <?= htmlspecialchars($ins['nombre']) ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </optgroup>
+                    <?php else: ?>
+                        <optgroup label="<?= htmlspecialchars($nombreGrupo) ?>">
+                            <?php foreach ($items as $ins): 
+                                $shortText = htmlspecialchars($ins['talla'] ? 'Talla ' . $ins['talla'] : $ins['nombre']);
+                                $fullText = htmlspecialchars($nombreGrupo . ' - ' . ($ins['talla'] ? 'Talla ' . $ins['talla'] : $ins['nombre']));
+                            ?>
+                                <option value="<?= $ins['id_insumo'] ?>"
+                                        data-precio="<?= $ins['precio_unitario'] ?>"
+                                        data-stock="<?= $ins['stock_piezas'] ?>"
+                                        data-unidad="<?= htmlspecialchars($ins['abreviatura']) ?>"
+                                        data-categoria="<?= htmlspecialchars($ins['categoria']) ?>"
+                                        data-shorttext="<?= $shortText ?>"
+                                        data-fulltext="<?= $fullText ?>">
+                                    <?= $shortText ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </optgroup>
+                    <?php
+                        endif;
+                    endforeach;
+                    ?>
                 </select>
             </div>
         </div>
@@ -164,6 +203,32 @@ $insumos = $modelKardex->listarInsumos();
 document.addEventListener('DOMContentLoaded', () => {
     // Referencias a los filtros y el selector de productos
     const selectInsumo   = document.getElementById('selectInsumo');
+    
+    // Función para manejar el texto visual del select
+    function updateSelectedText() {
+        const selected = selectInsumo.options[selectInsumo.selectedIndex];
+        if (selected && selected.dataset.fulltext) {
+            // Revertir temporalmente todos al formato corto para el dropdown
+            Array.from(selectInsumo.options).forEach(opt => {
+                if (opt.dataset.shorttext && opt !== selected) {
+                    opt.textContent = opt.dataset.shorttext;
+                }
+            });
+            // Cambiar solo el elegido a texto completo
+            selected.textContent = selected.dataset.fulltext;
+        }
+    }
+    
+    selectInsumo.addEventListener('focus', function() {
+        Array.from(this.options).forEach(opt => {
+            if (opt.dataset.shorttext) {
+                opt.textContent = opt.dataset.shorttext;
+            }
+        });
+    });
+    selectInsumo.addEventListener('blur', updateSelectedText);
+    selectInsumo.addEventListener('change', updateSelectedText);
+
     const filterTipo     = document.getElementById('filterTipo');
     const filterDesde    = document.getElementById('filterDesde');
     const filterHasta    = document.getElementById('filterHasta');
@@ -243,7 +308,7 @@ document.addEventListener('DOMContentLoaded', () => {
             kardexLoading.classList.add('d-none');
 
             if (!json.success) {
-                Swal.fire({ icon:'error', title:'Error', text: json.mensaje, confirmButtonColor:'#15803d' });
+                Swal.fire({ icon:'error', title:'Error', text: json.mensaje, confirmButtonColor:'#0284c7' });
                 return;
             }
 
@@ -290,7 +355,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             ${row.tipo_doc}
                         </span>
                     </td>
-                    <td class="fw-semibold" style="color:#15803d; font-size:12px;">${row.numero_doc}</td>
+                    <td class="fw-semibold" style="color:#0284c7; font-size:12px;">${row.numero_doc}</td>
                     <td class="text-muted" style="font-size:12px;">${row.concepto}</td>
 
                     <!-- COLUMNAS ENTRADAS -->
@@ -321,7 +386,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         } catch (err) {
             kardexLoading.classList.add('d-none');
-            Swal.fire({ icon:'error', title:'Error de red', text:'No se pudo contactar al servidor.', confirmButtonColor:'#15803d' });
+            Swal.fire({ icon:'error', title:'Error de red', text:'No se pudo contactar al servidor.', confirmButtonColor:'#0284c7' });
         }
     }
 

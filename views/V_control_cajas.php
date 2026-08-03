@@ -40,12 +40,13 @@ $cajas = $model->listarPorFecha($fechaFiltro);
                         <th scope="col" class="pb-3 text-end">M. Cierre</th>
                         <th scope="col" class="pb-3 text-end">Diferencia</th>
                         <th scope="col" class="pb-3 text-center">Estado</th>
+                        <th scope="col" class="pb-3 text-center">Acciones</th>
                     </tr>
                 </thead>
                 <tbody>
                     <?php if (empty($cajas)): ?>
                         <tr>
-                            <td colspan="7" class="text-center py-5 text-muted">
+                            <td colspan="8" class="text-center py-5 text-muted">
                                 <i class="bi bi-safe-fill fs-2 mb-2 d-block"></i>
                                 No hay registros de cajas en esta fecha.
                             </td>
@@ -106,6 +107,9 @@ $cajas = $model->listarPorFecha($fechaFiltro);
                                         <span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary border-opacity-25 px-2 py-1 rounded-pill">Cerrada</span>
                                     <?php endif; ?>
                                 </td>
+                                <td class="text-center">
+                                    <button class="btn btn-link text-muted p-1 hover-text-primary ver-detalle-btn" data-id="<?= $caja['id_caja'] ?>" title="Ver Detalle"><i class="bi bi-eye-fill"></i></button>
+                                </td>
                             </tr>
                         <?php endforeach; ?>
                         <!-- Fila de Totales del Día Consolidados -->
@@ -117,7 +121,7 @@ $cajas = $model->listarPorFecha($fechaFiltro);
                             <td class="text-end fw-bold <?php echo $sum_dif > 0 ? 'text-primary' : ($sum_dif < 0 ? 'text-danger' : 'text-success'); ?>">
                                 S/ <?php echo number_format($sum_dif, 2); ?>
                             </td>
-                            <td></td>
+                            <td colspan="2"></td>
                         </tr>
                     <?php endif; ?>
                 </tbody>
@@ -125,12 +129,143 @@ $cajas = $model->listarPorFecha($fechaFiltro);
         </div>
     </div>
 </div>
+
+<!-- Modal Detalle de Caja -->
+<div class="modal fade" id="cajaDetalleModal" tabindex="-1" aria-labelledby="cajaDetalleModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold" id="cajaDetalleModalLabel">Detalle de Caja</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row mb-4" id="cajaResumenCards">
+                    <!-- Se llenará dinámicamente -->
+                </div>
+                <h6 class="fw-bold mb-3">Ventas Realizadas</h6>
+                <div class="table-responsive">
+                    <table class="table align-middle text-sm" style="font-size: 14px;">
+                        <thead>
+                            <tr class="text-muted border-bottom">
+                                <th>N° Venta</th>
+                                <th>Hora</th>
+                                <th>Cliente</th>
+                                <th>Método</th>
+                                <th class="text-end">Total</th>
+                            </tr>
+                        </thead>
+                        <tbody id="cajaVentasBody">
+                            <!-- Se llenará dinámicamente -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
 document.addEventListener('DOMContentLoaded', function () {
     // Inicializar tooltips para ver observaciones de descuadres de caja al pasar el mouse
     var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
     var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
         return new bootstrap.Tooltip(tooltipTriggerEl)
-    })
+    });
+
+    const cajaDetalleModalEl = document.getElementById('cajaDetalleModal');
+    if (cajaDetalleModalEl) {
+        const cajaDetalleModal = new bootstrap.Modal(cajaDetalleModalEl);
+        
+        document.querySelectorAll('.ver-detalle-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const idCaja = this.getAttribute('data-id');
+                fetch(`controllers/C_Caja.php?action=detalle&id_caja=${idCaja}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if(data.success) {
+                            const resumen = data.resumen;
+                            const resumenHtml = `
+                                <div class="col-md-4 mb-3">
+                                    <div class="card bg-light border-0 shadow-sm h-100">
+                                        <div class="card-body">
+                                            <h6 class="fw-bold text-muted mb-3"><i class="bi bi-cash-stack text-success"></i> Efectivo</h6>
+                                            <div class="d-flex justify-content-between mb-1"><span>Sistema:</span> <strong>S/ ${parseFloat(resumen.efectivo.sistema).toFixed(2)}</strong></div>
+                                            <div class="d-flex justify-content-between mb-1"><span>Declarado:</span> <strong>S/ ${parseFloat(resumen.efectivo.declarado).toFixed(2)}</strong></div>
+                                            <div class="d-flex justify-content-between border-top pt-1 mt-1"><span>Diferencia:</span> <strong class="${resumen.efectivo.diferencia < 0 ? 'text-danger' : (resumen.efectivo.diferencia > 0 ? 'text-primary' : 'text-success')}">S/ ${parseFloat(resumen.efectivo.diferencia).toFixed(2)}</strong></div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    <div class="card bg-light border-0 shadow-sm h-100">
+                                        <div class="card-body">
+                                            <h6 class="fw-bold text-muted mb-3"><i class="bi bi-phone text-info"></i> Yape / Plin</h6>
+                                            <div class="d-flex justify-content-between mb-1"><span>Sistema:</span> <strong>S/ ${parseFloat(resumen.yape.sistema).toFixed(2)}</strong></div>
+                                            <div class="d-flex justify-content-between mb-1"><span>Declarado:</span> <strong>S/ ${parseFloat(resumen.yape.declarado).toFixed(2)}</strong></div>
+                                            <div class="d-flex justify-content-between border-top pt-1 mt-1"><span>Diferencia:</span> <strong class="${resumen.yape.diferencia < 0 ? 'text-danger' : (resumen.yape.diferencia > 0 ? 'text-primary' : 'text-success')}">S/ ${parseFloat(resumen.yape.diferencia).toFixed(2)}</strong></div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    <div class="card bg-light border-0 shadow-sm h-100">
+                                        <div class="card-body">
+                                            <h6 class="fw-bold text-muted mb-3"><i class="bi bi-credit-card text-warning"></i> Tarjeta</h6>
+                                            <div class="d-flex justify-content-between mb-1"><span>Sistema:</span> <strong>S/ ${parseFloat(resumen.tarjeta.sistema).toFixed(2)}</strong></div>
+                                            <div class="d-flex justify-content-between mb-1"><span>Declarado:</span> <strong>S/ ${parseFloat(resumen.tarjeta.declarado).toFixed(2)}</strong></div>
+                                            <div class="d-flex justify-content-between border-top pt-1 mt-1"><span>Diferencia:</span> <strong class="${resumen.tarjeta.diferencia < 0 ? 'text-danger' : (resumen.tarjeta.diferencia > 0 ? 'text-primary' : 'text-success')}">S/ ${parseFloat(resumen.tarjeta.diferencia).toFixed(2)}</strong></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            `;
+                            document.getElementById('cajaResumenCards').innerHTML = resumenHtml;
+                            
+                            let ventasHtml = '';
+                            if(data.ventas && data.ventas.length > 0) {
+                                data.ventas.forEach(v => {
+                                    let icono = 'bi-cash';
+                                    let textClass = 'text-success';
+                                    let emoji = '💵';
+                                    if(v.metodo_pago.toLowerCase().includes('yape') || v.metodo_pago.toLowerCase().includes('plin')) {
+                                        icono = 'bi-phone'; textClass = 'text-info'; emoji = '📱';
+                                    } else if(v.metodo_pago.toLowerCase().includes('tarjeta')) {
+                                        icono = 'bi-credit-card'; textClass = 'text-warning'; emoji = '💳';
+                                    }
+                                    
+                                    let time = '-';
+                                    if(v.fecha_venta) {
+                                        const dateObj = new Date(v.fecha_venta);
+                                        if(!isNaN(dateObj)) {
+                                            time = dateObj.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                                        } else {
+                                            time = v.fecha_venta.split(' ')[1] || v.fecha_venta;
+                                        }
+                                    }
+
+                                    ventasHtml += `
+                                        <tr>
+                                            <td class="fw-medium">#${v.id_venta}</td>
+                                            <td class="text-muted">${time}</td>
+                                            <td>${v.nombre_cliente || 'Público General'}</td>
+                                            <td><span class="${textClass}">${emoji} ${v.metodo_pago}</span></td>
+                                            <td class="text-end fw-bold">S/ ${parseFloat(v.total).toFixed(2)}</td>
+                                        </tr>
+                                    `;
+                                });
+                            } else {
+                                ventasHtml = '<tr><td colspan="5" class="text-center text-muted py-3">No hay ventas registradas en esta caja.</td></tr>';
+                            }
+                            document.getElementById('cajaVentasBody').innerHTML = ventasHtml;
+                            
+                            cajaDetalleModal.show();
+                        } else {
+                            alert('Error al cargar el detalle: ' + (data.message || 'Error desconocido'));
+                        }
+                    })
+                    .catch(err => {
+                        console.error('Error fetching detalle caja:', err);
+                        alert('Ocurrió un error de red al intentar obtener el detalle.');
+                    });
+            });
+        });
+    }
 });
 </script>

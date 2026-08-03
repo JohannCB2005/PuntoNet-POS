@@ -134,7 +134,7 @@ $roles = $modelRol->listar();
 <div class="modal fade" id="nuevoUsuarioModal" tabindex="-1" aria-labelledby="nuevoUsuarioModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-0 shadow-lg" style="border-radius: 15px;">
-            <div class="modal-header bg-success text-white border-0 py-3" style="border-radius: 15px 15px 0 0;">
+            <div class="modal-header gp-bg-primary text-white border-0 py-3" style="border-radius: 15px 15px 0 0;">
                 <h6 class="modal-title fw-bold" id="nuevoUsuarioModalLabel">Nuevo Usuario</h6>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close" style="box-shadow: none;"></button>
             </div>
@@ -210,7 +210,7 @@ $roles = $modelRol->listar();
 <div class="modal fade" id="editarUsuarioModal" tabindex="-1" aria-labelledby="editarUsuarioModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-0 shadow-lg" style="border-radius: 15px;">
-            <div class="modal-header bg-success text-white border-0 py-3" style="border-radius: 15px 15px 0 0;">
+            <div class="modal-header gp-bg-primary text-white border-0 py-3" style="border-radius: 15px 15px 0 0;">
                 <h6 class="modal-title fw-bold" id="editarUsuarioModalLabel">Editar Registro</h6>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close" style="box-shadow: none;"></button>
             </div>
@@ -403,7 +403,7 @@ $roles = $modelRol->listar();
                             icon: 'error',
                             title: 'Error',
                             text: data.mensaje,
-                            confirmButtonColor: '#15803d'
+                            confirmButtonColor: '#0284c7'
                         });
                     }
                 } catch (error) {
@@ -469,7 +469,7 @@ $roles = $modelRol->listar();
                             icon: 'error',
                             title: 'Error',
                             text: data.mensaje,
-                            confirmButtonColor: '#15803d'
+                            confirmButtonColor: '#0284c7'
                         });
                     }
                 } catch (error) {
@@ -516,7 +516,7 @@ $roles = $modelRol->listar();
                                     icon: 'error',
                                     title: 'Error',
                                     text: data.mensaje,
-                                    confirmButtonColor: '#15803d'
+                                    confirmButtonColor: '#0284c7'
                                 });
                             }
                         } catch (error) {

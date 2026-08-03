@@ -64,18 +64,20 @@ class M_Caja {
     }
 
     /**
-     * Cierra la sesión de caja del usuario, calculando automáticamente las ventas acumuladas,
-     * el total esperado en efectivo y la diferencia (sobrante o faltante).
+     * Cierra la sesión de caja del usuario, calculando automáticamente las ventas acumuladas por método de pago,
+     * el total esperado y la diferencia (sobrante o faltante) por cada método.
      * @param int $id_caja ID de la sesión de caja a cerrar
      * @param int $id_usuario ID del usuario dueño de la caja
-     * @param float $monto_cierre Dinero físico real reportado por el usuario
+     * @param float $cierre_efectivo Dinero físico real reportado por el usuario
+     * @param float $cierre_yape Monto de capturas de Yape reportado
+     * @param float $cierre_tarjeta Monto de vouchers reportado
      * @param string $observaciones Comentarios u observaciones sobre el cuadre de caja
      * @return bool True en caso de éxito, False si no existe la caja o falla la DB
      */
-    public function cerrarCaja($id_caja, $id_usuario, $monto_cierre, $observaciones) {
+    public function cerrarCaja($id_caja, $id_usuario, $cierre_efectivo, $cierre_yape, $cierre_tarjeta, $observaciones) {
         try {
             // 1. Obtener la fecha de apertura para delimitar el cálculo de ventas
-            $sql_caja = "SELECT fecha_apertura FROM cajas WHERE id_caja = ? AND id_usuario = ? AND estado = 1";
+            $sql_caja = "SELECT fecha_apertura, monto_apertura FROM cajas WHERE id_caja = ? AND id_usuario = ? AND estado = 1";
             $stmt_caja = $this->conexion->prepare($sql_caja);
             $stmt_caja->execute([$id_caja, $id_usuario]);
             $caja = $stmt_caja->fetch();
@@ -84,42 +86,46 @@ class M_Caja {
 
             $fecha_apertura = $caja['fecha_apertura'];
             $fecha_cierre = date('Y-m-d H:i:s');
+            $monto_apertura = floatval($caja['monto_apertura']);
 
-            // 2. Calcular la suma total de las ventas activas y número de tickets creados por el usuario en este rango de tiempo
-            $sql_ventas = "SELECT SUM(total) as total_ventas, COUNT(id_venta) as num_ventas 
-                           FROM ventas 
-                           WHERE id_usuario = ? AND estado = 1 AND fecha BETWEEN ? AND ?";
-            $stmt_ventas = $this->conexion->prepare($sql_ventas);
-            $stmt_ventas->execute([$id_usuario, $fecha_apertura, $fecha_cierre]);
-            $res_ventas = $stmt_ventas->fetch();
+            // 2. Calcular desglose de ventas por método de pago
+            $desglose = $this->calcularDesglosePorMetodo($id_usuario, $fecha_apertura);
+            
+            $ventas_efectivo = $desglose['1'];
+            $ventas_yape     = $desglose['2'];
+            $ventas_tarjeta  = $desglose['3'];
+            $total_ventas    = $ventas_efectivo + $ventas_yape + $ventas_tarjeta;
 
-            $total_ventas = $res_ventas['total_ventas'] ? floatval($res_ventas['total_ventas']) : 0.00;
-            $num_ventas = $res_ventas['num_ventas'] ? intval($res_ventas['num_ventas']) : 0;
+            // Obtener número de ventas
+            $sql_num = "SELECT COUNT(id_venta) FROM ventas WHERE id_usuario = ? AND estado = 1 AND fecha BETWEEN ? AND ?";
+            $stmt_num = $this->conexion->prepare($sql_num);
+            $stmt_num->execute([$id_usuario, $fecha_apertura, $fecha_cierre]);
+            $num_ventas = intval($stmt_num->fetchColumn());
 
-            // 3. Obtener el monto de apertura original
-            $sql_ap = "SELECT monto_apertura FROM cajas WHERE id_caja = ?";
-            $stmt_ap = $this->conexion->prepare($sql_ap);
-            $stmt_ap->execute([$id_caja]);
-            $monto_apertura = floatval($stmt_ap->fetchColumn());
+            // 4. Calcular diferencias
+            $dif_efectivo = $cierre_efectivo - ($monto_apertura + $ventas_efectivo);
+            $dif_yape     = $cierre_yape - $ventas_yape;
+            $dif_tarjeta  = $cierre_tarjeta - $ventas_tarjeta;
 
-            // 4. Calcular diferencia: Dinero reportado - (Monto apertura + Ventas registradas en sistema)
-            $diferencia = $monto_cierre - ($monto_apertura + $total_ventas);
+            $monto_cierre = $cierre_efectivo + $cierre_yape + $cierre_tarjeta;
+            $diferencia   = $dif_efectivo + $dif_yape + $dif_tarjeta;
 
             // 5. Actualizar la fila en cajas cerrando el estado (estado = 0)
             $sql_upd = "UPDATE cajas SET 
-                        monto_cierre = ?, 
+                        monto_cierre = ?, cierre_efectivo = ?, cierre_yape = ?, cierre_tarjeta = ?,
                         fecha_cierre = ?, 
-                        total_ventas = ?, 
-                        num_ventas = ?, 
-                        diferencia = ?, 
-                        observaciones = ?, 
-                        estado = 0 
+                        total_ventas = ?, num_ventas = ?, 
+                        diferencia = ?, dif_efectivo = ?, dif_yape = ?, dif_tarjeta = ?,
+                        observaciones = ?, estado = 0 
                         WHERE id_caja = ?";
             
             $stmt_upd = $this->conexion->prepare($sql_upd);
             return $stmt_upd->execute([
-                $monto_cierre, $fecha_cierre, $total_ventas, $num_ventas, 
-                $diferencia, $observaciones, $id_caja
+                $monto_cierre, $cierre_efectivo, $cierre_yape, $cierre_tarjeta,
+                $fecha_cierre,
+                $total_ventas, $num_ventas,
+                $diferencia, $dif_efectivo, $dif_yape, $dif_tarjeta,
+                $observaciones, $id_caja
             ]);
         } catch (PDOException $e) {
             return false;
@@ -175,6 +181,70 @@ class M_Caja {
             return $res ? floatval($res) : 0.00;
         } catch (PDOException $e) {
             return 0.00;
+        }
+    }
+
+    /**
+     * Calcula el desglose de ventas por método de pago para un usuario desde su apertura de caja
+     */
+    public function calcularDesglosePorMetodo($id_usuario, $fecha_apertura) {
+        try {
+            $sql = "SELECT metodo_pago, SUM(total) AS monto
+                    FROM ventas
+                    WHERE id_usuario = ? AND estado = 1 AND fecha >= ?
+                    GROUP BY metodo_pago";
+            $stmt = $this->conexion->prepare($sql);
+            $stmt->execute([$id_usuario, $fecha_apertura]);
+            $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $result = ['1' => 0.0, '2' => 0.0, '3' => 0.0];
+            foreach ($rows as $r) {
+                $result[$r['metodo_pago']] = floatval($r['monto']);
+            }
+            return $result;
+        } catch (PDOException $e) {
+            return ['1' => 0.0, '2' => 0.0, '3' => 0.0];
+        }
+    }
+
+    /**
+     * Obtiene el detalle completo de una caja para mostrar en el modal
+     */
+    public function obtenerDetalleCaja($id_caja) {
+        try {
+            // 1. Obtener datos de la caja
+            $stmtCaja = $this->conexion->prepare("SELECT * FROM cajas WHERE id_caja = ?");
+            $stmtCaja->execute([$id_caja]);
+            $caja = $stmtCaja->fetch(PDO::FETCH_ASSOC);
+            if (!$caja) return null;
+
+            $fecha_fin = $caja['fecha_cierre'] ?? date('Y-m-d H:i:s');
+
+            // 2. Ventas del período con desglose
+            $stmtVentas = $this->conexion->prepare("
+                SELECT v.id_venta, v.fecha, v.total, v.metodo_pago,
+                       v.tipo_comprobante, v.estado,
+                       IFNULL(p.nombres_razon_social, 'Público General') AS cliente
+                FROM ventas v
+                LEFT JOIN clientes c ON v.id_cliente = c.id_cliente
+                LEFT JOIN personas p ON c.id_persona = p.id_persona
+                WHERE v.id_usuario = ? AND v.fecha BETWEEN ? AND ?
+                ORDER BY v.fecha ASC
+            ");
+            $stmtVentas->execute([$caja['id_usuario'], $caja['fecha_apertura'], $fecha_fin]);
+            $ventas = $stmtVentas->fetchAll(PDO::FETCH_ASSOC);
+
+            // 3. Resumen por método (de las ventas recuperadas, si se desea verificar)
+            $resumen = ['1' => 0.0, '2' => 0.0, '3' => 0.0];
+            foreach ($ventas as $v) {
+                if ($v['estado'] == 1) {
+                    $m = (string)$v['metodo_pago'];
+                    if (isset($resumen[$m])) $resumen[$m] += floatval($v['total']);
+                }
+            }
+
+            return ['caja' => $caja, 'ventas' => $ventas, 'resumen' => $resumen];
+        } catch (PDOException $e) {
+            return null;
         }
     }
 }

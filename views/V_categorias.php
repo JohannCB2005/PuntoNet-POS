@@ -16,7 +16,7 @@ $categorias = $modelCat->listar();
     <div class="d-flex align-items-center justify-content-between mb-4">
         <div>
             <h4 class="mb-1 fw-bold text-dark">Categorías</h4>
-            <p class="text-muted mb-0" style="font-size: 14px;">Organiza los insumos de la granja en categorías.</p>
+            <p class="text-muted mb-0" style="font-size: 14px;">Organiza los insumos en categorías.</p>
         </div>
         <button class="gp-btn-primary d-flex align-items-center gap-2 border-0" data-bs-toggle="modal" data-bs-target="#nuevaCategoriaModal">
             <i class="bi bi-plus-lg"></i>
@@ -43,6 +43,7 @@ $categorias = $modelCat->listar();
             <table class="table align-middle text-sm" id="tableCategorias" style="font-size: 14px;">
                 <thead>
                     <tr class="text-muted border-bottom" style="font-size: 13px;">
+                        <th scope="col" class="pb-3" style="width: 50px;">#</th>
                         <th scope="col" class="pb-3">Categoría</th>
                         <th scope="col" class="pb-3">Descripción</th>
                         <th scope="col" class="pb-3">Estado</th>
@@ -52,14 +53,18 @@ $categorias = $modelCat->listar();
                 <tbody>
                     <?php if (empty($categorias)): ?>
                         <tr>
-                            <td colspan="4" class="text-center py-5 text-muted">
+                            <td colspan="5" class="text-center py-5 text-muted">
                                 <i class="bi bi-tags-fill fs-2 mb-2 d-block"></i>
                                 No se encontraron categorías.
                             </td>
                         </tr>
                     <?php else: ?>
+                        <?php $contador = 1; ?>
                         <?php foreach ($categorias as $cat): ?>
                             <tr class="border-bottom category-row">
+                                <td class="text-muted py-3">
+                                    <?php echo $contador++; ?>
+                                </td>
                                 <td class="fw-semibold text-dark py-3">
                                     <?php echo htmlspecialchars($cat['nombre']); ?>
                                 </td>
@@ -103,7 +108,7 @@ $categorias = $modelCat->listar();
 <div class="modal fade" id="nuevaCategoriaModal" tabindex="-1" aria-labelledby="nuevaCategoriaModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-0 shadow-lg" style="border-radius: 15px;">
-            <div class="modal-header bg-success text-white border-0 py-3" style="border-radius: 15px 15px 0 0;">
+            <div class="modal-header gp-bg-primary text-white border-0 py-3" style="border-radius: 15px 15px 0 0;">
                 <h6 class="modal-title fw-bold" id="nuevaCategoriaModalLabel">Nueva Categoría</h6>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close" style="box-shadow: none;"></button>
             </div>
@@ -131,7 +136,7 @@ $categorias = $modelCat->listar();
 <div class="modal fade" id="editarCategoriaModal" tabindex="-1" aria-labelledby="editarCategoriaModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-0 shadow-lg" style="border-radius: 15px;">
-            <div class="modal-header bg-success text-white border-0 py-3" style="border-radius: 15px 15px 0 0;">
+            <div class="modal-header gp-bg-primary text-white border-0 py-3" style="border-radius: 15px 15px 0 0;">
                 <h6 class="modal-title fw-bold" id="editarCategoriaModalLabel">Editar Registro</h6>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close" style="box-shadow: none;"></button>
             </div>
@@ -206,7 +211,7 @@ $categorias = $modelCat->listar();
                             icon: 'error',
                             title: 'Error',
                             text: data.mensaje,
-                            confirmButtonColor: '#15803d'
+                            confirmButtonColor: '#0284c7'
                         });
                     }
                 } catch (error) {
@@ -257,7 +262,7 @@ $categorias = $modelCat->listar();
                             icon: 'error',
                             title: 'Error',
                             text: data.mensaje,
-                            confirmButtonColor: '#15803d'
+                            confirmButtonColor: '#0284c7'
                         });
                     }
                 } catch (error) {
@@ -304,7 +309,7 @@ $categorias = $modelCat->listar();
                                     icon: 'error',
                                     title: 'Error',
                                     text: data.mensaje,
-                                    confirmButtonColor: '#15803d'
+                                    confirmButtonColor: '#0284c7'
                                 });
                             }
                         } catch (error) {

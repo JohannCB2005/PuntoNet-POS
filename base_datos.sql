@@ -1,11 +1,11 @@
 -- =============================================================================
--- GRANJA POS — Script de Base de Datos Completo
+-- PUNTONET POS — Script de Base de Datos Completo
 -- Compatible con InfinityFree (phpMyAdmin)
 -- Reglas: sin CREATE DATABASE, sin USE, sin STORED PROCEDURES, sin DELIMITER
 -- Charset: utf8mb4 | Engine: InnoDB
 --
 -- INSTRUCCIONES:
---   1. En phpMyAdmin, selecciona la base de datos (if0_42381931_granja_pos)
+--   1. En phpMyAdmin, selecciona la base de datos (if0_42381931_puntonet_pos)
 --   2. Ve a la pestaña "SQL" y pega este script completo
 --   3. Ejecuta — las tablas se crearán en el orden correcto sin conflictos
 -- =============================================================================
@@ -337,6 +337,6 @@ SET FOREIGN_KEY_CHECKS = 1;
 -- FIN DEL SCRIPT
 -- Versión: 2026-07-11
 -- Para producción InfinityFree:
---   - BD: if0_42381931_granja_pos
+--   - BD: if0_42381931_puntonet_pos
 --   - Ejecutar desde phpMyAdmin → pestaña SQL
 -- =============================================================================

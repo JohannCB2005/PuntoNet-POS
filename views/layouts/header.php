@@ -4,9 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <!-- Título de página dinámico -->
-    <title><?php echo isset($title) ? $title : 'Granja POS'; ?></title>
+    <title><?php echo isset($title) ? $title : 'NISSI POS'; ?></title>
     <!-- Icono oficial de la aplicación -->
-    <link rel="icon" type="image/png" href="assets/logo_unp.png">
+    <link rel="icon" type="image/png" href="assets/Logo navegador PuntoNet.png">
     <!-- Tipografía Google Fonts: Plus Jakarta Sans -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -23,17 +23,17 @@
     <!-- Diseño Estético Premium e Identidad de Marca (Aesthetics) -->
     <style>
         :root {
-            --gp-primary: #15803d; /* Verde Bosque (Marca principal) */
-            --gp-primary-hover: #166534;
-            --gp-primary-light: #e6f4ea;
-            --gp-background: #f8faf9;
+            --gp-primary: #1d4ed8;        /* Azul NISSI (Marca principal) */
+            --gp-primary-hover: #1e40af;
+            --gp-primary-light: #eff6ff;
+            --gp-background: #f0f4ff;     /* Fondo azulado suave */
             --gp-card: #ffffff;
-            --gp-sidebar: #0f1712;
-            --gp-sidebar-hover: #1b2620;
-            --gp-sidebar-active: #15803d;
+            --gp-sidebar: #0f172a;        /* Navy oscuro */
+            --gp-sidebar-hover: #1e293b;
+            --gp-sidebar-active: #1d4ed8;
             --gp-text: #1f2937;
             --gp-text-muted: #6b7280;
-            --gp-border: #e5e7eb;
+            --gp-border: #e2e8f0;
             --font-sans: 'Plus Jakarta Sans', sans-serif;
         }
 
@@ -215,17 +215,22 @@
             background-color: var(--gp-primary-hover);
             border-color: var(--gp-primary-hover);
             color: #ffffff;
-            box-shadow: 0 4px 12px rgba(21, 128, 61, 0.15);
+            box-shadow: 0 4px 12px rgba(29, 78, 216, 0.25);
         }
 
         .gp-badge-success {
             background-color: var(--gp-primary-light);
             color: var(--gp-primary);
-            border: 1px solid rgba(21, 128, 61, 0.2);
+            border: 1px solid rgba(29, 78, 216, 0.2);
             padding: 4px 8px;
             border-radius: 20px;
             font-size: 11px;
             font-weight: 600;
+        }
+
+        .gp-bg-primary {
+            background-color: var(--gp-primary) !important;
+            color: #ffffff;
         }
 
         .gp-badge-danger {
