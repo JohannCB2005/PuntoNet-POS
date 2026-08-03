@@ -16,36 +16,53 @@ switch ($action) {
         echo json_encode(['success' => true, 'data' => $grupos]);
         break;
 
+    // Requiere el token público del pedido: evita enumerar pedidos ajenos (IDOR).
     case 'get_pedido':
         $id = intval($_GET['id'] ?? 0);
-        if ($id <= 0) {
-            echo json_encode(['success' => false, 'mensaje' => 'ID inválido']);
+        $token = trim($_GET['t'] ?? '');
+        if ($id <= 0 || $token === '') {
+            echo json_encode(['success' => false, 'mensaje' => 'Solicitud inválida.']);
             exit;
         }
-        $pedido = M_Ecommerce::singleton()->getPedidoPublico($id);
-        echo json_encode(['success' => (bool)$pedido, 'data' => $pedido]);
+        $pedido = M_Ecommerce::singleton()->getPedidoPublico($id, $token);
+        echo json_encode(['success' => (bool) $pedido, 'data' => $pedido]);
         break;
 
+    // Crea el pedido en estado "pendiente de pago" y reserva stock. El precio y el total
+    // se recalculan siempre en el servidor; el cliente solo envía {id_producto, cantidad}.
     case 'crear_pedido':
         $raw = file_get_contents("php://input");
         $data = json_decode($raw, true);
         if (!$data) {
-            echo json_encode(['success' => false, 'mensaje' => 'Datos inválidos']);
+            echo json_encode(['success' => false, 'mensaje' => 'Datos inválidos.']);
             exit;
         }
 
         $cliente = $data['cliente'] ?? [];
-        $nro_operacion = trim($data['nro_operacion'] ?? '');
-        $total = floatval($data['total'] ?? 0);
         $carrito = $data['carrito'] ?? [];
+        $payment_intent_id = trim($data['payment_intent_id'] ?? '');
 
-        if (empty($cliente['dni']) || empty($cliente['nombres']) || empty($nro_operacion) || empty($carrito)) {
+        if (empty($cliente['dni']) || empty($cliente['nombres']) || empty($carrito) || $payment_intent_id === '') {
             echo json_encode(['success' => false, 'mensaje' => 'Faltan datos obligatorios o el carrito está vacío.']);
             exit;
         }
 
-        $res = M_Ecommerce::singleton()->crearPedido($cliente, $nro_operacion, $total, $carrito);
-        echo json_encode(['success' => $res['ok'], 'mensaje' => $res['mensaje'], 'id_pedido' => $res['id_pedido'] ?? null]);
+        // El PaymentIntent debe existir en nuestra cuenta y seguir en curso (nadie puede fabricar un id de Stripe).
+        require_once dirname(__DIR__) . '/models/M_Stripe.php';
+        $pi = M_Stripe::singleton()->obtenerPaymentIntent($payment_intent_id);
+        $estadosValidos = ['requires_payment_method', 'requires_confirmation', 'requires_action', 'processing'];
+        if (!$pi['ok'] || !in_array($pi['data']['status'] ?? '', $estadosValidos, true)) {
+            echo json_encode(['success' => false, 'mensaje' => 'El pago no es válido o ya fue procesado.']);
+            exit;
+        }
+
+        $res = M_Ecommerce::singleton()->crearPedidoPendiente($cliente, $carrito, $payment_intent_id);
+        echo json_encode([
+            'success'   => $res['ok'],
+            'mensaje'   => $res['mensaje'] ?? null,
+            'id_pedido' => $res['id_pedido'] ?? null,
+            'token'     => $res['token'] ?? null,
+        ]);
         break;
 
     case 'listar_pedidos':
@@ -75,11 +92,15 @@ switch ($action) {
 
         $raw = file_get_contents("php://input");
         $data = json_decode($raw, true);
-        $id_pedido = intval($data['id_pedido']);
-        $accion = $data['accion']; // 'aprobar' o 'rechazar'
+        $id_pedido = intval($data['id_pedido'] ?? 0);
+        $accion = $data['accion'] ?? ''; // 'aprobar' o 'rechazar'
+
+        if ($id_pedido <= 0 || !in_array($accion, ['aprobar', 'rechazar'], true)) {
+            echo json_encode(['success' => false, 'mensaje' => 'Datos inválidos.']);
+            exit;
+        }
 
         if ($accion === 'aprobar') {
-            // Verificar caja abierta
             $modelCaja = M_Caja::singleton();
             if (!$modelCaja->obtenerCajaAbierta($_SESSION['id_usuario'])) {
                 echo json_encode(["success" => false, "mensaje" => "Debes tener una caja abierta para aprobar pedidos y generar ventas."]);
@@ -91,22 +112,7 @@ switch ($action) {
         echo json_encode(['success' => $res['ok'], 'mensaje' => $res['mensaje']]);
         break;
 
-    case 'get_pedido':
-        $id = intval($_GET['id'] ?? 0);
-        if ($id <= 0) {
-            echo json_encode(['success' => false, 'mensaje' => 'ID inválido']);
-            exit;
-        }
-        $pedido = M_Ecommerce::singleton()->getPedidoPublico($id);
-        if ($pedido) {
-            echo json_encode(['success' => true, 'data' => $pedido]);
-        } else {
-            echo json_encode(['success' => false, 'mensaje' => 'Pedido no encontrado']);
-        }
-        break;
-
     default:
         echo json_encode(['success' => false, 'mensaje' => 'Acción no válida']);
         break;
 }
-?>

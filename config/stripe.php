@@ -24,4 +24,9 @@ define('STRIPE_SK', $_env['STRIPE_SK']
     ?? 'YOUR_STRIPE_SECRET_KEY'
 );
 
+// ── Secreto del webhook (Stripe Dashboard → Developers → Webhooks) ───────────
+define('STRIPE_WH_SECRET', $_env['STRIPE_WH_SECRET']
+    ?? ''
+);
+
 unset($_envFile, $_env);

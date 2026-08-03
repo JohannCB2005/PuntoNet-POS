@@ -143,8 +143,8 @@ if (!isset($_SESSION['id_usuario']) || $_SESSION['rol'] !== 'Administrador') {
                 </div>
                 <div class="col-12 col-lg-4">
                     <div class="gp-card h-100">
-                        <h6 class="mb-4 fw-bold text-dark">Top Insumos Vendidos</h6>
-                        <div id="topInsumosContainer">
+                        <h6 class="mb-4 fw-bold text-dark">Top Productos Vendidos</h6>
+                        <div id="topProductosContainer">
                             <!-- Llenado por JS -->
                         </div>
                     </div>
@@ -189,7 +189,7 @@ if (!isset($_SESSION['id_usuario']) || $_SESSION['rol'] !== 'Administrador') {
                     <table class="table table-hover align-middle mb-0" id="tablaInventario">
                         <thead class="table-light">
                             <tr>
-                                <th>Insumo</th>
+                                <th>Producto</th>
                                 <th>Categoría</th>
                                 <th>Stock</th>
                                 <th>P. Unitario</th>
@@ -231,12 +231,12 @@ if (!isset($_SESSION['id_usuario']) || $_SESSION['rol'] !== 'Administrador') {
         <!-- TAB 5: BENEFICIO -->
         <div class="tab-pane fade" id="beneficio" role="tabpanel">
             <div class="gp-card">
-                <h6 class="mb-4 fw-bold text-dark">Análisis Costo-Beneficio por Insumo</h6>
+                <h6 class="mb-4 fw-bold text-dark">Análisis Costo-Beneficio por Producto</h6>
                 <div class="table-responsive">
                     <table class="table table-hover align-middle mb-0" id="tablaBeneficio">
                         <thead class="table-light">
                             <tr>
-                                <th>Insumo</th>
+                                <th>Producto</th>
                                 <th>Categoría</th>
                                 <th>Cantidad Vendida</th>
                                 <th class="text-end">Ingresos</th>
@@ -358,14 +358,14 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
-        // Top Insumos
-        const topCont = document.getElementById('topInsumosContainer');
+        // Top Productos
+        const topCont = document.getElementById('topProductosContainer');
         topCont.innerHTML = '';
-        if (data.top_insumos.length === 0) {
+        if (data.top_productos.length === 0) {
             topCont.innerHTML = '<p class="text-muted text-center py-4">Sin datos en el período.</p>';
         } else {
-            let maxIngreso = Math.max(...data.top_insumos.map(i => parseFloat(i.ingresos)));
-            data.top_insumos.forEach(item => {
+            let maxIngreso = Math.max(...data.top_productos.map(i => parseFloat(i.ingresos)));
+            data.top_productos.forEach(item => {
                 let pct = (parseFloat(item.ingresos) / maxIngreso) * 100;
                 topCont.innerHTML += `
                     <div class="mb-3">
@@ -497,7 +497,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         let isPositive = parseFloat(b.beneficio) >= 0;
                         tbody.innerHTML += `
                             <tr>
-                                <td class="fw-semibold">${b.insumo}</td>
+                                <td class="fw-semibold">${b.producto}</td>
                                 <td>${b.categoria}</td>
                                 <td>${parseFloat(b.cantidad_vendida).toFixed(2)}</td>
                                 <td class="text-end">S/ ${parseFloat(b.ingresos).toFixed(2)}</td>
@@ -561,7 +561,7 @@ document.addEventListener('DOMContentLoaded', () => {
             ]);
         }
         else if (tabActivo === 'inventario-tab') {
-            heads = [['Insumo', 'Categoría', 'Stock', 'P.Unitario', 'Total', 'Estado']];
+            heads = [['Producto', 'Categoría', 'Stock', 'P.Unitario', 'Total', 'Estado']];
             body = dataInventario.map(i => [
                 i.nombre, i.categoria, `${parseFloat(i.stock_piezas).toFixed(2)} ${i.unidad}`,
                 `S/ ${parseFloat(i.precio_unitario).toFixed(2)}`,
@@ -580,9 +580,9 @@ document.addEventListener('DOMContentLoaded', () => {
             ]);
         }
         else if (tabActivo === 'beneficio-tab') {
-            heads = [['Insumo', 'Categoría', 'Cantidad Vendida', 'Ingresos', 'Costo Total', 'Beneficio']];
+            heads = [['Producto', 'Categoría', 'Cantidad Vendida', 'Ingresos', 'Costo Total', 'Beneficio']];
             body = dataBeneficio.map(b => [
-                b.insumo, b.categoria, parseFloat(b.cantidad_vendida).toFixed(2),
+                b.producto, b.categoria, parseFloat(b.cantidad_vendida).toFixed(2),
                 `S/ ${parseFloat(b.ingresos).toFixed(2)}`,
                 `S/ ${parseFloat(b.costo_total).toFixed(2)}`,
                 `S/ ${parseFloat(b.beneficio).toFixed(2)}`
@@ -632,7 +632,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         else if (tabActivo === 'inventario-tab') {
             const data = dataInventario.map(i => ({
-                'Insumo': i.nombre,
+                'Producto': i.nombre,
                 'Categoría': i.categoria,
                 'Stock': parseFloat(i.stock_piezas),
                 'Unidad': i.unidad,
@@ -654,7 +654,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         else if (tabActivo === 'beneficio-tab') {
             const data = dataBeneficio.map(b => ({
-                'Insumo': b.insumo,
+                'Producto': b.producto,
                 'Categoría': b.categoria,
                 'Cantidad Vendida': parseFloat(b.cantidad_vendida),
                 'Ingresos': parseFloat(b.ingresos),

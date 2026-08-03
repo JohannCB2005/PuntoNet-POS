@@ -47,7 +47,7 @@ switch ($action) {
         $tipo_comprobante = isset($input['tipo_comprobante']) ? intval($input['tipo_comprobante']) : 1; // 1 = Boleta, 2 = Factura, 3 = Nota de venta
         $total = isset($input['total']) ? floatval($input['total']) : 0.0;
         $metodo_pago = isset($input['metodo_pago']) ? intval($input['metodo_pago']) : 1;
-        $cart = isset($input['cart']) ? $input['cart'] : []; // Elementos del carrito: {id_insumo, cantidad, precio, subtotal}
+        $cart = isset($input['cart']) ? $input['cart'] : []; // Elementos del carrito: {id_producto, cantidad, precio, subtotal}
 
         // Validación inicial
         if (empty($cart) || $total <= 0) {
@@ -67,13 +67,13 @@ switch ($action) {
         
         // Cargar los items del carrito dentro de la entidad de venta
         foreach ($cart as $item) {
-            $id_insumo  = intval($item['id_insumo']);
+            $id_producto  = intval($item['id_producto']);
             // piezas: unidades físicas vendidas (descuenta stock)
             $piezas     = floatval($item['piezas'] ?? $item['cantidad'] ?? 0);
             $precio     = floatval($item['precio']);
             $subtotal   = floatval($item['subtotal']);
 
-            $detalle = new DetalleVenta(null, $id_insumo, $piezas, $precio, 0.0, $subtotal);
+            $detalle = new DetalleVenta(null, $id_producto, $piezas, $precio, 0.0, $subtotal);
             $venta->agregarDetalle($detalle);
         }
 

@@ -28,7 +28,7 @@ if (!isset($_SESSION['id_usuario'])) {
                             <th>N° Pedido</th>
                             <th>Fecha</th>
                             <th>Cliente</th>
-                            <th>N° Operación Yape</th>
+                            <th>Referencia de Pago</th>
                             <th>Total</th>
                             <th>Estado</th>
                             <th class="text-end">Acciones</th>
@@ -56,7 +56,7 @@ if (!isset($_SESSION['id_usuario'])) {
                     <table class="table table-sm" style="font-size: 13px;">
                         <thead class="table-light">
                             <tr>
-                                <th>Insumo</th>
+                                <th>Producto</th>
                                 <th>Cantidad</th>
                                 <th class="text-end">Total</th>
                             </tr>
@@ -77,6 +77,10 @@ document.addEventListener('DOMContentLoaded', () => {
     cargarPedidos();
 
     document.getElementById('btnActualizar').addEventListener('click', cargarPedidos);
+
+    function escapeHtml(str) {
+        return String(str ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+    }
 
     async function cargarPedidos() {
         try {
@@ -101,21 +105,26 @@ document.addEventListener('DOMContentLoaded', () => {
                         } else if (p.estado == 2) {
                             estadoBadge = '<span class="badge bg-success">Aprobado / Entregado</span>';
                             acciones += `<a href="index.php?modulo=historial&buscar=${p.id_venta}" class="btn btn-sm btn-outline-primary fw-bold">Ver Venta #${p.id_venta}</a>`;
+                        } else if (p.estado == 3) {
+                            estadoBadge = '<span class="badge bg-secondary">Esperando pago</span>';
+                        } else if (p.estado == 4) {
+                            estadoBadge = '<span class="badge bg-dark">Expirado / Pago fallido</span>';
                         } else {
                             estadoBadge = '<span class="badge bg-danger">Rechazado</span>';
                         }
 
                         let cliente = p.apellidos ? `${p.apellidos}, ${p.nombres_razon_social}` : p.nombres_razon_social;
+                        let referenciaPago = p.payment_intent_id || p.nro_operacion_yape || '—';
 
                         tbody.innerHTML += `
                             <tr>
                                 <td class="fw-bold">#${p.id_pedido}</td>
-                                <td>${p.fecha_pedido}</td>
+                                <td>${escapeHtml(p.fecha_pedido)}</td>
                                 <td>
-                                    <div class="fw-semibold">${cliente}</div>
-                                    <small class="text-muted">DNI: ${p.numero_documento} | Tel: ${p.telefono || '-'}</small>
+                                    <div class="fw-semibold">${escapeHtml(cliente)}</div>
+                                    <small class="text-muted">DNI: ${escapeHtml(p.numero_documento)} | Tel: ${escapeHtml(p.telefono || '-')}</small>
                                 </td>
-                                <td class="font-monospace">${p.nro_operacion_yape}</td>
+                                <td class="font-monospace">${escapeHtml(referenciaPago)}</td>
                                 <td class="fw-bold text-success">S/ ${parseFloat(p.total).toFixed(2)}</td>
                                 <td>${estadoBadge}</td>
                                 <td class="text-end">${acciones}</td>
@@ -137,11 +146,10 @@ document.addEventListener('DOMContentLoaded', () => {
             if (result.success) {
                 let html = '';
                 result.data.forEach(d => {
-                    let cantInfo = `${parseFloat(d.cantidad).toFixed(2)} ${d.abreviatura}`;
-                    if (d.peso_neto > 0) cantInfo += `<br><small class="text-muted">${parseFloat(d.peso_neto).toFixed(2)} Kg</small>`;
+                    let cantInfo = `${parseFloat(d.cantidad).toFixed(2)} ${escapeHtml(d.abreviatura)}`;
                     html += `
                         <tr>
-                            <td>${d.nombre}</td>
+                            <td>${escapeHtml(d.nombre)}</td>
                             <td>${cantInfo}</td>
                             <td class="text-end fw-semibold">S/ ${parseFloat(d.subtotal).toFixed(2)}</td>
                         </tr>
@@ -155,8 +163,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     window.gestionarPedido = (id_pedido, accion) => {
         let title = accion === 'aprobar' ? '¿Aprobar Pedido?' : '¿Rechazar Pedido?';
-        let text = accion === 'aprobar' 
-            ? 'Se generará una Venta en el sistema y se marcará como pagado vía Yape.'
+        let text = accion === 'aprobar'
+            ? 'Se generará una Venta en el sistema con el pago ya verificado.'
             : 'El stock reservado será devuelto al inventario.';
             
         Swal.fire({

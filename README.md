@@ -1,4 +1,4 @@
-# Sistema de Ventas de Insumos de Granja (POS)
+# Sistema de Ventas de Productos de Granja (POS)
 
 **Universidad Nacional de Piura (UNP) - Ingeniería Informática**
 
@@ -7,7 +7,7 @@ Este repositorio contiene el código fuente para el Sistema de Punto de Venta (P
 ---
 
 ## 1. Definición del Sistema y Caso Real
-* **El Problema en la UNP:** Actualmente, la gestión de insumos y ventas de la Granja de Zootecnia se realiza de forma manual, lo que genera descuadres de inventario y lentitud en los reportes.
+* **El Problema en la UNP:** Actualmente, la gestión de productos y ventas de la Granja de Zootecnia se realiza de forma manual, lo que genera descuadres de inventario y lentitud en los reportes.
 * **Justificación:** Este sistema web digitaliza el proceso mediante una interfaz interactiva y segura, resolviendo el problema de gestión real.
 
 2. **Módulos del Sistema (Alcance Total)**
@@ -19,7 +19,7 @@ El sistema se compone de los siguientes 6 módulos funcionales:
    * Redirección y bloqueo de rutas según el Rol (Admin/Vendedor).
 2. **Módulo de Inventario:**
    * Gestión de Categorías (CRUD simple).
-   * Gestión de Insumos (CRUD con control de Stock y Borrado Lógico).
+   * Gestión de Productos (CRUD con control de Stock y Borrado Lógico).
 3. **Módulo de Usuarios (Solo Admin):**
    * Registro de trabajadores con encriptación de claves (`password_hash()`).
    * Asignación de roles y control de acceso.
@@ -27,7 +27,7 @@ El sistema se compone de los siguientes 6 módulos funcionales:
    * Registro y edición de compradores (CRUD con Borrado Lógico).
    * Integración con consulta/búsqueda rápida y registro inteligente.
 5. **Módulo de Ventas (Transaccional - CRÍTICO):**
-   * Interfaz POS interactiva (Búsqueda de insumos y Carrito temporal en JS/PHP).
+   * Interfaz POS interactiva (Búsqueda de productos y Carrito temporal en JS/PHP).
    * Generación de la Venta (facturación).
    * Historial de ventas y anulación de boletas.
    * **Impresión de Comprobante:** Previsualización y descarga en múltiples formatos (Ticket térmico 80mm, Ticket térmico 58mm y formato A4 estándar) integrado tras registrar una venta y en el historial.
@@ -46,7 +46,7 @@ El sistema se compone de los siguientes 6 módulos funcionales:
 
 ## 4. Estrategia de Base de Datos (Híbrida)
 Para garantizar la integridad financiera y el rendimiento, el acceso a datos se divide en dos enfoques:
-* **Consultas Preparadas PDO:** Utilizadas en los DAOs para todos los CRUDs estándar (Usuarios, Clientes, Insumos, Categorías).
+* **Consultas Preparadas PDO:** Utilizadas en los DAOs para todos los CRUDs estándar (Usuarios, Clientes, Productos, Categorías).
 * **Procedimientos Almacenados con Transacciones:** Uso obligatorio para procesos que afecten múltiples tablas para evitar inconsistencias. Ejemplo:
   * `sp_registrar_venta`: Controla inserciones en ventas, detalle_ventas y actualización de stock.
   * `sp_anular_venta`: Controla la anulación y la devolución del stock al inventario.
@@ -72,7 +72,7 @@ El proyecto respetará la separación estricta en capas basada en los laboratori
 ├── assets/                 <-- FRONTEND (Territorio del Integrante 4)
 │   ├── css/                # Estilos personalizados adicionales a Bootstrap
 │   ├── js/                 # Lógica de cliente, AJAX, validaciones y gráficos
-│   ├── img/                # Logos, avatares, imágenes de insumos
+│   ├── img/                # Logos, avatares, imágenes de productos
 │   └── vendor/             # Librerías externas (Bootstrap, Chart.js, FPDF)
 │
 ├── config/                 <-- BACKEND (Tu territorio)
@@ -83,14 +83,14 @@ El proyecto respetará la separación estricta en capas basada en los laboratori
 │   └── .gitkeep            # Aquí irán C_Venta.php, C_Usuario.php, etc.
 │
 ├── entities/               <-- BACKEND (Tu territorio)
-│   └── .gitkeep            # Clases puras para llenado de datos (Insumo.php, Venta.php). 
+│   └── .gitkeep            # Clases puras para llenado de datos (Producto.php, Venta.php). 
 │
 ├── models/                 <-- BACKEND (Territorio de Álvaro y Módulo Ventas)
 │   └── .gitkeep            # Archivos M_*.php con el Patrón Singleton y sentencias SQL
 │
 ├── views/                  <-- FRONTEND / UI (Territorio del Integrante 4)
 │   ├── layouts/            # Partes repetitivas: header.php, footer.php, navbar.php
-│   └── .gitkeep            # Las pantallas V_*.php (V_nueva_venta.php, V_lista_insumos.php)
+│   └── .gitkeep            # Las pantallas V_*.php (V_nueva_venta.php, V_lista_productos.php)
 │
 ├── base_datos.sql          # (Ya lo tienes)
 ├── README.md               # (Ya lo tienes)
@@ -116,26 +116,26 @@ Siguiendo las directrices del curso, todas las clases del directorio /models imp
 Para mantener un código limpio, aplicaremos el estándar PSR.
 
 ### 6.1. Base de Datos (`snake_case`)
-* **Tablas:** En plural (`insumos`, `usuarios`, `ventas`).
-* **Columnas:** En singular (`id_insumo`, `nombre`, `precio_unitario`).
+* **Tablas:** En plural (`productos`, `usuarios`, `ventas`).
+* **Columnas:** En singular (`id_producto`, `nombre`, `precio_unitario`).
 
 ### 6.2. Clases y Archivos PHP (`PascalCase`)
 El nombre del archivo debe ser exactamente igual al nombre de la clase.
-* **Entidades:** `Insumo.php`, `Usuario.php`, `Cliente.php`.
-* **Modelos (DAOs):** Prefijo `M_` (`M_Insumo.php`, `M_Cliente.php`).
-* **Controladores:** Prefijo `C_` (`C_Insumo.php`, `C_Cliente.php`).
+* **Entidades:** `Producto.php`, `Usuario.php`, `Cliente.php`.
+* **Modelos (DAOs):** Prefijo `M_` (`M_Producto.php`, `M_Cliente.php`).
+* **Controladores:** Prefijo `C_` (`C_Producto.php`, `C_Cliente.php`).
 
 ### 6.3. Variables y Propiedades (`camelCase`)
-* **Correcto:** `$precioUnitario`, `$listaInsumos`, `$idVenta`.
+* **Correcto:** `$precioUnitario`, `$listaProductos`, `$idVenta`.
 * **Incorrecto:** `$precio_unitario`, `$PrecioUnitario`.
 
 ### 6.4. Funciones y Métodos (`camelCase` + Verbo)
-* **Correcto:** `obtenerInsumo()`, `registrarVenta()`, `listarTodos()`.
-* **Incorrecto:** `Insumo()`, `ver_venta()`.
+* **Correcto:** `obtenerProducto()`, `registrarVenta()`, `listarTodos()`.
+* **Incorrecto:** `Producto()`, `ver_venta()`.
 
 ### 6.5. Vistas HTML/PHP (`snake_case`)
-* **Correcto:** `lista_insumos.php`, `nueva_venta.php`.
-* **Incorrecto:** `ListaInsumos.php`, `NuevaVenta.php`.
+* **Correcto:** `lista_productos.php`, `nueva_venta.php`.
+* **Incorrecto:** `ListaProductos.php`, `NuevaVenta.php`.
 
 ---
 
@@ -144,17 +144,17 @@ Siempre usaremos las Clases Entidades para llenarlos de datos y no pasar tantos 
 
 🔴 **INCORRECTO:**
 ```php
-public function registrarInsumo($nombre, $descripcion, $precio, $stock) { ... }
+public function registrarProducto($nombre, $descripcion, $precio, $stock) { ... }
 ```
 🟢 CORRECTO:
 ```php
 // 1. Llenamos la Clase Entidad
-$nuevoInsumo = new Insumo();
-$nuevoInsumo->nombre = $_POST['nombre'];
-$nuevoInsumo->precio = $_POST['precio'];
+$nuevoProducto = new Producto();
+$nuevoProducto->nombre = $_POST['nombre'];
+$nuevoProducto->precio = $_POST['precio'];
 
 // 2. Pasamos la Entidad completa al DAO
-$insumoDAO->registrarInsumo($nuevoInsumo);
+$productoDAO->registrarProducto($nuevoProducto);
 ```
 ## 8. Entregables Finales
 * El equipo es responsable de compilar los siguientes productos para la evaluación final:  

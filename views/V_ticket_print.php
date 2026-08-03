@@ -319,7 +319,7 @@ p { margin: 1px 0; }
                 <?php echo number_format($d['piezas'], 2); ?>
             </td>
             <td><?php echo htmlspecialchars($d['abreviatura']); ?></td>
-            <td><?php echo htmlspecialchars($d['insumo_nombre']); ?></td>
+            <td><?php echo htmlspecialchars($d['producto_nombre']); ?></td>
             <td class="r"><?php echo number_format($d['precio_venta'], 2); ?></td>
             <td class="r"><?php echo number_format($d['subtotal'], 2); ?></td>
         </tr>
@@ -399,7 +399,7 @@ p { margin: 1px 0; }
                 <?php echo number_format($d['piezas'], 2); ?>
             </td>
             <td><?php echo htmlspecialchars($d['abreviatura']); ?></td>
-            <td><?php echo htmlspecialchars($d['insumo_nombre']); ?></td>
+            <td><?php echo htmlspecialchars($d['producto_nombre']); ?></td>
             <td class="r"><?php echo number_format($d['precio_venta'], 2); ?></td>
             <td class="r"><?php echo number_format($d['subtotal'], 2); ?></td>
         </tr>

@@ -26,20 +26,20 @@ class M_Kardex {
     }
 
     /**
-     * Retorna todos los insumos activos con sus categorías y unidades para llenar el selector de productos en la UI del Kardex
+     * Retorna todos los productos activos con sus categorías y unidades para llenar el selector de productos en la UI del Kardex
      * @return array Listado asociativo de productos activos
      */
-    public function listarInsumos() {
+    public function listarProductos() {
         try {
-            $sql = "SELECT i.id_insumo, i.nombre, c.nombre AS categoria, u.abreviatura,
+            $sql = "SELECT i.id_producto, i.nombre, c.nombre AS categoria, u.abreviatura,
                            i.precio_unitario, i.stock_piezas,
                            t.nombre AS talla,
                            p.nombre AS nombre_padre
-                    FROM insumos i
+                    FROM productos i
                     INNER JOIN categorias c ON i.id_categoria = c.id_categoria
                     INNER JOIN unidades_medida u ON i.id_unidad = u.id_unidad
                     LEFT JOIN tallas t ON i.id_talla = t.id_talla
-                    LEFT JOIN insumos p ON i.id_producto_padre = p.id_insumo
+                    LEFT JOIN productos p ON i.id_producto_padre = p.id_producto
                     WHERE i.estado = 1 AND i.es_agrupador = 0
                     ORDER BY c.nombre, nombre_padre, t.orden, i.nombre";
             $stmt = $this->conexion->prepare($sql);
@@ -51,8 +51,8 @@ class M_Kardex {
     }
 
     /**
-     * Obtiene el historial de movimientos de inventario (Kardex) para un insumo específico.
-     * Calcula la sumatoria histórica para reconstruir el saldo inicial del insumo hacia atrás.
+     * Obtiene el historial de movimientos de inventario (Kardex) para un producto específico.
+     * Calcula la sumatoria histórica para reconstruir el saldo inicial del producto hacia atrás.
      * Cada fila resultante contiene: fecha, tipo_doc, numero_doc, concepto,
      *   entrada_cant, entrada_cu, entrada_ct,
      *   salida_cant, salida_cu, salida_ct,
@@ -60,16 +60,16 @@ class M_Kardex {
      * 
      * Los movimientos de salida se extraen de la tabla detalle_ventas.
      * 
-     * @param int $id_insumo ID del insumo a analizar
+     * @param int $id_producto ID del producto a analizar
      * @param string|null $desde Fecha de inicio del filtro
      * @param string|null $hasta Fecha de fin del filtro
      * @param string $tipo Tipo de movimiento a filtrar ('entrada', 'salida', 'todos')
      * @param string $busqueda Palabra clave para buscar por vendedor, cliente o código
      * @return array Historial detallado del Kardex y estadísticas de stock
      */
-    public function obtenerMovimientos($id_insumo, $desde = null, $hasta = null, $tipo = 'todos', $busqueda = '') {
+    public function obtenerMovimientos($id_producto, $desde = null, $hasta = null, $tipo = 'todos', $busqueda = '') {
         try {
-            $params = [$id_insumo];
+            $params = [$id_producto];
             $fechaWhere = '';
             if ($desde) { $fechaWhere .= ' AND v.fecha >= ?'; $params[] = $desde . ' 00:00:00'; }
             if ($hasta)  { $fechaWhere .= ' AND v.fecha <= ?'; $params[] = $hasta  . ' 23:59:59'; }
@@ -100,7 +100,7 @@ class M_Kardex {
                     INNER JOIN ventas v ON dv.id_venta = v.id_venta
                     INNER JOIN clientes cl ON v.id_cliente = cl.id_cliente
                     INNER JOIN personas p ON cl.id_persona = p.id_persona
-                    WHERE dv.id_insumo = ?
+                    WHERE dv.id_producto = ?
                       AND v.estado = 1
                       {$fechaWhere}
                       {$busquedaWhere}
@@ -110,7 +110,7 @@ class M_Kardex {
             $salidas = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
             // 1b. Movimientos manuales del kardex
-            $paramsMov = [$id_insumo];
+            $paramsMov = [$id_producto];
             $fechaWhereMov = '';
             if ($desde) { $fechaWhereMov .= ' AND km.fecha >= ?'; $paramsMov[] = $desde . ' 00:00:00'; }
             if ($hasta)  { $fechaWhereMov .= ' AND km.fecha <= ?'; $paramsMov[] = $hasta  . ' 23:59:59'; }
@@ -121,24 +121,24 @@ class M_Kardex {
                        FROM kardex_movimientos km
                        INNER JOIN usuarios u ON km.id_usuario = u.id_usuario
                        INNER JOIN personas per ON u.id_persona = per.id_persona
-                       WHERE km.id_insumo = ? {$fechaWhereMov}
+                       WHERE km.id_producto = ? {$fechaWhereMov}
                        ORDER BY km.fecha ASC";
             $stmtMov = $this->conexion->prepare($sqlMov);
             $stmtMov->execute($paramsMov);
             $movManuales = $stmtMov->fetchAll(PDO::FETCH_ASSOC);
 
-            // 2. Obtener los datos básicos de stock y unidad del insumo
+            // 2. Obtener los datos básicos de stock y unidad del producto
             $infoStmt = $this->conexion->prepare(
                 "SELECT i.nombre, c.nombre AS categoria, u.abreviatura, i.precio_unitario, i.stock_piezas
-                 FROM insumos i
+                 FROM productos i
                  INNER JOIN categorias c ON i.id_categoria = c.id_categoria
                  INNER JOIN unidades_medida u ON i.id_unidad = u.id_unidad
-                 WHERE i.id_insumo = ?"
+                 WHERE i.id_producto = ?"
             );
-            $infoStmt->execute([$id_insumo]);
-            $insumo = $infoStmt->fetch(PDO::FETCH_ASSOC);
+            $infoStmt->execute([$id_producto]);
+            $producto = $infoStmt->fetch(PDO::FETCH_ASSOC);
 
-            if (!$insumo) return ['error' => 'Insumo no encontrado'];
+            if (!$producto) return ['error' => 'Producto no encontrado'];
 
             // 3. Reconstruir stock desde cero
             $totalVendido    = array_sum(array_column($salidas, 'salida_cant'));
@@ -147,9 +147,9 @@ class M_Kardex {
                 if ($mm['tipo_movimiento'] === 'salida') $totalSalidasMan += floatval($mm['cantidad']);
                 else $totalEntradasMan += floatval($mm['cantidad']);
             }
-            $stockActual  = floatval($insumo['stock_piezas']);
+            $stockActual  = floatval($producto['stock_piezas']);
             $stockInicial = $stockActual + $totalVendido + $totalSalidasMan - $totalEntradasMan;
-            $precioUnit   = floatval($insumo['precio_unitario']);
+            $precioUnit   = floatval($producto['precio_unitario']);
 
             // 4. Construir filas (ventas + manuales fusionadas y ordenadas)
             $rows     = [];
@@ -230,7 +230,7 @@ class M_Kardex {
             $totalSalidaCant  = $totalVendido  + $totalSalidasMan;
 
             return [
-                'insumo'           => $insumo,
+                'producto'           => $producto,
                 'rows'             => $rows,
                 'total_entrada_cant' => $totalEntradaCant,
                 'total_salida_cant'  => $totalSalidaCant,
@@ -246,12 +246,12 @@ class M_Kardex {
     /**
      * Registra un movimiento manual de entrada o salida en el kardex
      */
-    public function registrarMovimiento($id_insumo, $tipo, $cantidad, $precio_unitario, $referencia, $concepto, $id_usuario) {
+    public function registrarMovimiento($id_producto, $tipo, $cantidad, $precio_unitario, $referencia, $concepto, $id_usuario) {
         try {
-            $sql = "INSERT INTO kardex_movimientos (id_insumo, tipo, cantidad, precio_unitario, referencia, concepto, id_usuario, fecha)
+            $sql = "INSERT INTO kardex_movimientos (id_producto, tipo, cantidad, precio_unitario, referencia, concepto, id_usuario, fecha)
                     VALUES (?, ?, ?, ?, ?, ?, ?, NOW())";
             $stmt = $this->conexion->prepare($sql);
-            $stmt->execute([$id_insumo, $tipo, $cantidad, $precio_unitario, $referencia, $concepto, $id_usuario]);
+            $stmt->execute([$id_producto, $tipo, $cantidad, $precio_unitario, $referencia, $concepto, $id_usuario]);
             return true;
         } catch (PDOException $e) {
             return false;

@@ -1,17 +1,17 @@
 <?php
-// Restricción de acceso: Solo usuarios Administradores pueden gestionar el catálogo de insumos
+// Restricción de acceso: Solo usuarios Administradores pueden gestionar el catálogo de productos
 if (!isset($_SESSION['id_usuario']) || $_SESSION['rol'] !== 'Administrador') {
     echo "<h1>Acceso denegado</h1>";
     exit;
 }
 
 // Cargar modelos requeridos para las relaciones de categoría y unidades en los formularios
-require_once dirname(__DIR__) . '/models/M_Insumo.php';
+require_once dirname(__DIR__) . '/models/M_Producto.php';
 require_once dirname(__DIR__) . '/models/M_Categoria.php';
 require_once dirname(__DIR__) . '/models/M_Unidad.php';
 
-$modelInsumo = M_Insumo::singleton();
-$insumos = $modelInsumo->listar();
+$modelProducto = M_Producto::singleton();
+$productos = $modelProducto->listar();
 
 $modelCat = M_Categoria::singleton();
 $categorias = $modelCat->listar();
@@ -19,12 +19,12 @@ $categorias = $modelCat->listar();
 $modelUni = M_Unidad::singleton();
 $unidades = $modelUni->listar();
 
-$tallas = $modelInsumo->obtenerTallas();
-$tiposCorbata = $modelInsumo->obtenerTiposCorbata();
-$niveles = $modelInsumo->obtenerNiveles();
-$grados = $modelInsumo->obtenerGrados();
-$areas = $modelInsumo->obtenerAreas();
-$bimestres = $modelInsumo->obtenerBimestres();
+$tallas = $modelProducto->obtenerTallas();
+$tiposCorbata = $modelProducto->obtenerTiposCorbata();
+$niveles = $modelProducto->obtenerNiveles();
+$grados = $modelProducto->obtenerGrados();
+$areas = $modelProducto->obtenerAreas();
+$bimestres = $modelProducto->obtenerBimestres();
 
 $isAdmin = ($_SESSION['rol'] === 'Administrador');
 ?>
@@ -37,7 +37,7 @@ $isAdmin = ($_SESSION['rol'] === 'Administrador');
             <p class="text-muted mb-0" style="font-size: 14px;">Administra los productos disponibles en Confecciones NISSI.</p>
         </div>
         <?php if ($isAdmin): ?>
-            <button class="gp-btn-primary d-flex align-items-center gap-2 border-0" data-bs-toggle="modal" data-bs-target="#nuevoInsumoModal">
+            <button class="gp-btn-primary d-flex align-items-center gap-2 border-0" data-bs-toggle="modal" data-bs-target="#nuevoProductoModal">
                 <i class="bi bi-plus-lg"></i>
                 <span>Nuevo Producto</span>
             </button>
@@ -53,17 +53,17 @@ $isAdmin = ($_SESSION['rol'] === 'Administrador');
                     <span class="input-group-text bg-transparent border-end-0 text-muted" id="search-addon">
                         <i class="bi bi-search"></i>
                     </span>
-                    <input type="text" class="form-control border-start-0 ps-0 text-sm" id="searchInsumos" placeholder="Buscar producto..." aria-label="Buscar" aria-describedby="search-addon" style="box-shadow: none; font-size: 14px;">
+                    <input type="text" class="form-control border-start-0 ps-0 text-sm" id="searchProductos" placeholder="Buscar producto..." aria-label="Buscar" aria-describedby="search-addon" style="box-shadow: none; font-size: 14px;">
                 </div>
             </div>
         </div>
 
-        <!-- Tabla del Inventario de Insumos -->
+        <!-- Tabla del Inventario de Productos -->
         <div class="table-responsive">
             <?php
             // Pre-calcular tallas por padre para los tooltips
             $tallasPorPadre = [];
-            foreach ($insumos as $ins) {
+            foreach ($productos as $ins) {
                 if ($ins['id_producto_padre']) {
                     $id_padre = $ins['id_producto_padre'];
                     if (!isset($tallasPorPadre[$id_padre])) $tallasPorPadre[$id_padre] = [];
@@ -73,7 +73,7 @@ $isAdmin = ($_SESSION['rol'] === 'Administrador');
                 }
             }
             ?>
-            <table class="table align-middle text-sm" id="tableInsumos" style="font-size: 14px;">
+            <table class="table align-middle text-sm" id="tableProductos" style="font-size: 14px;">
                 <thead>
                     <tr class="text-muted border-bottom" style="font-size: 13px;">
                         <th scope="col" class="pb-3">Producto</th>
@@ -88,7 +88,7 @@ $isAdmin = ($_SESSION['rol'] === 'Administrador');
                     </tr>
                 </thead>
                 <tbody>
-                    <?php if (empty($insumos)): ?>
+                    <?php if (empty($productos)): ?>
                         <tr>
                             <td colspan="<?php echo $isAdmin ? '7' : '6'; ?>" class="text-center py-5 text-muted">
                                 <i class="bi bi-box-seam-fill fs-2 mb-2 d-block"></i>
@@ -96,8 +96,8 @@ $isAdmin = ($_SESSION['rol'] === 'Administrador');
                             </td>
                         </tr>
                     <?php else: ?>
-                        <?php foreach ($insumos as $ins): ?>
-                            <!-- Resaltar visualmente si el insumo está bajo la cuota mínima de 20 unidades -->
+                        <?php foreach ($productos as $ins): ?>
+                            <!-- Resaltar visualmente si el producto está bajo la cuota mínima de 20 unidades -->
                             <?php $lowStock = ($ins['stock_piezas'] <= 20); ?>
                             <?php 
                             $esPadre = ($ins['es_agrupador'] == 1);
@@ -106,11 +106,11 @@ $isAdmin = ($_SESSION['rol'] === 'Administrador');
                             if ($esPadre) $rowStyle = 'background-color: #f8fafc; border-left: 4px solid #3b82f6;';
                             if ($esHijo)  $rowStyle = 'background-color: #ffffff;';
                             ?>
-                            <tr class="border-bottom insumo-row <?php echo $esHijo ? 'child-row padre-'.$ins['id_producto_padre'] : ''; ?>" style="<?php echo $rowStyle; ?><?php echo $esHijo ? ' display: none;' : ''; ?>">
+                            <tr class="border-bottom producto-row <?php echo $esHijo ? 'child-row padre-'.$ins['id_producto_padre'] : ''; ?>" style="<?php echo $rowStyle; ?><?php echo $esHijo ? ' display: none;' : ''; ?>">
                                 <td class="py-3">
                                     <div class="d-flex align-items-center <?php echo $esHijo ? 'ps-4' : ''; ?>">
                                         <?php if ($esPadre): ?>
-                                            <button class="btn btn-sm btn-link p-0 text-dark me-2 toggle-children-btn" data-padre="<?php echo $ins['id_insumo']; ?>" style="box-shadow:none;">
+                                            <button class="btn btn-sm btn-link p-0 text-dark me-2 toggle-children-btn" data-padre="<?php echo $ins['id_producto']; ?>" style="box-shadow:none;">
                                                 <i class="bi bi-chevron-right"></i>
                                             </button>
                                         <?php endif; ?>
@@ -119,7 +119,7 @@ $isAdmin = ($_SESSION['rol'] === 'Administrador');
                                                 <?php if ($esHijo): ?><i class="bi bi-arrow-return-right text-muted me-2"></i><?php endif; ?>
                                                 <?php echo htmlspecialchars($ins['nombre']); ?>
                                             </span>
-                                            <span class="text-muted font-mono <?php echo $esHijo ? 'ms-4' : ''; ?>" style="font-size: 11px;">PROD-<?php echo str_pad($ins['id_insumo'], 3, '0', STR_PAD_LEFT); ?></span>
+                                            <span class="text-muted font-mono <?php echo $esHijo ? 'ms-4' : ''; ?>" style="font-size: 11px;">PROD-<?php echo str_pad($ins['id_producto'], 3, '0', STR_PAD_LEFT); ?></span>
                                         </div>
                                     </div>
                                 </td>
@@ -128,7 +128,7 @@ $isAdmin = ($_SESSION['rol'] === 'Administrador');
                                         <span class="badge <?php echo $esPadre ? 'bg-primary' : 'bg-secondary'; ?> mb-1"><?php echo htmlspecialchars($ins['categoria']); ?></span><br>
                                     <?php endif; ?>
                                     <?php if ($esPadre): 
-                                        $listaTallas = isset($tallasPorPadre[$ins['id_insumo']]) ? implode(', ', $tallasPorPadre[$ins['id_insumo']]) : 'Sin tallas';
+                                        $listaTallas = isset($tallasPorPadre[$ins['id_producto']]) ? implode(', ', $tallasPorPadre[$ins['id_producto']]) : 'Sin tallas';
                                     ?>
                                         <span class="text-primary fw-bold" style="cursor:pointer;" data-bs-toggle="tooltip" title="Tallas: <?php echo htmlspecialchars($listaTallas); ?>">
                                             <i class="bi bi-info-circle-fill me-1"></i>Ver Tallas
@@ -170,8 +170,8 @@ $isAdmin = ($_SESSION['rol'] === 'Administrador');
                                 <?php if ($isAdmin): ?>
                                     <td class="text-end">
                                         <div class="d-inline-flex gap-1">
-                                            <button class="btn btn-link text-muted p-1 hover-text-primary edit-insumo-btn" 
-                                                    data-id="<?php echo $ins['id_insumo']; ?>"
+                                            <button class="btn btn-link text-muted p-1 hover-text-primary edit-producto-btn" 
+                                                    data-id="<?php echo $ins['id_producto']; ?>"
                                                     data-nombre="<?php echo htmlspecialchars($ins['nombre']); ?>"
                                                     data-categoria="<?php echo $ins['categoria']; ?>"
                                                     data-unidad="<?php echo $ins['unidad']; ?>"
@@ -191,7 +191,7 @@ $isAdmin = ($_SESSION['rol'] === 'Administrador');
                                                 <i class="bi bi-pencil-fill"></i>
                                             </button>
                                             <button class="btn btn-link text-muted p-1 hover-text-success update-stock-btn" 
-                                                    data-id="<?php echo $ins['id_insumo']; ?>"
+                                                    data-id="<?php echo $ins['id_producto']; ?>"
                                                     data-nombre="<?php echo htmlspecialchars($ins['nombre']); ?>"
                                                     data-stock="<?php echo $ins['stock_piezas']; ?>"
                                                     data-precio="<?php echo $ins['precio_unitario']; ?>"
@@ -201,8 +201,8 @@ $isAdmin = ($_SESSION['rol'] === 'Administrador');
                                                     title="Actualizar Stock">
                                                 <i class="bi bi-box-seam"></i>
                                             </button>
-                                            <button class="btn btn-link text-muted p-1 hover-text-danger delete-insumo-btn" 
-                                                    data-id="<?php echo $ins['id_insumo']; ?>"
+                                            <button class="btn btn-link text-muted p-1 hover-text-danger delete-producto-btn" 
+                                                    data-id="<?php echo $ins['id_producto']; ?>"
                                                     data-nombre="<?php echo htmlspecialchars($ins['nombre']); ?>"
                                                     title="Eliminar">
                                                 <i class="bi bi-trash-fill"></i>
@@ -232,7 +232,7 @@ $isAdmin = ($_SESSION['rol'] === 'Administrador');
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" style="box-shadow:none;"></button>
             </div>
             <form id="formStock">
-                <input type="hidden" id="stock_id_insumo">
+                <input type="hidden" id="stock_id_producto">
                 <input type="hidden" id="stock_precio_unit">
                 <div class="modal-body p-4">
 
@@ -389,17 +389,17 @@ $isAdmin = ($_SESSION['rol'] === 'Administrador');
 
 <!-- Modal: Nuevo Producto -->
 
-<div class="modal fade" id="nuevoInsumoModal" tabindex="-1" aria-labelledby="nuevoInsumoModalLabel" aria-hidden="true">
+<div class="modal fade" id="nuevoProductoModal" tabindex="-1" aria-labelledby="nuevoProductoModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-0 shadow-lg" style="border-radius: 15px;">
             <div class="modal-header gp-bg-primary text-white border-0 py-3" style="border-radius: 15px 15px 0 0;">
-                <h6 class="modal-title fw-bold" id="nuevoInsumoModalLabel">Nuevo Insumo</h6>
+                <h6 class="modal-title fw-bold" id="nuevoProductoModalLabel">Nuevo Producto</h6>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close" style="box-shadow: none;"></button>
             </div>
-            <form id="formNuevoInsumo">
+            <form id="formNuevoProducto">
                 <div class="modal-body p-4">
                     <div class="mb-3">
-                        <label for="new_nombre" class="form-label fw-semibold" style="font-size: 13px;">Nombre del insumo</label>
+                        <label for="new_nombre" class="form-label fw-semibold" style="font-size: 13px;">Nombre del producto</label>
                         <input type="text" class="form-control" id="new_nombre" placeholder="Ej. Maíz a granel" required autocomplete="off">
                     </div>
                     <div class="row mb-3">
@@ -563,19 +563,19 @@ $isAdmin = ($_SESSION['rol'] === 'Administrador');
     </div>
 </div>
 
-<!-- Modal: Editar Insumo -->
-<div class="modal fade" id="editarInsumoModal" tabindex="-1" aria-labelledby="editarInsumoModalLabel" aria-hidden="true">
+<!-- Modal: Editar Producto -->
+<div class="modal fade" id="editarProductoModal" tabindex="-1" aria-labelledby="editarProductoModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-0 shadow-lg" style="border-radius: 15px;">
             <div class="modal-header gp-bg-primary text-white border-0 py-3" style="border-radius: 15px 15px 0 0;">
-                <h6 class="modal-title fw-bold" id="editarInsumoModalLabel">Editar Registro</h6>
+                <h6 class="modal-title fw-bold" id="editarProductoModalLabel">Editar Registro</h6>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close" style="box-shadow: none;"></button>
             </div>
-            <form id="formEditarInsumo">
+            <form id="formEditarProducto">
                 <input type="hidden" id="edit_id">
                 <div class="modal-body p-4">
                     <div class="mb-3">
-                        <label for="edit_nombre" class="form-label fw-semibold" style="font-size: 13px;">Nombre del insumo</label>
+                        <label for="edit_nombre" class="form-label fw-semibold" style="font-size: 13px;">Nombre del producto</label>
                         <input type="text" class="form-control" id="edit_nombre" required autocomplete="off">
                     </div>
                     <div class="row mb-3">
@@ -633,7 +633,7 @@ $isAdmin = ($_SESSION['rol'] === 'Administrador');
                                 </label>
                                 <input type="number" class="form-control form-control-sm edit-talla-precio" step="0.01" min="0" placeholder="Precio" style="max-width:100px;" disabled>
                                 <input type="number" class="form-control form-control-sm edit-talla-costo" step="0.01" min="0" placeholder="Costo" style="max-width:100px;" disabled>
-                                <input type="hidden" class="edit-talla-idinsumo" value="">
+                                <input type="hidden" class="edit-talla-idproducto" value="">
                             </div>
                             <?php endforeach; ?>
                         </div>
@@ -727,7 +727,7 @@ $isAdmin = ($_SESSION['rol'] === 'Administrador');
 </div>
 <?php endif; ?>
 
-<!-- JavaScript para CRUD de Insumos -->
+<!-- JavaScript para CRUD de Productos -->
 <script>
     document.addEventListener('DOMContentLoaded', () => {
         // Inicializar tooltips de Bootstrap
@@ -752,9 +752,9 @@ $isAdmin = ($_SESSION['rol'] === 'Administrador');
             });
         });
 
-        // 1. Filtrado dinámico de insumos (búsqueda)
-        const searchInput = document.getElementById('searchInsumos');
-        const rows = document.querySelectorAll('.insumo-row');
+        // 1. Filtrado dinámico de productos (búsqueda)
+        const searchInput = document.getElementById('searchProductos');
+        const rows = document.querySelectorAll('.producto-row');
 
         if (searchInput) {
             searchInput.addEventListener('input', () => {
@@ -818,8 +818,8 @@ $isAdmin = ($_SESSION['rol'] === 'Administrador');
             });
         }
 
-         // 2. Registro de Insumo por AJAX
-        const formNuevo = document.getElementById('formNuevoInsumo');
+         // 2. Registro de Producto por AJAX
+        const formNuevo = document.getElementById('formNuevoProducto');
         if (formNuevo) {
             formNuevo.addEventListener('submit', async (e) => {
                 e.preventDefault();
@@ -829,11 +829,11 @@ $isAdmin = ($_SESSION['rol'] === 'Administrador');
 
                 let payload;
                 let isVariantes = chkTieneVariantes && chkTieneVariantes.checked;
-                let endpoint = './controllers/C_Insumo.php?action=crear';
+                let endpoint = './controllers/C_Producto.php?action=crear';
                 let contentType = 'application/json';
 
                 if (isVariantes) {
-                    endpoint = './controllers/C_Insumo.php?action=crear_con_variantes';
+                    endpoint = './controllers/C_Producto.php?action=crear_con_variantes';
                     let variantes = [];
                     tallaChecks.forEach(chk => {
                         if (chk.checked) {
@@ -939,11 +939,11 @@ $isAdmin = ($_SESSION['rol'] === 'Administrador');
         }
 
         // 3. Rellenar campos en el modal de Edición
-        const editModal = new bootstrap.Modal(document.getElementById('editarInsumoModal'));
+        const editModal = new bootstrap.Modal(document.getElementById('editarProductoModal'));
         const selectCat = document.getElementById('edit_categoria');
         const selectUni = document.getElementById('edit_unidad');
 
-        document.querySelectorAll('.edit-insumo-btn').forEach(btn => {
+        document.querySelectorAll('.edit-producto-btn').forEach(btn => {
             btn.addEventListener('click', () => {
                 const isPadre = btn.dataset.espadre === "1";
                 document.getElementById('edit_id').value = btn.dataset.id;
@@ -952,11 +952,11 @@ $isAdmin = ($_SESSION['rol'] === 'Administrador');
                 if (isPadre) {
                     document.getElementById('edit_campos_precio_stock').classList.add('d-none');
                     document.getElementById('edit_grupo_variantes').classList.remove('d-none');
-                    document.getElementById('editarInsumoModalLabel').textContent = "Editar Familia de Producto";
+                    document.getElementById('editarProductoModalLabel').textContent = "Editar Familia de Producto";
                     
                     // Limpiar y poblar checkboxes de tallas
                     const idPadre = btn.dataset.id;
-                    const children = document.querySelectorAll(`.edit-insumo-btn[data-padreid="${idPadre}"]`);
+                    const children = document.querySelectorAll(`.edit-producto-btn[data-padreid="${idPadre}"]`);
                     const checks = document.querySelectorAll('.edit-talla-check');
                     
                     // Reset all
@@ -965,7 +965,7 @@ $isAdmin = ($_SESSION['rol'] === 'Administrador');
                         const container = chk.closest('div');
                         const p = container.querySelector('.edit-talla-precio');
                         const c = container.querySelector('.edit-talla-costo');
-                        const idHidden = container.querySelector('.edit-talla-idinsumo');
+                        const idHidden = container.querySelector('.edit-talla-idproducto');
                         p.disabled = true; c.disabled = true;
                         p.value = ''; c.value = ''; idHidden.value = '';
                     });
@@ -979,7 +979,7 @@ $isAdmin = ($_SESSION['rol'] === 'Administrador');
                             const container = chk.closest('div');
                             const p = container.querySelector('.edit-talla-precio');
                             const c = container.querySelector('.edit-talla-costo');
-                            const idHidden = container.querySelector('.edit-talla-idinsumo');
+                            const idHidden = container.querySelector('.edit-talla-idproducto');
                             p.disabled = false; c.disabled = false;
                             p.value = childBtn.dataset.precio;
                             c.value = childBtn.dataset.costo;
@@ -990,7 +990,7 @@ $isAdmin = ($_SESSION['rol'] === 'Administrador');
                 } else {
                     document.getElementById('edit_campos_precio_stock').classList.remove('d-none');
                     document.getElementById('edit_grupo_variantes').classList.add('d-none');
-                    document.getElementById('editarInsumoModalLabel').textContent = "Editar Producto";
+                    document.getElementById('editarProductoModalLabel').textContent = "Editar Producto";
                     
                     document.getElementById('edit_precio').value = btn.dataset.precio;
                     document.getElementById('edit_costo').value = btn.dataset.costo;
@@ -1052,12 +1052,12 @@ $isAdmin = ($_SESSION['rol'] === 'Administrador');
             });
         });
 
-        // 4. Guardar cambios del Insumo editado
-        const formEditar = document.getElementById('formEditarInsumo');
+        // 4. Guardar cambios del Producto editado
+        const formEditar = document.getElementById('formEditarProducto');
         if (formEditar) {
             formEditar.addEventListener('submit', async (e) => {
                 e.preventDefault();
-                const id_insumo = document.getElementById('edit_id').value;
+                const id_producto = document.getElementById('edit_id').value;
                 const nombre = document.getElementById('edit_nombre').value.trim();
                 const id_categoria = document.getElementById('edit_categoria').value;
                 const id_unidad = document.getElementById('edit_unidad').value;
@@ -1065,11 +1065,11 @@ $isAdmin = ($_SESSION['rol'] === 'Administrador');
                 const isPadre = !document.getElementById('edit_grupo_variantes').classList.contains('d-none');
 
                 let formData = new FormData();
-                let endpoint = './controllers/C_Insumo.php?action=actualizar';
+                let endpoint = './controllers/C_Producto.php?action=actualizar';
 
                 if (isPadre) {
-                    endpoint = './controllers/C_Insumo.php?action=actualizar_con_variantes';
-                    formData.append('id_insumo', id_insumo);
+                    endpoint = './controllers/C_Producto.php?action=actualizar_con_variantes';
+                    formData.append('id_producto', id_producto);
                     formData.append('nombre', nombre);
                     formData.append('id_categoria', id_categoria);
                     formData.append('id_unidad', id_unidad);
@@ -1083,9 +1083,9 @@ $isAdmin = ($_SESSION['rol'] === 'Administrador');
                             formData.append(`variantes[${idx}][id_talla]`, chk.value);
                             formData.append(`variantes[${idx}][precio_unitario]`, container.querySelector('.edit-talla-precio').value || 0);
                             formData.append(`variantes[${idx}][costo_produccion]`, container.querySelector('.edit-talla-costo').value || 0);
-                            const idChild = container.querySelector('.edit-talla-idinsumo').value;
+                            const idChild = container.querySelector('.edit-talla-idproducto').value;
                             if (idChild) {
-                                formData.append(`variantes[${idx}][id_insumo]`, idChild);
+                                formData.append(`variantes[${idx}][id_producto]`, idChild);
                             }
                             idx++;
                         }
@@ -1100,7 +1100,7 @@ $isAdmin = ($_SESSION['rol'] === 'Administrador');
                     const costo_produccion = document.getElementById('edit_costo').value;
                     const stock = document.getElementById('edit_stock').value;
 
-                    formData.append('id_insumo', id_insumo);
+                    formData.append('id_producto', id_producto);
                     formData.append('nombre', nombre);
                     formData.append('id_categoria', id_categoria);
                     formData.append('id_unidad', id_unidad);
@@ -1156,15 +1156,15 @@ $isAdmin = ($_SESSION['rol'] === 'Administrador');
             });
         }
 
-        // 5. Eliminar lógicamente un insumo del catálogo activo
-        document.querySelectorAll('.delete-insumo-btn').forEach(btn => {
+        // 5. Eliminar lógicamente un producto del catálogo activo
+        document.querySelectorAll('.delete-producto-btn').forEach(btn => {
             btn.addEventListener('click', () => {
-                const id_insumo = btn.dataset.id;
+                const id_producto = btn.dataset.id;
                 const nombre = btn.dataset.nombre;
 
                 Swal.fire({
                     title: '¿Estás seguro?',
-                    text: `Deseas eliminar el insumo "${nombre}"`,
+                    text: `Deseas eliminar el producto "${nombre}"`,
                     icon: 'warning',
                     showCancelButton: true,
                     confirmButtonColor: '#ef4444',
@@ -1174,10 +1174,10 @@ $isAdmin = ($_SESSION['rol'] === 'Administrador');
                 }).then(async (result) => {
                     if (result.isConfirmed) {
                         try {
-                            const response = await fetch('./controllers/C_Insumo.php?action=eliminar', {
+                            const response = await fetch('./controllers/C_Producto.php?action=eliminar', {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ id_insumo })
+                                body: JSON.stringify({ id_producto })
                             });
                             const data = await response.json();
 
@@ -1212,18 +1212,18 @@ $isAdmin = ($_SESSION['rol'] === 'Administrador');
         document.querySelectorAll('.update-stock-btn').forEach(btn => {
             btn.addEventListener('click', () => {
                 const esPadre = btn.dataset.espadre === "1";
-                const id_insumo = btn.dataset.id;
+                const id_producto = btn.dataset.id;
                 
                 if (esPadre) {
                     // Cargar Modal Masivo
-                    document.getElementById('stock_masivo_id_padre').value = id_insumo;
+                    document.getElementById('stock_masivo_id_padre').value = id_producto;
                     document.getElementById('stockMasivoSubtitle').textContent = btn.dataset.nombre;
                     
                     // Buscar hijos en la tabla
                     const tbody = document.getElementById('stockMasivoTbody');
                     tbody.innerHTML = '';
                     
-                    const hijos = document.querySelectorAll(`.update-stock-btn[data-padreid="${id_insumo}"]`);
+                    const hijos = document.querySelectorAll(`.update-stock-btn[data-padreid="${id_producto}"]`);
                     hijos.forEach(hijoBtn => {
                         const tr = document.createElement('tr');
                         tr.className = "border-bottom";
@@ -1249,7 +1249,7 @@ $isAdmin = ($_SESSION['rol'] === 'Administrador');
                     
                 } else {
                     // Modal Normal
-                    document.getElementById('stock_id_insumo').value  = btn.dataset.id;
+                    document.getElementById('stock_id_producto').value  = btn.dataset.id;
                     document.getElementById('stock_precio_unit').value = btn.dataset.precio || 0;
                     document.getElementById('stockModalSubtitle').textContent = btn.dataset.nombre;
                     document.getElementById('stock_actual_display').textContent = parseFloat(btn.dataset.stock).toLocaleString('es-PE') + ' und.';
@@ -1333,7 +1333,7 @@ $isAdmin = ($_SESSION['rol'] === 'Administrador');
             e.preventDefault();
             const tipo     = document.getElementById('stock_tipo').value;
             const cantidad = parseFloat(document.getElementById('stock_cantidad').value);
-            const id_insumo = document.getElementById('stock_id_insumo').value;
+            const id_producto = document.getElementById('stock_id_producto').value;
             const precio_unitario = parseFloat(document.getElementById('stock_precio_unit').value) || 0;
 
             let referencia = '';
@@ -1360,7 +1360,7 @@ $isAdmin = ($_SESSION['rol'] === 'Administrador');
                 const response = await fetch('./controllers/C_Kardex.php?action=registrar_movimiento', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ id_insumo, tipo, cantidad, precio_unitario, referencia, concepto })
+                    body: JSON.stringify({ id_producto, tipo, cantidad, precio_unitario, referencia, concepto })
                 });
                 const data = await response.json();
                 if (data.success) {
@@ -1402,7 +1402,7 @@ $isAdmin = ($_SESSION['rol'] === 'Administrador');
                     const val = parseFloat(input.value);
                     if (val && val > 0) {
                         updates.push({
-                            id_insumo: input.dataset.id,
+                            id_producto: input.dataset.id,
                             precio_unitario: input.dataset.precio,
                             cantidad: val
                         });
@@ -1424,7 +1424,7 @@ $isAdmin = ($_SESSION['rol'] === 'Administrador');
                     let successes = 0;
                     for (const up of updates) {
                         const payload = {
-                            id_insumo: up.id_insumo,
+                            id_producto: up.id_producto,
                             tipo: tipo,
                             cantidad: up.cantidad,
                             precio_unitario: parseFloat(up.precio_unitario) || 0,

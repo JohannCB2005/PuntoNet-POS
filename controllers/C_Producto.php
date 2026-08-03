@@ -11,9 +11,9 @@ if (!isset($_SESSION['id_usuario']) || $_SESSION['rol'] !== 'Administrador') {
     exit;
 }
 
-// Cargar las entidades y modelos necesarios para insumo
-require_once dirname(__DIR__) . '/entities/Insumo.php';
-require_once dirname(__DIR__) . '/models/M_Insumo.php';
+// Cargar las entidades y modelos necesarios para producto
+require_once dirname(__DIR__) . '/entities/Producto.php';
+require_once dirname(__DIR__) . '/models/M_Producto.php';
 
 // Obtener la acción a realizar
 $action = isset($_GET['action']) ? $_GET['action'] : '';
@@ -24,18 +24,18 @@ if (!$input) {
     $input = $_POST;
 }
 
-// Instanciar el modelo de insumos bajo Singleton
-$model = M_Insumo::singleton();
+// Instanciar el modelo de productos bajo Singleton
+$model = M_Producto::singleton();
 
 // Enrutar según la acción
 switch ($action) {
     
-    // Retorna la lista de todos los insumos activos en el inventario
+    // Retorna la lista de todos los productos activos en el inventario
     case 'listar':
         echo json_encode($model->listar());
         break;
 
-    // Registra un nuevo insumo en el inventario
+    // Registra un nuevo producto en el inventario
     case 'crear':
         if ($_SESSION['rol'] !== 'Administrador') {
             echo json_encode(["success" => false, "mensaje" => "No tienes permisos para esta acción."]);
@@ -72,7 +72,7 @@ switch ($action) {
                 if (!is_dir($uploadDir)) {
                     mkdir($uploadDir, 0777, true);
                 }
-                $newFileName = 'insumo_' . time() . '_' . uniqid() . '.' . $fileExtension;
+                $newFileName = 'producto_' . time() . '_' . uniqid() . '.' . $fileExtension;
                 $dest_path = $uploadDir . $newFileName;
                 if (move_uploaded_file($fileTmpPath, $dest_path)) {
                     $imagen_db = $newFileName;
@@ -80,12 +80,12 @@ switch ($action) {
             }
         }
 
-        // Crear entidad insumo y guardar en DB
-        $insumo = new Insumo($id_categoria, $id_unidad, $nombre, $precio_unitario, $costo_produccion, $stock_piezas, null, $imagen_db, $id_talla, $id_tipo_corbata, $id_nivel, $id_grado, $id_area, $id_bimestre);
-        if ($model->registrar($insumo)) {
-            echo json_encode(["success" => true, "mensaje" => "Insumo registrado con éxito."]);
+        // Crear entidad producto y guardar en DB
+        $producto = new Producto($id_categoria, $id_unidad, $nombre, $precio_unitario, $costo_produccion, $stock_piezas, null, $imagen_db, $id_talla, $id_tipo_corbata, $id_nivel, $id_grado, $id_area, $id_bimestre);
+        if ($model->registrar($producto)) {
+            echo json_encode(["success" => true, "mensaje" => "Producto registrado con éxito."]);
         } else {
-            echo json_encode(["success" => false, "mensaje" => "Error al registrar el insumo."]);
+            echo json_encode(["success" => false, "mensaje" => "Error al registrar el producto."]);
         }
         break;
 
@@ -116,7 +116,7 @@ switch ($action) {
             if (in_array($fileExtension, $allowedExtensions)) {
                 $uploadDir = dirname(__DIR__) . '/assets/productos/';
                 if (!is_dir($uploadDir)) mkdir($uploadDir, 0777, true);
-                $newFileName = 'insumo_' . time() . '_' . uniqid() . '.' . $fileExtension;
+                $newFileName = 'producto_' . time() . '_' . uniqid() . '.' . $fileExtension;
                 if (move_uploaded_file($fileTmpPath, $uploadDir . $newFileName)) {
                     $imagen_db = $newFileName;
                 }
@@ -145,7 +145,7 @@ switch ($action) {
             exit;
         }
 
-        $id_padre     = isset($input['id_insumo'])    ? intval($input['id_insumo'])    : 0;
+        $id_padre     = isset($input['id_producto'])    ? intval($input['id_producto'])    : 0;
         $id_categoria = isset($input['id_categoria']) ? intval($input['id_categoria']) : 0;
         $id_unidad    = isset($input['id_unidad'])    ? intval($input['id_unidad'])    : 0;
         $nombre       = isset($input['nombre'])       ? trim($input['nombre'])         : '';
@@ -166,7 +166,7 @@ switch ($action) {
             if (in_array($fileExtension, $allowedExtensions)) {
                 $uploadDir = dirname(__DIR__) . '/assets/productos/';
                 if (!is_dir($uploadDir)) mkdir($uploadDir, 0777, true);
-                $newFileName = 'insumo_' . time() . '_' . uniqid() . '.' . $fileExtension;
+                $newFileName = 'producto_' . time() . '_' . uniqid() . '.' . $fileExtension;
                 if (move_uploaded_file($fileTmpPath, $uploadDir . $newFileName)) {
                     $imagen_db = $newFileName;
                 }
@@ -187,13 +187,13 @@ switch ($action) {
         ]);
         break;
 
-    // Actualiza los datos de un insumo existente
+    // Actualiza los datos de un producto existente
     case 'actualizar':
         if ($_SESSION['rol'] !== 'Administrador') {
             echo json_encode(["success" => false, "mensaje" => "No tienes permisos para esta acción."]);
             exit;
         }
-        $id_insumo          = isset($input['id_insumo'])          ? intval($input['id_insumo'])          : 0;
+        $id_producto          = isset($input['id_producto'])          ? intval($input['id_producto'])          : 0;
         $id_categoria       = isset($input['id_categoria'])       ? intval($input['id_categoria'])       : 0;
         $id_unidad          = isset($input['id_unidad'])          ? intval($input['id_unidad'])          : 0;
         $nombre             = isset($input['nombre'])             ? trim($input['nombre'])               : '';
@@ -208,7 +208,7 @@ switch ($action) {
         $id_bimestre        = isset($input['id_bimestre']) && $input['id_bimestre'] !== '' ? intval($input['id_bimestre']) : null;
 
         // Validaciones de integridad
-        if ($id_insumo <= 0 || $id_categoria <= 0 || $id_unidad <= 0 || empty($nombre) || $precio_unitario < 0 || $stock_piezas < 0) {
+        if ($id_producto <= 0 || $id_categoria <= 0 || $id_unidad <= 0 || empty($nombre) || $precio_unitario < 0 || $stock_piezas < 0) {
             echo json_encode(["success" => false, "mensaje" => "Datos inválidos o faltantes."]);
             exit;
         }
@@ -227,15 +227,15 @@ switch ($action) {
                 }
                 
                 // Borrar imagen vieja si existe
-                $insumoViejo = $model->obtenerPorId($id_insumo);
-                if ($insumoViejo && !empty($insumoViejo['imagen'])) {
-                    $oldFilePath = $uploadDir . $insumoViejo['imagen'];
+                $productoViejo = $model->obtenerPorId($id_producto);
+                if ($productoViejo && !empty($productoViejo['imagen'])) {
+                    $oldFilePath = $uploadDir . $productoViejo['imagen'];
                     if (file_exists($oldFilePath)) {
                         unlink($oldFilePath);
                     }
                 }
 
-                $newFileName = 'insumo_' . time() . '_' . uniqid() . '.' . $fileExtension;
+                $newFileName = 'producto_' . time() . '_' . uniqid() . '.' . $fileExtension;
                 $dest_path = $uploadDir . $newFileName;
                 if (move_uploaded_file($fileTmpPath, $dest_path)) {
                     $imagen_db = $newFileName;
@@ -243,52 +243,52 @@ switch ($action) {
             }
         }
 
-        // Actualizar datos del insumo
-        $insumo = new Insumo($id_categoria, $id_unidad, $nombre, $precio_unitario, $costo_produccion, $stock_piezas, $id_insumo, $imagen_db, $id_talla, $id_tipo_corbata, $id_nivel, $id_grado, $id_area, $id_bimestre);
+        // Actualizar datos del producto
+        $producto = new Producto($id_categoria, $id_unidad, $nombre, $precio_unitario, $costo_produccion, $stock_piezas, $id_producto, $imagen_db, $id_talla, $id_tipo_corbata, $id_nivel, $id_grado, $id_area, $id_bimestre);
 
-        if ($model->actualizar($insumo)) {
-            echo json_encode(["success" => true, "mensaje" => "Insumo actualizado con éxito."]);
+        if ($model->actualizar($producto)) {
+            echo json_encode(["success" => true, "mensaje" => "Producto actualizado con éxito."]);
         } else {
-            echo json_encode(["success" => false, "mensaje" => "Error al actualizar el insumo."]);
+            echo json_encode(["success" => false, "mensaje" => "Error al actualizar el producto."]);
         }
         break;
 
     // Actualiza el stock de un producto
     case 'actualizar_stock':
         $data = json_decode(file_get_contents('php://input'), true);
-        if (!$data || !isset($data['id_insumo'], $data['variacion'])) {
+        if (!$data || !isset($data['id_producto'], $data['variacion'])) {
             echo json_encode(['success' => false, 'mensaje' => 'Datos incompletos.']);
             exit;
         }
 
-        $id = $data['id_insumo'];
+        $id = $data['id_producto'];
         $variacion = floatval($data['variacion']);
 
-        if (M_Insumo::singleton()->actualizarStockRapido($id, $variacion)) {
+        if (M_Producto::singleton()->actualizarStockRapido($id, $variacion)) {
             echo json_encode(['success' => true, 'mensaje' => 'Stock actualizado exitosamente.']);
         } else {
             echo json_encode(['success' => false, 'mensaje' => 'No se pudo actualizar el stock.']);
         }
         break;
 
-    // Elimina de forma lógica un insumo del catálogo
+    // Elimina de forma lógica un producto del catálogo
     case 'eliminar':
         if ($_SESSION['rol'] !== 'Administrador') {
             echo json_encode(["success" => false, "mensaje" => "No tienes permisos para esta acción."]);
             exit;
         }
-        $id_insumo = isset($input['id_insumo']) ? intval($input['id_insumo']) : 0;
+        $id_producto = isset($input['id_producto']) ? intval($input['id_producto']) : 0;
 
-        if ($id_insumo <= 0) {
-            echo json_encode(["success" => false, "mensaje" => "ID de insumo inválido."]);
+        if ($id_producto <= 0) {
+            echo json_encode(["success" => false, "mensaje" => "ID de producto inválido."]);
             exit;
         }
 
         // Ejecutar borrado
-        if ($model->eliminar($id_insumo)) {
-            echo json_encode(["success" => true, "mensaje" => "Insumo eliminado con éxito."]);
+        if ($model->eliminar($id_producto)) {
+            echo json_encode(["success" => true, "mensaje" => "Producto eliminado con éxito."]);
         } else {
-            echo json_encode(["success" => false, "mensaje" => "Error al eliminar el insumo."]);
+            echo json_encode(["success" => false, "mensaje" => "Error al eliminar el producto."]);
         }
         break;
 

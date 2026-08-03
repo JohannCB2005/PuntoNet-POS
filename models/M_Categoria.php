@@ -4,7 +4,7 @@ require_once dirname(__DIR__) . '/config/conexion.php';
 require_once dirname(__DIR__) . '/entities/Categoria.php';
 
 /**
- * Modelo para la gestión de Categorías de Insumos
+ * Modelo para la gestión de Categorías de Productos
  * Permite registrar, actualizar, listar y suspender categorías.
  */
 class M_Categoria {

@@ -20,8 +20,8 @@ $completedCount = intval($stmt->fetch()['count']);
 $stmt = $dbh->query("SELECT COUNT(*) as count FROM usuarios u INNER JOIN personas p ON u.id_persona = p.id_persona WHERE p.estado = 1");
 $activeUsers = intval($stmt->fetch()['count']);
 
-// 4. Contar la cantidad de insumos que tienen stock crítico igual o inferior a 20 unidades
-$stmt = $dbh->query("SELECT COUNT(*) as count FROM insumos WHERE stock_piezas <= 20 AND estado = 1");
+// 4. Contar la cantidad de productos que tienen stock crítico igual o inferior a 20 unidades
+$stmt = $dbh->query("SELECT COUNT(*) as count FROM productos WHERE stock_piezas <= 20 AND estado = 1");
 $lowStockCount = intval($stmt->fetch()['count']);
 
 // 5. Consultar las últimas 5 ventas para mostrar en el historial reciente
@@ -151,7 +151,7 @@ $chartData = array_values($ventasPorDia);
                 <div class="mt-2 d-flex align-items-center gap-2" style="font-size: 12px;">
                     <?php if ($lowStockCount > 0): ?>
                         <span class="text-danger fw-bold d-inline-flex align-items-center">Atención</span>
-                        <span class="text-muted">insumos por reponer</span>
+                        <span class="text-muted">productos por reponer</span>
                     <?php else: ?>
                         <span class="text-primary fw-bold d-inline-flex align-items-center">Al día</span>
                         <span class="text-muted">sin alertas de stock</span>

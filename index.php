@@ -22,7 +22,7 @@ $modulo = isset($_GET['modulo']) ? $_GET['modulo'] : $defaultModule;
 $routes = [
     'dashboard'      => ['Administrador'],
     'categorias'     => ['Administrador'],
-    'insumos'        => ['Administrador'],
+    'productos'        => ['Administrador'],
     'kardex'         => ['Administrador'],
     'usuarios'       => ['Administrador'],
     'clientes'       => ['Administrador', 'Vendedor'],
@@ -51,7 +51,7 @@ if (!in_array($rol, $routes[$modulo])) {
 $titles = [
     'dashboard'      => 'Dashboard - NISSI POS',
     'categorias'     => 'Categorías - NISSI POS',
-    'insumos'        => 'Productos - NISSI POS',
+    'productos'        => 'Productos - NISSI POS',
     'kardex'         => 'Kardex - NISSI POS',
     'usuarios'       => 'Usuarios - NISSI POS',
     'clientes'       => 'Clientes - NISSI POS',
@@ -79,8 +79,8 @@ switch ($modulo) {
     case 'categorias':
         require_once 'views/V_categorias.php';
         break;
-    case 'insumos':
-        require_once 'views/V_insumos.php';
+    case 'productos':
+        require_once 'views/V_productos.php';
         break;
     case 'kardex':
         require_once 'views/V_kardex.php';

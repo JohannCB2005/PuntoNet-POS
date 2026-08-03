@@ -6,21 +6,21 @@ if (!isset($_SESSION['id_usuario'])) {
 }
 
 // Cargar modelos requeridos para poblar la vista del punto de venta
-require_once dirname(__DIR__) . '/models/M_Insumo.php';
+require_once dirname(__DIR__) . '/models/M_Producto.php';
 require_once dirname(__DIR__) . '/models/M_Cliente.php';
 require_once dirname(__DIR__) . '/models/M_Categoria.php';
 require_once dirname(__DIR__) . '/models/M_Caja.php';
 
-// Listar insumos activos en catálogo
-$modelInsumo = M_Insumo::singleton();
-$insumos = $modelInsumo->listar();
+// Listar productos activos en catálogo
+$modelProducto = M_Producto::singleton();
+$productos = $modelProducto->listar();
 
 // Construir mapa de productos agrupados para el selector de tallas en POS
 // Estructura: [ id_padre => ['nombre'=>..., 'imagen'=>..., 'categoria'=>..., 'variantes'=>[...]] ]
 $productosAgrupados = [];
-foreach ($insumos as $ins) {
+foreach ($productos as $ins) {
     if ($ins['es_agrupador'] == 1) {
-        $productosAgrupados[$ins['id_insumo']] = [
+        $productosAgrupados[$ins['id_producto']] = [
             'nombre'    => $ins['nombre'],
             'categoria' => $ins['categoria'],
             'imagen'    => $ins['imagen'] ?? null,
@@ -28,10 +28,10 @@ foreach ($insumos as $ins) {
         ];
     }
 }
-foreach ($insumos as $ins) {
+foreach ($productos as $ins) {
     if ($ins['id_producto_padre'] && isset($productosAgrupados[$ins['id_producto_padre']]) && $ins['stock_piezas'] > 0) {
         $productosAgrupados[$ins['id_producto_padre']]['variantes'][] = [
-            'id_insumo' => (int) $ins['id_insumo'],
+            'id_producto' => (int) $ins['id_producto'],
             'talla'     => $ins['talla'] ?? 'S/T',
             'precio'    => (float) $ins['precio_unitario'],
             'stock'     => (float) $ins['stock_piezas'],
@@ -251,19 +251,19 @@ $cajaAbierta = $modelCaja->obtenerCajaAbierta($_SESSION['id_usuario']);
     </div>
 
     <div class="row g-3">
-        <!-- Columna del Catálogo de Insumos -->
+        <!-- Columna del Catálogo de Productos -->
         <div class="col-12 col-lg-7 col-xl-8">
             <div class="gp-card h-100 d-flex flex-column" style="min-height: 600px;">
                 <div class="mb-4">
                     <h4 class="fw-bold text-dark mb-1">Nueva Venta</h4>
-                    <p class="text-muted mb-4" style="font-size: 13.5px;">Selecciona los insumos para agregarlos al carrito.</p>
+                    <p class="text-muted mb-4" style="font-size: 13.5px;">Selecciona los productos para agregarlos al carrito.</p>
                     
                     <div class="d-flex flex-wrap gap-3 align-items-center">
                         <div class="input-group" style="width: 250px; max-width: 100%;">
                             <span class="input-group-text bg-transparent border-end-0 text-muted" id="search-pos-addon">
                                 <i class="bi bi-search"></i>
                             </span>
-                            <input type="text" class="form-control border-start-0 ps-0 text-sm" id="searchCatalog" placeholder="Buscar insumos..." aria-label="Buscar" aria-describedby="search-pos-addon" style="box-shadow: none;">
+                            <input type="text" class="form-control border-start-0 ps-0 text-sm" id="searchCatalog" placeholder="Buscar productos..." aria-label="Buscar" aria-describedby="search-pos-addon" style="box-shadow: none;">
                         </div>
                         
                         <!-- Píldoras de Filtro por Categorías -->
@@ -282,7 +282,7 @@ $cajaAbierta = $modelCaja->obtenerCajaAbierta($_SESSION['id_usuario']);
                 <!-- Cuadrícula de Tarjetas de Productos -->
                 <div class="flex-grow-1 overflow-auto pe-1" style="max-height: 480px;" id="catalogGrid">
                     <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 g-3">
-                        <?php foreach ($insumos as $ins): ?>
+                        <?php foreach ($productos as $ins): ?>
                             <?php if ($ins['estado'] == 1 && !$ins['id_producto_padre'] && $ins['es_agrupador'] == 0): ?>
                                 <!-- TARJETA SIMPLE: producto sin variantes de talla -->
                                 <div class="col product-card"
@@ -310,7 +310,7 @@ $cajaAbierta = $modelCaja->obtenerCajaAbierta($_SESSION['id_usuario']);
                                                     <span class="fw-bold text-primary" style="font-size: 15px;">S/ <?php echo number_format($ins['precio_unitario'], 2); ?></span>
                                                 </div>
                                                 <button class="btn btn-primary bg-gradient border-0 add-to-cart-btn"
-                                                        data-id="<?php echo $ins['id_insumo']; ?>"
+                                                        data-id="<?php echo $ins['id_producto']; ?>"
                                                         data-nombre="<?php echo htmlspecialchars($ins['nombre']); ?>"
                                                         data-precio="<?php echo $ins['precio_unitario']; ?>"
                                                         data-stock="<?php echo $ins['stock_piezas']; ?>"
@@ -325,7 +325,7 @@ $cajaAbierta = $modelCaja->obtenerCajaAbierta($_SESSION['id_usuario']);
                                 </div>
                             <?php elseif ($ins['estado'] == 1 && $ins['es_agrupador'] == 1): ?>
                                 <?php
-                                $variantesDisp = $productosAgrupados[$ins['id_insumo']]['variantes'] ?? [];
+                                $variantesDisp = $productosAgrupados[$ins['id_producto']]['variantes'] ?? [];
                                 $precioDesde   = !empty($variantesDisp) ? min(array_column($variantesDisp, 'precio')) : 0;
                                 $stockTotal    = !empty($variantesDisp) ? array_sum(array_column($variantesDisp, 'stock')) : 0;
                                 if (empty($variantesDisp)) continue;
@@ -350,7 +350,7 @@ $cajaAbierta = $modelCaja->obtenerCajaAbierta($_SESSION['id_usuario']);
                                                     <span class="fw-bold text-primary" style="font-size: 15px;">S/ <?php echo number_format($precioDesde, 2); ?></span>
                                                 </div>
                                                 <button class="btn open-talla-picker-btn"
-                                                        data-padre-id="<?php echo $ins['id_insumo']; ?>"
+                                                        data-padre-id="<?php echo $ins['id_producto']; ?>"
                                                         data-nombre="<?php echo htmlspecialchars($ins['nombre']); ?>"
                                                         style="height: 32px; border-radius: 8px; padding: 0 10px; font-size: 12px; background: #eff6ff; border: 1.5px solid #0284c7; color: #0284c7; white-space: nowrap;">
                                                     <i class="bi bi-rulers me-1"></i>Elegir talla
@@ -378,12 +378,12 @@ $cajaAbierta = $modelCaja->obtenerCajaAbierta($_SESSION['id_usuario']);
                         <span class="badge bg-primary rounded-pill px-2" id="cartItemCountBadge">0 items</span>
                     </div>
 
-                    <!-- Listado Dinámico de Insumos Agregados -->
+                    <!-- Listado Dinámico de Productos Agregados -->
                     <div class="overflow-auto mb-3 pe-1" style="max-height: 250px; min-height: 180px;" id="cartList">
                         <div class="text-center py-5 text-muted" id="emptyCartMessage">
                             <i class="bi bi-cart fs-2 mb-2 d-block"></i>
                             <p style="font-size: 13px;" class="mb-1">El carrito está vacío</p>
-                            <small class="text-muted" style="font-size: 11px;">Agrega insumos desde el catálogo.</small>
+                            <small class="text-muted" style="font-size: 11px;">Agrega productos desde el catálogo.</small>
                         </div>
                     </div>
                 </div>
@@ -1098,7 +1098,7 @@ $cajaAbierta = $modelCaja->obtenerCajaAbierta($_SESSION['id_usuario']);
         const tallaPosIncBtn   = document.getElementById('tallaPosIncBtn');
         const tallaPosAddBtn   = document.getElementById('tallaPosAddBtn');
 
-        let tallaSeleccionada  = null; // { id_insumo, talla, precio, stock, unidad }
+        let tallaSeleccionada  = null; // { id_producto, talla, precio, stock, unidad }
 
         function seleccionarTalla(variante, pillEl) {
             tallaSeleccionada = variante;
@@ -1169,12 +1169,12 @@ $cajaAbierta = $modelCaja->obtenerCajaAbierta($_SESSION['id_usuario']);
             const cantidad = parseInt(tallaPosCant.value) || 1;
             const nombre   = tallaPosNombre.textContent + ' (T-' + tallaSeleccionada.talla + ')';
             // Reutilizar la misma función de carrito que el botón add-to-cart
-            const id       = tallaSeleccionada.id_insumo;
+            const id       = tallaSeleccionada.id_producto;
             const precio   = tallaSeleccionada.precio;
             const stock    = tallaSeleccionada.stock;
             const unidad   = tallaSeleccionada.unidad || 'Und';
 
-            const existing = cart.find(item => item.id_insumo === id);
+            const existing = cart.find(item => item.id_producto === id);
             if (existing) {
                 const newQty = existing.cantidad + cantidad;
                 if (newQty > stock) {
@@ -1184,7 +1184,7 @@ $cajaAbierta = $modelCaja->obtenerCajaAbierta($_SESSION['id_usuario']);
                 existing.cantidad = newQty;
                 existing.subtotal = existing.cantidad * precio;
             } else {
-                cart.push({ id_insumo: id, nombre, precio, stock, unidad, cantidad, subtotal: cantidad * precio });
+                cart.push({ id_producto: id, nombre, precio, stock, unidad, cantidad, subtotal: cantidad * precio });
             }
             tallaPosAddBtn.blur();
             tallaPosModal.hide();
@@ -1200,17 +1200,17 @@ $cajaAbierta = $modelCaja->obtenerCajaAbierta($_SESSION['id_usuario']);
                 const stock = parseFloat(btn.dataset.stock);
                 const unidad = btn.dataset.unidad;
 
-                const existing = cart.find(item => item.id_insumo === id);
+                const existing = cart.find(item => item.id_producto === id);
                 if (existing) {
                     if (existing.cantidad + 1 > stock) {
-                        Swal.fire({ icon: 'warning', title: 'Stock Insuficiente', text: `Solo hay ${stock} unidades disponibles de este insumo.`, confirmButtonColor: '#0284c7' });
+                        Swal.fire({ icon: 'warning', title: 'Stock Insuficiente', text: `Solo hay ${stock} unidades disponibles de este producto.`, confirmButtonColor: '#0284c7' });
                         return;
                     }
                     existing.cantidad += 1;
                     existing.subtotal = existing.cantidad * existing.precio;
                 } else {
                     cart.push({
-                        id_insumo: id,
+                        id_producto: id,
                         nombre: nombre,
                         precio: precio,
                         stock: stock,
@@ -1235,11 +1235,11 @@ $cajaAbierta = $modelCaja->obtenerCajaAbierta($_SESSION['id_usuario']);
 
         // Modificar cantidad en línea en la vista del carrito
         function updateQuantity(id, newQty) {
-            const item = cart.find(i => i.id_insumo === id);
+            const item = cart.find(i => i.id_producto === id);
             if (!item) return;
 
             if (newQty <= 0) {
-                cart = cart.filter(i => i.id_insumo !== id);
+                cart = cart.filter(i => i.id_producto !== id);
             } else if (newQty > item.stock) {
                 Swal.fire({ icon: 'warning', title: 'Stock Insuficiente', text: `El stock disponible es de ${item.stock} ${item.unidad}.`, confirmButtonColor: '#0284c7' });
                 item.cantidad = item.stock;
@@ -1288,16 +1288,16 @@ $cajaAbierta = $modelCaja->obtenerCajaAbierta($_SESSION['id_usuario']);
 
                 let renderQtyInfo = `<div class="d-flex align-items-center border rounded-2" style="height: 32px; width: 105px; overflow: hidden; background: #fff;">
                                     <button class="btn btn-light rounded-0 border-0 p-0 text-secondary d-flex align-items-center justify-content-center" 
-                                            onclick="window.posDecrease(${item.id_insumo})" style="width: 30px; height: 100%; background: #f8f9fa;">
+                                            onclick="window.posDecrease(${item.id_producto})" style="width: 30px; height: 100%; background: #f8f9fa;">
                                         <i class="bi bi-dash"></i>
                                     </button>
                                     <input type="number" class="form-control border-0 text-center p-0 m-0 fw-semibold text-dark" 
                                            value="${item.cantidad}" step="0.01" min="0.01" 
                                            style="font-size: 13px; box-shadow: none; width: 45px; height: 100%; -moz-appearance: textfield; background: #fff;" 
-                                           onchange="window.posChange(${item.id_insumo}, this.value)"
+                                           onchange="window.posChange(${item.id_producto}, this.value)"
                                            oninput="this.style.appearance = 'none'; this.style.webkitAppearance = 'none';">
                                     <button class="btn btn-light rounded-0 border-0 p-0 text-secondary d-flex align-items-center justify-content-center" 
-                                            onclick="window.posIncrease(${item.id_insumo})" style="width: 30px; height: 100%; background: #f8f9fa;">
+                                            onclick="window.posIncrease(${item.id_producto})" style="width: 30px; height: 100%; background: #f8f9fa;">
                                         <i class="bi bi-plus"></i>
                                     </button>
                                 </div>
@@ -1321,7 +1321,7 @@ $cajaAbierta = $modelCaja->obtenerCajaAbierta($_SESSION['id_usuario']);
                             ${renderQtyInfo}
                             <div class="d-flex align-items-center gap-2">
                                 <span class="text-muted" style="font-size: 11px;">S/ ${item.precio.toFixed(2)} / ${item.unidad}</span>
-                                <button class="btn btn-link text-danger p-0 border-0" onclick="window.posRemove(${item.id_insumo})">
+                                <button class="btn btn-link text-danger p-0 border-0" onclick="window.posRemove(${item.id_producto})">
                                     <i class="bi bi-trash3-fill"></i>
                                 </button>
                             </div>
@@ -1346,11 +1346,11 @@ $cajaAbierta = $modelCaja->obtenerCajaAbierta($_SESSION['id_usuario']);
 
         // Exponer funciones visuales del carrito al ámbito global
         window.posDecrease = (id) => {
-            const item = cart.find(i => i.id_insumo === id);
+            const item = cart.find(i => i.id_producto === id);
             if (item) updateQuantity(id, item.cantidad - 1);
         };
         window.posIncrease = (id) => {
-            const item = cart.find(i => i.id_insumo === id);
+            const item = cart.find(i => i.id_producto === id);
             if (item) updateQuantity(id, item.cantidad + 1);
         };
         window.posChange = (id, val) => {
@@ -1362,7 +1362,7 @@ $cajaAbierta = $modelCaja->obtenerCajaAbierta($_SESSION['id_usuario']);
             }
         };
         window.posRemove = (id) => {
-            cart = cart.filter(i => i.id_insumo !== id);
+            cart = cart.filter(i => i.id_producto !== id);
             renderCart();
         };
 
@@ -1386,7 +1386,7 @@ $cajaAbierta = $modelCaja->obtenerCajaAbierta($_SESSION['id_usuario']);
                     pago_vale: 0,
                     pago_efectivo: totalGeneral,
                     cart: cart.map(item => ({
-                        id_insumo: item.id_insumo,
+                        id_producto: item.id_producto,
                         piezas: item.cantidad,
                         peso_neto: 0,
                         precio: item.precio,

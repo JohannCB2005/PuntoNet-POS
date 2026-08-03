@@ -315,8 +315,8 @@ p { margin: 1px 0; }
         <?php $i = 1; foreach ($detalles as $d): ?>
         <tr>
             <td class="c"><?php echo $i++; ?></td>
-            <td><?php echo htmlspecialchars($d['codigo_insumo'] ?? '-'); ?></td>
-            <td><?php echo htmlspecialchars($d['nombre_insumo']); ?></td>
+            <td><?php echo htmlspecialchars($d['codigo_producto'] ?? '-'); ?></td>
+            <td><?php echo htmlspecialchars($d['nombre_producto']); ?></td>
             <td class="c"><?php echo number_format(floatval($d['piezas']), 2); ?></td>
             <td class="r">S/ <?php echo number_format($d['precio_unitario'], 2); ?></td>
             <td class="r">S/ <?php echo number_format($d['subtotal'], 2); ?></td>
@@ -400,7 +400,7 @@ p { margin: 1px 0; }
         <tr>
             <td><?php echo str_pad($i+1, 2, '0', STR_PAD_LEFT); ?></td>
             <td><?php echo number_format(floatval($d['piezas']), 2); ?></td>
-            <td><?php echo htmlspecialchars($d['nombre_insumo']); ?></td>
+            <td><?php echo htmlspecialchars($d['nombre_producto']); ?></td>
             <td class="r"><?php echo number_format($d['precio_unitario'], 2); ?></td>
             <td class="r"><?php echo number_format($d['subtotal'], 2); ?></td>
         </tr>

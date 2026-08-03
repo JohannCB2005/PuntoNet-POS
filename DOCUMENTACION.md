@@ -23,9 +23,9 @@ El acceso a estos módulos requiere inicio de sesión en `index.php`. El sistema
 * Muestra resúmenes gráficos de ventas del día, ventas del mes y estadísticas críticas.
 * Indicador de alertas de stock bajo y accesos rápidos a tareas recurrentes.
 
-### 2. Gestión de Insumos (Catálogo de Productos)
+### 2. Gestión de Productos (Catálogo de Productos)
 * Alta, edición, visualización y eliminación lógica de productos.
-* Cada insumo cuenta con: Nombre, Categoría, Unidad de Medida, Costo de Producción (rentabilidad), Precio Venta y Stock actual.
+* Cada producto cuenta con: Nombre, Categoría, Unidad de Medida, Costo de Producción (rentabilidad), Precio Venta y Stock actual.
 * **Control de Pesaje**: Opción de marcar si el producto requiere pesaje dinámico (ej: aves vivas que se pesan en balanza al vender) o si tiene contenido estándar fijo (sacos, javas).
 * **Galería de Imágenes**: Subida de imágenes de producto (JPG, PNG, WebP) directamente al servidor con procesamiento automático de sustitución y previsualización en vivo.
 
@@ -34,14 +34,14 @@ El acceso a estos módulos requiere inicio de sesión en `index.php`. El sistema
 * Registro y control de las unidades de medida (Unidad, Kilogramos, Litros, etc.) y sus abreviaciones.
 
 ### 4. Control de Inventario (Kardex)
-* Registro histórico de todas las entradas (compras/producción) y salidas (ventas) de insumos.
+* Registro histórico de todas las entradas (compras/producción) y salidas (ventas) de productos.
 * Control detallado de stock en piezas y peso neto, permitiendo auditorías precisas por lote de producción.
 
 ### 5. Punto de Venta (Nueva Venta)
 * Formulario interactivo para registrar ventas presenciales de forma ágil.
 * Búsqueda de clientes por DNI o Nombre con autocompletado y registro rápido desde la misma pantalla.
 * Carrito de compras que calcula subtotales, IGV y total final en tiempo real.
-* Integración de balanza virtual para insumos que requieren pesaje.
+* Integración de balanza virtual para productos que requieren pesaje.
 * Impresión de comprobante/ticket optimizado en formato térmico de 80mm.
 
 ### 6. Historial de Ventas
@@ -92,7 +92,7 @@ Es la vitrina de cara al cliente final, permitiéndole reservar productos para p
 ### 4. Proceso de Pedido y Reserva (*Checkout*)
 * Formulario limpio que requiere únicamente: **DNI**, **Nombres**, **Apellidos**, **Teléfono** y **Dirección**. Sin necesidad de registro de cuentas de usuario.
 * **Método de Pago**: Pasarela simplificada integrada de código QR para pago instantáneo vía **Yape** con ingreso del número de operación.
-* **Reserva de Stock**: Al confirmar el pedido, el sistema disminuye temporalmente el stock del insumo en el inventario para asegurar la disponibilidad de compra, a la espera de la aprobación del cajero en el POS administrativo.
+* **Reserva de Stock**: Al confirmar el pedido, el sistema disminuye temporalmente el stock del producto en el inventario para asegurar la disponibilidad de compra, a la espera de la aprobación del cajero en el POS administrativo.
 
 ---
 
@@ -101,4 +101,4 @@ Es la vitrina de cara al cliente final, permitiéndole reservar productos para p
 Todo el desarrollo se ha realizado bajo el marco de reglas estrictas de [INFINITYFREE_REGLAS.md](file:///c:/xampp/htdocs/PuntoNet/INFINITYFREE_REGLAS.md):
 1. **Sin dependencias del sistema**: Las subidas de imágenes usan PHP nativo.
 2. **Eficiencia en Hosting Gratuito**: Los filtros de la tienda virtual se procesan en el navegador del cliente mediante JavaScript nativo, eliminando peticiones HTTP excesivas y evitando la suspensión de la cuenta por sobrecarga de CPU.
-3. **Estructura de Base de Datos estándar**: El esquema cuenta con la columna `imagen` insertada en la definición de tabla de `insumos` sin usar triggers ni stored procedures.
+3. **Estructura de Base de Datos estándar**: El esquema cuenta con la columna `imagen` insertada en la definición de tabla de `productos` sin usar triggers ni stored procedures.

@@ -8,7 +8,7 @@ if (!isset($_SESSION['id_usuario'])) {
 // Cargar el modelo de Kardex para obtener los productos del selector
 require_once dirname(__DIR__) . '/models/M_Kardex.php';
 $modelKardex = M_Kardex::singleton();
-$insumos = $modelKardex->listarInsumos();
+$productos = $modelKardex->listarProductos();
 ?>
 
 <div class="container-fluid px-0">
@@ -18,7 +18,7 @@ $insumos = $modelKardex->listarInsumos();
             <h4 class="mb-1 fw-bold text-dark">Kardex de Inventario</h4>
             <p class="text-muted mb-0" style="font-size:14px;">Registro cronológico de entradas, salidas y saldos valorizados por producto.</p>
         </div>
-        <!-- Botones para exportar información (deshabilitados hasta seleccionar un insumo) -->
+        <!-- Botones para exportar información (deshabilitados hasta seleccionar un producto) -->
         <div class="d-flex gap-2">
             <button class="btn btn-outline-secondary d-flex align-items-center gap-2" id="btnExportExcel" style="font-size:13px;" disabled>
                 <i class="bi bi-file-earmark-excel"></i> Exportar Excel
@@ -34,12 +34,12 @@ $insumos = $modelKardex->listarInsumos();
         <div class="row align-items-center">
             <div class="col-12 col-md-4">
                 <label class="form-label fw-semibold text-muted mb-1" style="font-size:12px; text-transform:uppercase; letter-spacing:.5px;">Producto / Artículo</label>
-                <select class="form-select" id="selectInsumo" style="font-size:14px; box-shadow:none;">
+                <select class="form-select" id="selectProducto" style="font-size:14px; box-shadow:none;">
                     <option value="">— Seleccione un producto —</option>
                     <?php
                     // Agrupar por producto padre (o categoría si es simple)
                     $gruposKardex = [];
-                    foreach ($insumos as $ins) {
+                    foreach ($productos as $ins) {
                         $grupo = $ins['nombre_padre'] ?? null;
                         if ($grupo) {
                             $gruposKardex[$grupo][] = $ins;
@@ -52,7 +52,7 @@ $insumos = $modelKardex->listarInsumos();
                     ?>
                         <optgroup label="— Productos individuales —">
                             <?php foreach ($items as $ins): ?>
-                                <option value="<?= $ins['id_insumo'] ?>"
+                                <option value="<?= $ins['id_producto'] ?>"
                                         data-precio="<?= $ins['precio_unitario'] ?>"
                                         data-stock="<?= $ins['stock_piezas'] ?>"
                                         data-unidad="<?= htmlspecialchars($ins['abreviatura']) ?>"
@@ -69,7 +69,7 @@ $insumos = $modelKardex->listarInsumos();
                                 $shortText = htmlspecialchars($ins['talla'] ? 'Talla ' . $ins['talla'] : $ins['nombre']);
                                 $fullText = htmlspecialchars($nombreGrupo . ' - ' . ($ins['talla'] ? 'Talla ' . $ins['talla'] : $ins['nombre']));
                             ?>
-                                <option value="<?= $ins['id_insumo'] ?>"
+                                <option value="<?= $ins['id_producto'] ?>"
                                         data-precio="<?= $ins['precio_unitario'] ?>"
                                         data-stock="<?= $ins['stock_piezas'] ?>"
                                         data-unidad="<?= htmlspecialchars($ins['abreviatura']) ?>"
@@ -195,21 +195,21 @@ $insumos = $modelKardex->listarInsumos();
     <div id="kardexPlaceholder" class="gp-card text-center py-5">
         <i class="bi bi-journal-text" style="font-size:3rem; color:#c8e6c9;"></i>
         <h6 class="mt-3 fw-semibold text-muted">Selecciona un producto para ver su Kardex</h6>
-        <p class="text-muted mb-0" style="font-size:13px;">Elige un insumo del selector superior para visualizar el registro de movimientos.</p>
+        <p class="text-muted mb-0" style="font-size:13px;">Elige un producto del selector superior para visualizar el registro de movimientos.</p>
     </div>
 </div>
 
 <script>
 document.addEventListener('DOMContentLoaded', () => {
     // Referencias a los filtros y el selector de productos
-    const selectInsumo   = document.getElementById('selectInsumo');
+    const selectProducto   = document.getElementById('selectProducto');
     
     // Función para manejar el texto visual del select
     function updateSelectedText() {
-        const selected = selectInsumo.options[selectInsumo.selectedIndex];
+        const selected = selectProducto.options[selectProducto.selectedIndex];
         if (selected && selected.dataset.fulltext) {
             // Revertir temporalmente todos al formato corto para el dropdown
-            Array.from(selectInsumo.options).forEach(opt => {
+            Array.from(selectProducto.options).forEach(opt => {
                 if (opt.dataset.shorttext && opt !== selected) {
                     opt.textContent = opt.dataset.shorttext;
                 }
@@ -219,15 +219,15 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
     
-    selectInsumo.addEventListener('focus', function() {
+    selectProducto.addEventListener('focus', function() {
         Array.from(this.options).forEach(opt => {
             if (opt.dataset.shorttext) {
                 opt.textContent = opt.dataset.shorttext;
             }
         });
     });
-    selectInsumo.addEventListener('blur', updateSelectedText);
-    selectInsumo.addEventListener('change', updateSelectedText);
+    selectProducto.addEventListener('blur', updateSelectedText);
+    selectProducto.addEventListener('change', updateSelectedText);
 
     const filterTipo     = document.getElementById('filterTipo');
     const filterDesde    = document.getElementById('filterDesde');
@@ -281,10 +281,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Petición AJAX al controlador C_Kardex.php para reconstruir los movimientos
     async function cargarKardex() {
-        const id = selectInsumo.value;
+        const id = selectProducto.value;
         if (!id) return;
 
-        const opt    = selectInsumo.options[selectInsumo.selectedIndex];
+        const opt    = selectProducto.options[selectProducto.selectedIndex];
         const unidad = opt.dataset.unidad || '';
 
         // Levantar spinner y ocultar tabla / alertas de datos vacíos
@@ -294,7 +294,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const params = new URLSearchParams({
             action:    'movimientos',
-            id_insumo: id,
+            id_producto: id,
             tipo:      filterTipo.value,
             desde:     filterDesde.value,
             hasta:     filterHasta.value,
@@ -392,7 +392,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Manejar el cambio de producto del dropdown
     function onProductChange() {
-        const id = selectInsumo.value;
+        const id = selectProducto.value;
         if (!id) {
             kardexSummary.classList.add('d-none');
             kardexFilters.classList.add('d-none');
@@ -415,7 +415,7 @@ document.addEventListener('DOMContentLoaded', () => {
         debounceTimer = setTimeout(cargarKardex, 350);
     }
 
-    selectInsumo.addEventListener('change', onProductChange);
+    selectProducto.addEventListener('change', onProductChange);
     filterTipo.addEventListener('change', onFilterChange);
     filterDesde.addEventListener('change', onFilterChange);
     filterHasta.addEventListener('change', onFilterChange);
@@ -429,7 +429,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Exportar a formato CSV legible directamente por Excel
     btnExportExcel.addEventListener('click', () => {
         if (!currentData || !currentData.rows) return;
-        const opt    = selectInsumo.options[selectInsumo.selectedIndex];
+        const opt    = selectProducto.options[selectProducto.selectedIndex];
         const nombre = opt.text;
         let csv = '\uFEFF'; // BOM para codificar correctamente caracteres en español y UTF-8 en Excel
         csv += `Kardex de Inventario - ${nombre}\n`;

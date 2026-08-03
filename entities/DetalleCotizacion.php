@@ -2,7 +2,7 @@
 class DetalleCotizacion {
     public $id_detalle_cotizacion;
     public $id_cotizacion;
-    public $id_insumo;
+    public $id_producto;
     public $piezas;
     public $precio_unitario;
     public $subtotal;
@@ -10,14 +10,14 @@ class DetalleCotizacion {
     public function __construct(
         $id_detalle_cotizacion = null,
         $id_cotizacion = null,
-        $id_insumo = null,
+        $id_producto = null,
         $piezas = 0,
         $precio_unitario = 0.0,
         $subtotal = 0.0
     ) {
         $this->id_detalle_cotizacion = $id_detalle_cotizacion;
         $this->id_cotizacion = $id_cotizacion;
-        $this->id_insumo = $id_insumo;
+        $this->id_producto = $id_producto;
         $this->piezas = $piezas;
         $this->precio_unitario = $precio_unitario;
         $this->subtotal = $subtotal;

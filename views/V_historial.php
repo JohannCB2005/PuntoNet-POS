@@ -145,7 +145,7 @@ $ventas = $modelVenta->listar($id_vendedor);
                                                 style="color: #6b7280;">
                                             <i class="bi bi-printer-fill"></i>
                                         </button>
-                                        <!-- Botón Anular (Retorna insumos al stock) -->
+                                        <!-- Botón Anular (Retorna productos al stock) -->
                                         <?php if ($v['estado'] == 1): ?>
                                             <button class="btn btn-link text-muted p-1 hover-text-danger cancel-sale-btn" 
                                                     data-id="<?php echo $v['id_venta']; ?>"
@@ -176,7 +176,7 @@ $ventas = $modelVenta->listar($id_vendedor);
                 <!-- Encabezado de la Boleta -->
                 <div class="text-center mb-4 border-bottom pb-3">
                     <h5 class="fw-bold text-dark mb-1">PuntoNet</h5>
-                    <p class="text-muted mb-2" style="font-size: 12px;">Gestión de Insumos y Ventas</p>
+                    <p class="text-muted mb-2" style="font-size: 12px;">Gestión de Productos y Ventas</p>
                     <div class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-20 px-3 py-1.5 fw-bold" id="ticketCodigo" style="font-size: 13px;">
                         V-000000
                     </div>
@@ -198,9 +198,9 @@ $ventas = $modelVenta->listar($id_vendedor);
                     </div>
                 </div>
 
-                <!-- Tabla de Productos/Insumos -->
+                <!-- Tabla de Productos/Productos -->
                 <div class="border-top pt-3">
-                    <h6 class="fw-bold text-dark mb-3" style="font-size: 13px;">Detalle de Insumos</h6>
+                    <h6 class="fw-bold text-dark mb-3" style="font-size: 13px;">Detalle de Productos</h6>
                     <div class="table-responsive">
                         <table class="table table-borderless align-middle mb-0" style="font-size: 12.5px;">
                             <thead>
@@ -371,13 +371,13 @@ $ventas = $modelVenta->listar($id_vendedor);
                             const pesoNeto = parseFloat(item.peso_neto || 0);
                             const prec = parseFloat(item.precio_venta);
                             const subt = parseFloat(item.subtotal);
-                            // Mostrar piezas + peso si el insumo tiene peso variable (pavos)
+                            // Mostrar piezas + peso si el producto tiene peso variable (pavos)
                             const cantDisplay = pesoNeto > 0
                                 ? `${piezas} pzs · ${pesoNeto.toFixed(2)} Kg`
                                 : `${piezas} ${item.abreviatura}`;
                             rowsHtml += `
                                 <tr>
-                                    <td class="ps-0 text-dark fw-medium">${item.insumo_nombre}</td>
+                                    <td class="ps-0 text-dark fw-medium">${item.producto_nombre}</td>
                                     <td class="text-center text-muted">${cantDisplay}</td>
                                     <td class="text-end text-muted">S/ ${prec.toFixed(2)}</td>
                                     <td class="text-end pe-0 fw-semibold text-dark">S/ ${subt.toFixed(2)}</td>
@@ -400,7 +400,7 @@ $ventas = $modelVenta->listar($id_vendedor);
                 const id = btn.dataset.id;
                 Swal.fire({
                     title: '¿Anular esta venta?',
-                    text: 'Esta acción devolverá los insumos vendidos al stock del inventario.',
+                    text: 'Esta acción devolverá los productos vendidos al stock del inventario.',
                     icon: 'warning',
                     showCancelButton: true,
                     confirmButtonColor: '#ef4444',

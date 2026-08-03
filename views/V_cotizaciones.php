@@ -4,11 +4,11 @@ if (!isset($_SESSION['id_usuario'])) {
     exit;
 }
 
-require_once dirname(__DIR__) . '/models/M_Insumo.php';
+require_once dirname(__DIR__) . '/models/M_Producto.php';
 require_once dirname(__DIR__) . '/models/M_Cliente.php';
 
-$modelInsumo = M_Insumo::singleton();
-$insumos = $modelInsumo->listar();
+$modelProducto = M_Producto::singleton();
+$productos = $modelProducto->listar();
 
 $modelCliente = M_Cliente::singleton();
 $clientesRaw = $modelCliente->listarClientes();
@@ -106,13 +106,13 @@ $clientesRaw = $modelCliente->listarClientes();
 
                                 <h6 class="fw-bold mb-3 text-primary mt-4"><i class="bi bi-cart-fill me-2"></i>Productos Cotizados</h6>
                                 
-                                <!-- Buscador de Insumos -->
+                                <!-- Buscador de Productos -->
                                 <div class="mb-3">
-                                    <select class="form-select select2-insumos" id="cot_buscador_insumo">
-                                        <option value="">Buscar producto / insumo...</option>
-                                        <?php foreach($insumos as $i): ?>
+                                    <select class="form-select select2-productos" id="cot_buscador_producto">
+                                        <option value="">Buscar producto / producto...</option>
+                                        <?php foreach($productos as $i): ?>
                                             <?php if($i['estado'] == 1): ?>
-                                            <option value="<?php echo $i['id_insumo']; ?>" 
+                                            <option value="<?php echo $i['id_producto']; ?>" 
                                                     data-precio="<?php echo $i['precio_unitario']; ?>"
                                                     data-nombre="<?php echo htmlspecialchars($i['nombre']); ?>">
                                                 <?php echo htmlspecialchars($i['nombre']); ?> - S/ <?php echo $i['precio_unitario']; ?>
@@ -301,24 +301,24 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Init Select2
     $('#cot_id_cliente').select2({ theme: 'bootstrap-5', dropdownParent: $('#modalNuevaCotizacion') });
-    $('#cot_buscador_insumo').select2({ theme: 'bootstrap-5', dropdownParent: $('#modalNuevaCotizacion') });
+    $('#cot_buscador_producto').select2({ theme: 'bootstrap-5', dropdownParent: $('#modalNuevaCotizacion') });
 
     // Agregar al carrito
-    $('#cot_buscador_insumo').on('select2:select', function (e) {
+    $('#cot_buscador_producto').on('select2:select', function (e) {
         let data = e.params.data;
-        let id_insumo = data.id;
+        let id_producto = data.id;
         let element = $(data.element);
         let nombre = element.data('nombre');
         let precio = parseFloat(element.data('precio'));
 
-        if(id_insumo) {
-            let existe = carritoCotizacion.find(i => i.id_insumo == id_insumo);
+        if(id_producto) {
+            let existe = carritoCotizacion.find(i => i.id_producto == id_producto);
             if(existe) {
                 existe.cantidad++;
                 existe.subtotal = existe.cantidad * existe.precio;
             } else {
                 carritoCotizacion.push({
-                    id_insumo: id_insumo,
+                    id_producto: id_producto,
                     nombre: nombre,
                     cantidad: 1,
                     precio: precio,
@@ -326,7 +326,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
             }
             renderCarrito();
-            $('#cot_buscador_insumo').val('').trigger('change');
+            $('#cot_buscador_producto').val('').trigger('change');
         }
     });
 

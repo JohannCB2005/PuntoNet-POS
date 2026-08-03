@@ -60,7 +60,7 @@ class M_Reporte {
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
-    public function getTopInsumos($desde, $hasta, $limit = 5) {
+    public function getTopProductos($desde, $hasta, $limit = 5) {
         $sql = "SELECT 
                     i.nombre, 
                     c.nombre as categoria,
@@ -70,11 +70,11 @@ class M_Reporte {
                     um.abreviatura as unidad
                 FROM detalle_ventas dv
                 INNER JOIN ventas v ON dv.id_venta = v.id_venta
-                INNER JOIN insumos i ON dv.id_insumo = i.id_insumo
+                INNER JOIN productos i ON dv.id_producto = i.id_producto
                 INNER JOIN categorias c ON i.id_categoria = c.id_categoria
                 INNER JOIN unidades_medida um ON i.id_unidad = um.id_unidad
                 WHERE v.estado = 1 AND DATE(v.fecha) BETWEEN :desde AND :hasta
-                GROUP BY dv.id_insumo
+                GROUP BY dv.id_producto
                 ORDER BY ingresos DESC 
                 LIMIT " . intval($limit);
         $stmt = $this->pdo->prepare($sql);
@@ -133,7 +133,7 @@ class M_Reporte {
                         WHEN i.stock_piezas <= 20 THEN 'Bajo'
                         ELSE 'Normal' 
                     END as estado_stock
-                FROM insumos i
+                FROM productos i
                 INNER JOIN categorias c ON i.id_categoria = c.id_categoria
                 INNER JOIN unidades_medida um ON i.id_unidad = um.id_unidad
                 WHERE i.estado = 1
@@ -165,7 +165,7 @@ class M_Reporte {
 
     public function reporteBeneficio($desde, $hasta) {
         $sql = "SELECT 
-                    i.nombre as insumo,
+                    i.nombre as producto,
                     c.nombre as categoria,
                     SUM(dv.cantidad) as cantidad_vendida,
                     NULL as peso_vendido,
@@ -174,10 +174,10 @@ class M_Reporte {
                     SUM(dv.subtotal) - SUM(dv.cantidad * dv.costo_unitario) as beneficio
                 FROM detalle_ventas dv
                 INNER JOIN ventas v ON dv.id_venta = v.id_venta
-                INNER JOIN insumos i ON dv.id_insumo = i.id_insumo
+                INNER JOIN productos i ON dv.id_producto = i.id_producto
                 INNER JOIN categorias c ON i.id_categoria = c.id_categoria
                 WHERE v.estado = 1 AND DATE(v.fecha) BETWEEN :desde AND :hasta
-                GROUP BY dv.id_insumo
+                GROUP BY dv.id_producto
                 ORDER BY beneficio DESC";
         $stmt = $this->pdo->prepare($sql);
         $stmt->execute([':desde' => $desde, ':hasta' => $hasta]);

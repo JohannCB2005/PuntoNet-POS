@@ -18,13 +18,13 @@ try {
     CREATE TABLE IF NOT EXISTS detalle_pedidos_online (
         id_detalle INT AUTO_INCREMENT PRIMARY KEY,
         id_pedido INT NOT NULL,
-        id_insumo INT NOT NULL,
+        id_producto INT NOT NULL,
         cantidad DECIMAL(10,2) NOT NULL,
         peso_neto DECIMAL(10,2) NOT NULL DEFAULT 0.00,
         precio_unitario DECIMAL(10,2) NOT NULL,
         subtotal DECIMAL(10,2) NOT NULL,
         FOREIGN KEY (id_pedido) REFERENCES pedidos_online(id_pedido),
-        FOREIGN KEY (id_insumo) REFERENCES insumos(id_insumo)
+        FOREIGN KEY (id_producto) REFERENCES productos(id_producto)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
     ");
     echo "Tables pedidos_online and detalle_pedidos_online created successfully.\n";

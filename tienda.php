@@ -897,6 +897,20 @@
             aplicarFiltros();
         };
 
+        function escapeHtml(str) {
+            return String(str ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+        }
+
+        window.agregarItemDirectoBtn = (btn) => {
+            agregarItemDirecto(
+                parseInt(btn.dataset.id),
+                btn.dataset.nombre,
+                parseFloat(btn.dataset.precio),
+                parseInt(btn.dataset.stock),
+                ''
+            );
+        };
+
         function renderProductosCatalogo(productos) {
             const container = document.getElementById('catalogoContainer');
             if (productos.length === 0) {
@@ -914,7 +928,7 @@
             productos.forEach(item => {
                 let imgHtml = '';
                 if (item.imagen && item.imagen !== '' && item.imagen !== 'null') {
-                    imgHtml = `<img src="assets/productos/${item.imagen}" alt="${item.nombre}">`;
+                    imgHtml = `<img src="assets/productos/${encodeURIComponent(item.imagen)}" alt="${escapeHtml(item.nombre)}">`;
                 } else {
                     let icon = 'bi-box-seam';
                     let cat = item.categoria.toLowerCase();
@@ -933,10 +947,10 @@
                                 </div>
                                 <div class="product-info">
                                     <div class="d-flex justify-content-between align-items-start mb-2">
-                                        <div class="product-category">${item.categoria}</div>
+                                        <div class="product-category">${escapeHtml(item.categoria)}</div>
                                         <div class="product-stock text-info"><i class="bi bi-rulers"></i> ${item.variantes.length} tallas</div>
                                     </div>
-                                    <h3 class="product-title">${item.nombre}</h3>
+                                    <h3 class="product-title">${escapeHtml(item.nombre)}</h3>
                                     <div class="mt-auto pt-3">
                                         <div class="product-price mb-3">
                                             <span class="fs-6 text-muted fw-normal me-1">Desde</span>S/ ${parseFloat(item.precio_desde).toFixed(2)}
@@ -960,13 +974,13 @@
                                 </div>
                                 <div class="product-info">
                                     <div class="d-flex justify-content-between align-items-start mb-2">
-                                        <div class="product-category">${item.categoria}</div>
+                                        <div class="product-category">${escapeHtml(item.categoria)}</div>
                                         <div class="product-stock">${v.stock} disp.</div>
                                     </div>
-                                    <h3 class="product-title">${item.nombre}</h3>
+                                    <h3 class="product-title">${escapeHtml(item.nombre)}</h3>
                                     <div class="mt-auto pt-3">
                                         <div class="product-price mb-3">S/ ${parseFloat(item.precio_desde).toFixed(2)}</div>
-                                        <button class="btn-add" onclick="agregarItemDirecto(${v.id_insumo}, '${item.nombre}', ${v.precio}, ${v.stock}, '')">
+                                        <button class="btn-add" data-id="${v.id_producto}" data-nombre="${escapeHtml(item.nombre)}" data-precio="${v.precio}" data-stock="${v.stock}" onclick="agregarItemDirectoBtn(this)">
                                             <i class="bi bi-cart-plus-fill me-1"></i> Añadir a Cesta
                                         </button>
                                     </div>
@@ -1004,7 +1018,7 @@
                 
                 btn.addEventListener('click', () => {
                     tallaSeleccionadaTienda = {
-                        id_insumo: v.id_insumo,
+                        id_producto: v.id_producto,
                         nombre: `${producto.nombre} (T-${v.talla})`,
                         precio: v.precio,
                         stock: v.stock,
@@ -1052,7 +1066,7 @@
                     const qty = parseInt(qtyInput.value) || 1;
                     // Llama a la lógica directa pasandole la cantidad preestablecida en vez de sumarle +1 siempre
                     agregarItemDirecto(
-                        tallaSeleccionadaTienda.id_insumo, 
+                        tallaSeleccionadaTienda.id_producto, 
                         tallaSeleccionadaTienda.nombre, 
                         tallaSeleccionadaTienda.precio, 
                         tallaSeleccionadaTienda.stock, 
@@ -1064,8 +1078,8 @@
             }
         });
 
-        window.agregarItemDirecto = (id_insumo, nombre, precio, stock_max, unidad, qty = 1) => {
-            const existing = cart.find(i => i.id_insumo === id_insumo);
+        window.agregarItemDirecto = (id_producto, nombre, precio, stock_max, unidad, qty = 1) => {
+            const existing = cart.find(i => i.id_producto === id_producto);
             if (existing) {
                 if (existing.cantidad + qty > stock_max) {
                     Swal.fire({ icon: 'warning', text: 'Stock máximo alcanzado para este producto' });
@@ -1079,7 +1093,7 @@
                     return;
                 }
                 cart.push({
-                    id_insumo: id_insumo,
+                    id_producto: id_producto,
                     nombre: nombre,
                     precio: parseFloat(precio),
                     cantidad: qty,
@@ -1097,12 +1111,12 @@
         };
 
         window.modificarCart = (id, change) => {
-            const item = cart.find(i => i.id_insumo == id);
+            const item = cart.find(i => i.id_producto == id);
             if (!item) return;
 
             let newQty = item.cantidad + change;
             if (newQty <= 0) {
-                cart = cart.filter(i => i.id_insumo != id);
+                cart = cart.filter(i => i.id_producto != id);
             } else {
                 if (newQty > item.stock_max) {
                     Swal.fire({ icon: 'warning', text: 'Stock máximo alcanzado' });
@@ -1135,15 +1149,15 @@
                 html += `
                     <div class="cart-item">
                         <div class="cart-item-info pe-2">
-                            <h6 class="text-truncate" style="max-width: 150px;">${item.nombre}</h6>
+                            <h6 class="text-truncate" style="max-width: 150px;">${escapeHtml(item.nombre)}</h6>
                             <small>S/ ${item.precio.toFixed(2)} ${item.es_pesado ? 'x Kg' : '/ ' + item.unidad}</small>
                             ${extraInfo}
                             <div class="fw-bold mt-1 text-dark">S/ ${item.subtotal.toFixed(2)}</div>
                         </div>
                         <div class="qty-controls">
-                            <button onclick="modificarCart(${item.id_insumo}, -1)"><i class="bi bi-dash"></i></button>
+                            <button onclick="modificarCart(${item.id_producto}, -1)"><i class="bi bi-dash"></i></button>
                             <input type="text" value="${item.cantidad}" readonly>
-                            <button onclick="modificarCart(${item.id_insumo}, 1)"><i class="bi bi-plus"></i></button>
+                            <button onclick="modificarCart(${item.id_producto}, 1)"><i class="bi bi-plus"></i></button>
                         </div>
                     </div>
                 `;

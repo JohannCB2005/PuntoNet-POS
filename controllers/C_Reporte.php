@@ -20,7 +20,7 @@ switch ($action) {
         $kpis = $model->getKPIs($desde, $hasta);
         $ventas_periodo = $model->getVentasPorPeriodo($desde, $hasta, $agrupacion);
         $ventas_comprobante = $model->getVentasPorComprobante($desde, $hasta);
-        $top_insumos = $model->getTopInsumos($desde, $hasta, 5);
+        $top_productos = $model->getTopProductos($desde, $hasta, 5);
         
         echo json_encode([
             "success" => true,
@@ -28,7 +28,7 @@ switch ($action) {
                 "kpis" => $kpis,
                 "tendencia" => $ventas_periodo,
                 "comprobantes" => $ventas_comprobante,
-                "top_insumos" => $top_insumos
+                "top_productos" => $top_productos
             ]
         ]);
         break;

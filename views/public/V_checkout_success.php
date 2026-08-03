@@ -28,6 +28,7 @@
             font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
             min-height: 100vh;
             display: flex;
+        }
         /* ─── Success Check Animation ──────────────────── */
         .check-circle {
             width: 90px;
@@ -432,17 +433,35 @@
 
     <script>
     (async function() {
-        // Get id_pedido from URL
-        const params   = new URLSearchParams(window.location.search);
-        const id_pedido = parseInt(params.get('id') || '0');
+        // Stripe agrega ?payment_intent=...&redirect_status=... al volver del pago.
+        const params      = new URLSearchParams(window.location.search);
+        const id_pedido   = parseInt(params.get('id') || '0');
+        const token       = params.get('t') || '';
+        const paymentIntentId = params.get('payment_intent') || '';
+        const redirectStatus  = params.get('redirect_status') || '';
 
-        if (!id_pedido) {
+        if (!id_pedido || !token) {
+            showError();
+            return;
+        }
+
+        if (redirectStatus === 'failed' || redirectStatus === 'canceled') {
             showError();
             return;
         }
 
         try {
-            const res  = await fetch(`../../controllers/C_Ecommerce.php?action=get_pedido&id=${id_pedido}`);
+            // 1. Verificar el pago contra Stripe y confirmar el pedido (idempotente).
+            if (paymentIntentId) {
+                await fetch('../../controllers/C_PaymentIntent.php?action=confirmar', {
+                    method:  'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body:    JSON.stringify({ id_pedido, payment_intent_id: paymentIntentId }),
+                });
+            }
+
+            // 2. Traer el comprobante (requiere el token público del pedido).
+            const res  = await fetch(`../../controllers/C_Ecommerce.php?action=get_pedido&id=${id_pedido}&t=${encodeURIComponent(token)}`);
             const json = await res.json();
 
             if (!json.success || !json.data) {
@@ -453,6 +472,10 @@
             render(json.data);
         } catch (e) {
             showError();
+        }
+
+        function escapeHtml(str) {
+            return String(str).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
         }
 
         function render(d) {
@@ -468,11 +491,11 @@
 
             // Items
             const tbody = document.getElementById('itemsBody');
-            tbody.innerHTML = (d.items || []).map(item => `
+            tbody.innerHTML = (d.detalles || []).map(item => `
                 <tr>
                     <td>
-                        <div class="item-name">${item.nombre}</div>
-                        <div class="item-sub">S/ ${parseFloat(item.precio_unitario).toFixed(2)} / ${item.abreviatura}</div>
+                        <div class="item-name">${escapeHtml(item.nombre)}</div>
+                        <div class="item-sub">S/ ${parseFloat(item.precio_unitario).toFixed(2)} / ${escapeHtml(item.abreviatura)}</div>
                     </td>
                     <td style="text-align:center">${item.cantidad}</td>
                     <td style="text-align:right;font-weight:700">S/ ${parseFloat(item.subtotal).toFixed(2)}</td>
@@ -483,6 +506,17 @@
             const fmt   = n => `S/ ${n.toFixed(2)}`;
             document.getElementById('totalSubtotal').textContent = fmt(total);
             document.getElementById('totalGrand').textContent    = fmt(total);
+
+            // Estado real del pedido: 1/2 = pagado, 3 = aún verificando, 0/4 = no confirmado
+            const estado = parseInt(d.estado);
+            const badge = document.querySelector('.status-badge');
+            if (estado === 1 || estado === 2) {
+                badge.innerHTML = '<i class="bi bi-check-circle-fill"></i> Pago Confirmado';
+            } else if (estado === 3) {
+                badge.innerHTML = '<i class="bi bi-hourglass-split"></i> Verificando Pago...';
+            } else {
+                badge.innerHTML = '<i class="bi bi-x-circle-fill"></i> Pago no confirmado';
+            }
 
             // Show content
             document.getElementById('loadingState').style.display  = 'none';

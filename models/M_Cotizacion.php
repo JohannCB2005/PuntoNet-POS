@@ -52,14 +52,14 @@ class M_Cotizacion {
 
             // Insertar detalles
             $stmtDetalle = $this->conexion->prepare(
-                "INSERT INTO detalle_cotizaciones (id_cotizacion, id_insumo, piezas, precio_unitario, subtotal)
+                "INSERT INTO detalle_cotizaciones (id_cotizacion, id_producto, piezas, precio_unitario, subtotal)
                  VALUES (?, ?, ?, ?, ?)"
             );
 
             foreach ($cotizacion->detalles as $detalle) {
                 $stmtDetalle->execute([
                     $id_cotizacion,
-                    $detalle->id_insumo,
+                    $detalle->id_producto,
                     $detalle->piezas,
                     $detalle->precio_unitario,
                     $detalle->subtotal
@@ -131,10 +131,10 @@ class M_Cotizacion {
                             WHEN i.id_talla IS NOT NULL AND t.nombre IS NOT NULL
                             THEN CONCAT(i.nombre, ' - T.', t.nombre)
                             ELSE i.nombre
-                        END AS nombre_insumo,
-                        NULL AS codigo_insumo
+                        END AS nombre_producto,
+                        NULL AS codigo_producto
                        FROM detalle_cotizaciones dc
-                       INNER JOIN insumos i ON dc.id_insumo = i.id_insumo
+                       INNER JOIN productos i ON dc.id_producto = i.id_producto
                        LEFT JOIN tallas t ON i.id_talla = t.id_talla
                        WHERE dc.id_cotizacion = ?";
             $stmtDet = $this->conexion->prepare($sqlDet);

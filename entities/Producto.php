@@ -1,11 +1,11 @@
 <?php
 /**
- * Entidad Insumo
+ * Entidad Producto
  * Representa un artículo del catálogo de inventario.
  * Atributos extendidos para uniformes y módulos escolares.
  */
-class Insumo {
-    public $id_insumo;
+class Producto {
+    public $id_producto;
     public $id_categoria;
     public $id_unidad;
     public $nombre;
@@ -34,7 +34,7 @@ class Insumo {
         $precio_unitario = 0.0,
         $costo_produccion = 0.0,
         $stock_piezas = 0.0,
-        $id_insumo = null,
+        $id_producto = null,
         $imagen = null,
         $id_talla = null,
         $id_tipo_corbata = null,
@@ -45,7 +45,7 @@ class Insumo {
         $es_agrupador = 0,
         $id_producto_padre = null
     ) {
-        $this->id_insumo          = $id_insumo;
+        $this->id_producto          = $id_producto;
         $this->id_categoria       = $id_categoria;
         $this->id_unidad          = $id_unidad;
         $this->nombre             = $nombre;

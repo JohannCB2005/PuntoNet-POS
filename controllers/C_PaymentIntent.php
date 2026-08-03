@@ -1,84 +1,90 @@
 <?php
 /**
- * create_payment_intent.php
- * Crea un PaymentIntent en Stripe usando cURL puro.
- * Sin dependencia de Stripe PHP SDK ni vendor/autoload.
- * Compatible con InfinityFree y cualquier hosting con PHP + cURL habilitado.
+ * controllers/C_PaymentIntent.php
+ * Crea y confirma PaymentIntents de Stripe. El monto SIEMPRE se calcula en el
+ * servidor a partir de M_Ecommerce::calcularCarrito(): el cliente nunca envía
+ * precios ni el total, solo {id_producto, cantidad}.
  */
-
+if (session_status() === PHP_SESSION_NONE) { session_start(); }
 header('Content-Type: application/json');
 
-// ── Cargar configuración de Stripe ────────────────────────────────────────────
 require_once dirname(__DIR__) . '/config/stripe.php';
-$stripeSecretKey = STRIPE_SK;
+require_once dirname(__DIR__) . '/models/M_Stripe.php';
+require_once dirname(__DIR__) . '/models/M_Ecommerce.php';
 
-if (empty($stripeSecretKey)) {
+if (empty(STRIPE_SK) || STRIPE_SK === 'YOUR_STRIPE_SECRET_KEY') {
     http_response_code(500);
     echo json_encode(['error' => 'Clave de Stripe no configurada en el servidor.']);
     exit;
 }
 
-// ── Leer body JSON ────────────────────────────────────────────────────────────
-$raw  = file_get_contents('php://input');
-$body = json_decode($raw, true);
+$action = $_GET['action'] ?? 'crear';
+$body = json_decode(file_get_contents('php://input'), true) ?: [];
 
-$amountSoles = floatval($body['amount'] ?? 0);
-if ($amountSoles <= 0) {
-    http_response_code(400);
-    echo json_encode(['error' => 'El monto del pedido no es válido.']);
-    exit;
+switch ($action) {
+
+    // Calcula el total en servidor y crea el PaymentIntent. No toca stock ni crea pedido.
+    case 'crear':
+        $carrito = $body['carrito'] ?? [];
+        $calc = M_Ecommerce::singleton()->calcularCarrito($carrito, false);
+
+        if (!$calc['ok']) {
+            http_response_code(400);
+            echo json_encode(['error' => $calc['mensaje']]);
+            exit;
+        }
+
+        $amountCentavos = (int) round($calc['total'] * 100);
+        if ($amountCentavos <= 0) {
+            http_response_code(400);
+            echo json_encode(['error' => 'El monto del pedido no es válido.']);
+            exit;
+        }
+
+        $claveIdempotencia = 'pi-' . session_id() . '-' . $calc['hash'];
+        $res = M_Stripe::singleton()->crearPaymentIntent([
+            'amount'                             => $amountCentavos,
+            'currency'                           => 'pen',
+            'automatic_payment_methods[enabled]' => 'true',
+            'description'                        => 'Pedido PuntoNet - Click & Collect',
+            'metadata[cart_hash]'                => $calc['hash'],
+        ], $claveIdempotencia);
+
+        if (!$res['ok']) {
+            http_response_code($res['status'] ?: 502);
+            echo json_encode(['error' => $res['error']]);
+            exit;
+        }
+
+        echo json_encode([
+            'client_secret'     => $res['data']['client_secret'],
+            'payment_intent_id' => $res['data']['id'],
+            'total'             => $calc['total'],
+            'items'             => $calc['items'],
+        ]);
+        break;
+
+    // Verifica contra Stripe que el pago realmente se completó y confirma el pedido.
+    case 'confirmar':
+        $id_pedido         = intval($body['id_pedido'] ?? 0);
+        $payment_intent_id = trim($body['payment_intent_id'] ?? '');
+
+        if ($id_pedido <= 0 || $payment_intent_id === '') {
+            echo json_encode(['success' => false, 'mensaje' => 'Datos inválidos.']);
+            exit;
+        }
+
+        $pi = M_Stripe::singleton()->obtenerPaymentIntent($payment_intent_id);
+        if (!$pi['ok'] || ($pi['data']['status'] ?? '') !== 'succeeded') {
+            echo json_encode(['success' => false, 'mensaje' => 'El pago aún no se ha confirmado.']);
+            exit;
+        }
+
+        $res = M_Ecommerce::singleton()->confirmarPagoPedido($id_pedido, $payment_intent_id);
+        echo json_encode(['success' => $res['ok'], 'mensaje' => $res['mensaje'] ?? '']);
+        break;
+
+    default:
+        http_response_code(400);
+        echo json_encode(['error' => 'Acción no válida.']);
 }
-
-// Stripe requiere importe en centavos (entero)
-$amountCentavos = (int) round($amountSoles * 100);
-
-$clienteDni     = htmlspecialchars(trim($body['cliente_dni']     ?? ''), ENT_QUOTES);
-$clienteNombres = htmlspecialchars(trim($body['cliente_nombres'] ?? ''), ENT_QUOTES);
-
-// ── Llamada a Stripe API con cURL ─────────────────────────────────────────────
-$postFields = http_build_query([
-    'amount'                             => $amountCentavos,
-    'currency'                           => 'pen',           // Soles peruanos (S/)
-    'automatic_payment_methods[enabled]' => 'true',
-    'description'                        => 'Pedido PuntoNet - Click & Collect',
-    'metadata[cliente_dni]'              => $clienteDni,
-    'metadata[cliente_nombres]'          => $clienteNombres,
-]);
-
-$ch = curl_init('https://api.stripe.com/v1/payment_intents');
-curl_setopt_array($ch, [
-    CURLOPT_RETURNTRANSFER => true,
-    CURLOPT_POST           => true,
-    CURLOPT_POSTFIELDS     => $postFields,
-    CURLOPT_USERPWD        => $stripeSecretKey . ':',
-    CURLOPT_HTTPHEADER     => [
-        'Content-Type: application/x-www-form-urlencoded',
-    ],
-    CURLOPT_TIMEOUT        => 20,
-    CURLOPT_SSL_VERIFYPEER => true,
-]);
-
-$response   = curl_exec($ch);
-$httpStatus = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-$curlError  = curl_error($ch);
-curl_close($ch);
-
-// ── Error de red / cURL ───────────────────────────────────────────────────────
-if ($response === false) {
-    http_response_code(503);
-    echo json_encode(['error' => 'No se pudo conectar con el servidor de pagos. (' . $curlError . ')']);
-    exit;
-}
-
-// ── Procesar respuesta de Stripe ──────────────────────────────────────────────
-$stripeData = json_decode($response, true);
-
-if ($httpStatus !== 200) {
-    $errorMsg = $stripeData['error']['message'] ?? 'Error al crear la sesión de pago.';
-    http_response_code($httpStatus);
-    echo json_encode(['error' => $errorMsg]);
-    exit;
-}
-
-// ── Éxito: devolver client_secret ─────────────────────────────────────────────
-echo json_encode(['client_secret' => $stripeData['client_secret']]);

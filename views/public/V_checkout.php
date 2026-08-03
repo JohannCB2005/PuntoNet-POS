@@ -485,10 +485,12 @@ $stripePublicKey = STRIPE_PK;
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script>
     // ─────────────────────────────────────────────────────────────
-    // 1. Load cart from sessionStorage
+    // 1. Load cart from sessionStorage (solo para el render inicial;
+    //    el precio y el total definitivos siempre vienen del servidor).
     // ─────────────────────────────────────────────────────────────
     const cart = JSON.parse(sessionStorage.getItem('puntonet_cart') || '[]');
-    const totalAmount = cart.reduce((s, i) => s + i.subtotal, 0);
+    let totalAmount = cart.reduce((s, i) => s + i.subtotal, 0);
+    let paymentIntentId = null;
 
     if (cart.length === 0) {
         document.getElementById('empty-cart-msg').style.display = 'block';
@@ -496,32 +498,36 @@ $stripePublicKey = STRIPE_PK;
         document.getElementById('cardPago').style.display  = 'none';
         document.querySelector('.co-summary-col').style.display = 'none';
     } else {
-        renderSummary();
+        renderSummary(cart.map(i => ({ nombre: i.nombre, cantidad: i.cantidad, precio_unitario: i.precio, subtotal: i.subtotal })), totalAmount);
     }
 
-    function renderSummary() {
+    function escapeHtml(str) {
+        return String(str).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+    }
+
+    function renderSummary(items, total) {
         const ul = document.getElementById('summaryItems');
-        ul.innerHTML = cart.map(item => `
+        ul.innerHTML = items.map(item => `
             <li class="summary-item">
                 <div>
-                    <div class="summary-item-name">${item.nombre}</div>
+                    <div class="summary-item-name">${escapeHtml(item.nombre)}</div>
                     <div class="summary-item-sub">
-                        x${item.cantidad} · S/ ${item.precio.toFixed(2)} / ${item.unidad}
-                        ${item.es_pesado ? `<br>Peso aprox: ${item.peso_neto} kg` : ''}
+                        x${item.cantidad} · S/ ${parseFloat(item.precio_unitario).toFixed(2)}
                     </div>
                 </div>
-                <div class="summary-item-price">S/ ${item.subtotal.toFixed(2)}</div>
+                <div class="summary-item-price">S/ ${parseFloat(item.subtotal).toFixed(2)}</div>
             </li>
         `).join('');
 
         const fmt = n => `S/ ${n.toFixed(2)}`;
-        document.getElementById('summarySubtotal').textContent = fmt(totalAmount);
-        document.getElementById('summaryTotal').textContent    = fmt(totalAmount);
-        document.getElementById('pay-label').textContent       = `Confirmar y Pagar — S/ ${totalAmount.toFixed(2)}`;
+        document.getElementById('summarySubtotal').textContent = fmt(total);
+        document.getElementById('summaryTotal').textContent    = fmt(total);
+        document.getElementById('pay-label').textContent       = `Confirmar y Pagar — S/ ${total.toFixed(2)}`;
     }
 
     // ─────────────────────────────────────────────────────────────
-    // 2. Stripe initialization
+    // 2. Stripe initialization — el monto SIEMPRE lo calcula el servidor
+    //    a partir de {id_producto, cantidad}; nunca enviamos precios.
     // ─────────────────────────────────────────────────────────────
     const stripe   = Stripe('<?php echo htmlspecialchars($stripePublicKey); ?>');
     let elements   = null;
@@ -531,13 +537,11 @@ $stripePublicKey = STRIPE_PK;
         if (cart.length === 0) return;
 
         try {
-            const res = await fetch('../../controllers/C_PaymentIntent.php', {
+            const res = await fetch('../../controllers/C_PaymentIntent.php?action=crear', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    amount:          totalAmount,
-                    cliente_dni:     '',
-                    cliente_nombres: '',
+                    carrito: cart.map(i => ({ id_producto: i.id_producto, cantidad: i.cantidad })),
                 }),
             });
 
@@ -545,7 +549,7 @@ $stripePublicKey = STRIPE_PK;
             const contentType = res.headers.get('content-type') || '';
             if (!contentType.includes('application/json')) {
                 const raw = await res.text();
-                console.error('Respuesta no-JSON de create_payment_intent.php:', raw);
+                console.error('Respuesta no-JSON de C_PaymentIntent.php:', raw);
                 showError('Error del servidor de pagos (respuesta inesperada). Revisa la consola para más detalles.');
                 return;
             }
@@ -553,7 +557,7 @@ $stripePublicKey = STRIPE_PK;
             const data = await res.json();
 
             if (data.error) {
-                showError('Error Stripe: ' + data.error);
+                showError('Error: ' + data.error);
                 return;
             }
             if (!data.client_secret) {
@@ -561,6 +565,9 @@ $stripePublicKey = STRIPE_PK;
                 return;
             }
             clientSecret = data.client_secret;
+            paymentIntentId = data.payment_intent_id;
+            totalAmount = parseFloat(data.total);
+            renderSummary(data.items, totalAmount);
 
             const appearance = {
                 theme: 'stripe',
@@ -683,14 +690,15 @@ $stripePublicKey = STRIPE_PK;
             return;
         }
 
-        if (!elements || !clientSecret) {
+        if (!elements || !clientSecret || !paymentIntentId) {
             showError('El sistema de pago aún no está listo. Espera un momento.');
             return;
         }
 
         setLoading(true);
 
-        // First: register the order in our system, get id_pedido
+        // First: register the order (estado "pendiente de pago") and reserve stock.
+        // Nunca enviamos precios ni el total: el servidor los recalcula desde el carrito.
         const clientePayload = {
             cliente: {
                 dni:       document.getElementById('coDni').value.trim(),
@@ -699,12 +707,12 @@ $stripePublicKey = STRIPE_PK;
                 telefono:  document.getElementById('coTelefono').value.trim(),
                 direccion: '',
             },
-            nro_operacion: 'STRIPE-PENDING',
-            total:  totalAmount,
-            carrito: cart,
+            carrito: cart.map(i => ({ id_producto: i.id_producto, cantidad: i.cantidad })),
+            payment_intent_id: paymentIntentId,
         };
 
         let id_pedido = null;
+        let token = null;
         try {
             const pedidoRes = await fetch('../../controllers/C_Ecommerce.php?action=crear_pedido', {
                 method:  'POST',
@@ -719,6 +727,7 @@ $stripePublicKey = STRIPE_PK;
                 return;
             }
             id_pedido = pedidoData.id_pedido;
+            token = pedidoData.token;
         } catch (e) {
             showError('Error de conexión al registrar el pedido.');
             setLoading(false);
@@ -731,7 +740,7 @@ $stripePublicKey = STRIPE_PK;
             confirmParams: {
                 return_url: window.location.origin
                     + window.location.pathname.replace('V_checkout.php', 'V_checkout_success.php')
-                    + '?id=' + id_pedido,
+                    + '?id=' + id_pedido + '&t=' + encodeURIComponent(token),
             },
         });
 

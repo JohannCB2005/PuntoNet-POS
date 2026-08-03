@@ -123,20 +123,20 @@ Los IDs auto-incrementales pueden variar entre entornos (local vs producción). 
 
 **❌ Frágil:**
 ```sql
-INSERT INTO insumos (id_categoria, ...) VALUES (3, ...);
+INSERT INTO productos (id_categoria, ...) VALUES (3, ...);
 ```
 
 **✅ Robusto:**
 ```sql
-INSERT INTO insumos (id_categoria, ...)
+INSERT INTO productos (id_categoria, ...)
 VALUES ((SELECT id_categoria FROM categorias WHERE nombre = 'Aves' LIMIT 1), ...);
 ```
 
 ---
 
-### 8. Todo el contenido del script `base_datos.sql` debe ser SQL estándar
+### 8. Todo el contenido del script `base_datos_nissi.sql` debe ser SQL estándar
 
-El archivo `base_datos.sql` es ejecutado por `conexion.php` línea por línea via `PDO::exec()`.
+El archivo `base_datos_nissi.sql` es ejecutado por `conexion.php` línea por línea via `PDO::exec()`.
 Solo se soportan sentencias `CREATE TABLE`, `INSERT INTO` y comentarios `--`.
 
 **No incluir:**
@@ -190,29 +190,26 @@ puntonet_pos/
 ├── config/
 │   └── conexion.php                ← Credenciales de BD (NO versionar con contraseña real)
 │
-├── entities/                       ← Entidades del dominio (Cliente, Trabajador, Venta, Vale...)
-├── models/                         ← Modelos de acceso a BD (M_Cliente, M_Venta, M_Trabajador...)
-├── controllers/                    ← Controladores AJAX (C_Cliente, C_Venta, C_Importar...)
+├── entities/                       ← Entidades del dominio (Cliente, Producto, Venta...)
+├── models/                         ← Modelos de acceso a BD (M_Cliente, M_Venta, M_Producto...)
+├── controllers/                    ← Controladores AJAX (C_Cliente, C_Venta, C_Producto...)
 │
 ├── views/
 │   ├── layouts/                    ← sidebar.php, header.php, footer.php
 │   ├── V_clientes.php
-│   ├── V_trabajadores.php
+│   ├── V_productos.php
 │   ├── V_nueva_venta.php
 │   └── ...                         ← Resto de vistas del panel
 │
-├── vendor/                         ← Dependencias Composer (PhpSpreadsheet)
+├── vendor/                         ← Dependencias Composer
 │
 ├── scripts/                        ← Utilidades de desarrollo y migración
 │   ├── .htaccess                   ← 🔒 Bloquea acceso HTTP en producción
 │   ├── README.md                   ← Instrucciones de uso
 │   ├── reset_db.php                ← Solo local: elimina y recrea la BD
-│   ├── setup_plan.php              ← Migración: tipos_trabajador, dependencias
-│   ├── setup_ecommerce.php         ← Migración: pedidos_online
-│   ├── setup_vales.php             ← Obsoleto (reemplazado por setup_plan.php)
-│   └── test_ecommerce.php          ← Pruebas locales del e-commerce
+│   └── setup_ecommerce.php         ← Migración: pedidos_online
 │
-├── base_datos.sql                  ← Esquema principal (sin CREATE DB, USE ni STORED PROCEDURES)
+├── base_datos_nissi.sql            ← Esquema principal (sin CREATE DB, USE ni STORED PROCEDURES)
 └── INFINITYFREE_REGLAS.md          ← Este archivo
 ```
 

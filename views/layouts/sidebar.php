@@ -32,7 +32,7 @@ $rol = $_SESSION['rol'];
                 <i class="bi bi-tags-fill"></i>
                 <span>Categorías</span>
             </a>
-            <a href="index.php?modulo=insumos" class="menu-item <?php echo $moduloActual === 'insumos' ? 'active' : ''; ?>">
+            <a href="index.php?modulo=productos" class="menu-item <?php echo $moduloActual === 'productos' ? 'active' : ''; ?>">
                 <i class="bi bi-box-seam-fill"></i>
                 <span>Productos</span>
             </a>

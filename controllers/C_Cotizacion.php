@@ -83,7 +83,7 @@ switch ($action) {
             $detalle = new DetalleCotizacion(
                 null, 
                 null, 
-                $d['id_insumo'], 
+                $d['id_producto'], 
                 $d['cantidad'], 
                 $d['precio'], 
                 $d['subtotal']
@@ -145,7 +145,7 @@ switch ($action) {
         foreach ($cotData['detalles'] as $d) {
             $detVenta = new DetalleVenta(
                 null,
-                $d['id_insumo'],
+                $d['id_producto'],
                 $d['piezas'],
                 $d['precio_unitario'],
                 0, // costo_unitario: el M_Venta lo recalcula o lo ignora

@@ -11,10 +11,7 @@
 | Archivo | Propósito | ¿Usa BD? |
 |---|---|---|
 | `reset_db.php` | Elimina y recrea la BD local | Solo local |
-| `setup_plan.php` | Crea tablas `tipos_trabajador`, `dependencias`, modifica `clientes` y `ventas` | Local y producción |
 | `setup_ecommerce.php` | Crea tablas `pedidos_online` y `detalle_pedidos_online` | Local y producción |
-| `setup_vales.php` | Crea tabla `vales` (versión antigua, reemplazada por `setup_plan.php`) | Obsoleto |
-| `test_ecommerce.php` | Prueba rápida del catálogo de e-commerce | Solo local |
 
 ---
 
@@ -22,7 +19,6 @@
 
 ```bash
 # Desde la raíz del proyecto:
-php scripts/setup_plan.php
 php scripts/setup_ecommerce.php
 ```
 

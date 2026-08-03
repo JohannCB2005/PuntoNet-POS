@@ -9,9 +9,14 @@ class Conexion {
 
         $opciones = array(
             PDO::MYSQL_ATTR_INIT_COMMAND => 'SET NAMES utf8mb4',
-            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, 
-            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC 
+            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC
         );
+
+        // Las credenciales de producción viven en .env (nunca versionado) porque cambian
+        // según el hosting/cuenta que se esté usando en cada momento.
+        $_envFile = dirname(__DIR__) . '/.env';
+        $_env     = file_exists($_envFile) ? parse_ini_file($_envFile) : [];
 
         // Definir credenciales según el entorno
         if ($isLocalhost) {
@@ -32,13 +37,14 @@ class Conexion {
         } else {
             $configs = [
                 [
-                    'host' => 'sql210.infinityfree.com',
-                    'dbname' => 'if0_42381931_puntonet_pos',
-                    'user' => 'if0_42381931',
-                    'pass' => 'For52638'
+                    'host'   => $_env['DB_PROD_HOST'] ?? '',
+                    'dbname' => $_env['DB_PROD_NAME'] ?? '',
+                    'user'   => $_env['DB_PROD_USER'] ?? '',
+                    'pass'   => $_env['DB_PROD_PASS'] ?? ''
                 ]
             ];
         }
+        unset($_envFile, $_env);
 
         $conexionExitosa = false;
         $ultimoError = null;
@@ -77,7 +83,7 @@ class Conexion {
                         // Intentar la conexión real a la base de datos recién creada
                         $this->dbh = new PDO("mysql:host=$host;dbname=$dbname", $user, $pass, $opciones);
                         
-                        // Importar el esquema y data semilla del archivo base_datos.sql
+                        // Importar el esquema y data semilla del archivo base_datos_nissi.sql
                         $this->inicializarBaseDatos($this->dbh);
                         
                         $conexionExitosa = true;
@@ -98,7 +104,7 @@ class Conexion {
     }
 
     /**
-     * Lee y ejecuta el archivo base_datos.sql para crear el esquema y la data semilla.
+     * Lee y ejecuta el archivo base_datos_nissi.sql para crear el esquema y la data semilla.
      * NOTA: Los STORED PROCEDURES han sido eliminados del SQL y migrados a PHP/PDO
      * para compatibilidad con hosting compartido (InfinityFree) sin privilegios de CREATE PROCEDURE.
      */

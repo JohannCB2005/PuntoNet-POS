@@ -4,7 +4,7 @@ require_once dirname(__DIR__) . '/config/conexion.php';
 
 /**
  * Modelo para la gestión de Unidades de Medida
- * Gestiona el listado de unidades disponibles para los artículos e insumos.
+ * Gestiona el listado de unidades disponibles para los artículos e productos.
  */
 class M_Unidad {
     // Instancia estática para el patrón Singleton

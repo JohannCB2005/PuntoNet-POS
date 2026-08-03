@@ -26,7 +26,7 @@ DROP TABLE IF EXISTS `vales`;
 DROP TABLE IF EXISTS `trabajadores`;
 DROP TABLE IF EXISTS `clientes`;
 DROP TABLE IF EXISTS `usuarios`;
-DROP TABLE IF EXISTS `insumos`;
+DROP TABLE IF EXISTS `productos`;
 DROP TABLE IF EXISTS `categorias`;
 DROP TABLE IF EXISTS `unidades_medida`;
 DROP TABLE IF EXISTS `tallas`;
@@ -132,11 +132,11 @@ CREATE TABLE `bimestres` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- =============================================================================
--- INVENTARIO: INSUMOS / PRODUCTOS NISSI
+-- INVENTARIO: PRODUCTOS NISSI
 -- =============================================================================
 
-CREATE TABLE `insumos` (
-  `id_insumo` int(11) NOT NULL AUTO_INCREMENT,
+CREATE TABLE `productos` (
+  `id_producto` int(11) NOT NULL AUTO_INCREMENT,
   `id_categoria` int(11) NOT NULL,
   `id_unidad` int(11) NOT NULL,
   `nombre` varchar(150) NOT NULL,
@@ -156,7 +156,7 @@ CREATE TABLE `insumos` (
   -- Variantes de talla
   `es_agrupador` tinyint(1) NOT NULL DEFAULT 0 COMMENT '1=Producto padre con variantes de talla',
   `id_producto_padre` int(11) DEFAULT NULL COMMENT 'FK al producto padre si es variante',
-  PRIMARY KEY (`id_insumo`),
+  PRIMARY KEY (`id_producto`),
   KEY `id_categoria` (`id_categoria`),
   KEY `id_unidad` (`id_unidad`),
   KEY `id_talla` (`id_talla`),
@@ -166,15 +166,15 @@ CREATE TABLE `insumos` (
   KEY `id_area` (`id_area`),
   KEY `id_bimestre` (`id_bimestre`),
   KEY `idx_producto_padre` (`id_producto_padre`),
-  CONSTRAINT `insumos_ibfk_1` FOREIGN KEY (`id_categoria`) REFERENCES `categorias` (`id_categoria`),
-  CONSTRAINT `insumos_ibfk_2` FOREIGN KEY (`id_unidad`) REFERENCES `unidades_medida` (`id_unidad`),
-  CONSTRAINT `fk_insumo_talla` FOREIGN KEY (`id_talla`) REFERENCES `tallas` (`id_talla`),
-  CONSTRAINT `fk_insumo_tipo_corbata` FOREIGN KEY (`id_tipo_corbata`) REFERENCES `tipos_corbata` (`id_tipo_corbata`),
-  CONSTRAINT `fk_insumo_nivel` FOREIGN KEY (`id_nivel`) REFERENCES `niveles_educativos` (`id_nivel`),
-  CONSTRAINT `fk_insumo_grado` FOREIGN KEY (`id_grado`) REFERENCES `grados` (`id_grado`),
-  CONSTRAINT `fk_insumo_area` FOREIGN KEY (`id_area`) REFERENCES `areas_cursos` (`id_area`),
-  CONSTRAINT `fk_insumo_bimestre` FOREIGN KEY (`id_bimestre`) REFERENCES `bimestres` (`id_bimestre`),
-  CONSTRAINT `fk_producto_padre` FOREIGN KEY (`id_producto_padre`) REFERENCES `insumos` (`id_insumo`) ON DELETE CASCADE
+  CONSTRAINT `productos_ibfk_1` FOREIGN KEY (`id_categoria`) REFERENCES `categorias` (`id_categoria`),
+  CONSTRAINT `productos_ibfk_2` FOREIGN KEY (`id_unidad`) REFERENCES `unidades_medida` (`id_unidad`),
+  CONSTRAINT `fk_producto_talla` FOREIGN KEY (`id_talla`) REFERENCES `tallas` (`id_talla`),
+  CONSTRAINT `fk_producto_tipo_corbata` FOREIGN KEY (`id_tipo_corbata`) REFERENCES `tipos_corbata` (`id_tipo_corbata`),
+  CONSTRAINT `fk_producto_nivel` FOREIGN KEY (`id_nivel`) REFERENCES `niveles_educativos` (`id_nivel`),
+  CONSTRAINT `fk_producto_grado` FOREIGN KEY (`id_grado`) REFERENCES `grados` (`id_grado`),
+  CONSTRAINT `fk_producto_area` FOREIGN KEY (`id_area`) REFERENCES `areas_cursos` (`id_area`),
+  CONSTRAINT `fk_producto_bimestre` FOREIGN KEY (`id_bimestre`) REFERENCES `bimestres` (`id_bimestre`),
+  CONSTRAINT `fk_producto_padre` FOREIGN KEY (`id_producto_padre`) REFERENCES `productos` (`id_producto`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- =============================================================================
@@ -245,16 +245,16 @@ CREATE TABLE `ventas` (
 CREATE TABLE `detalle_ventas` (
   `id_detalle` int(11) NOT NULL AUTO_INCREMENT,
   `id_venta` int(11) NOT NULL,
-  `id_insumo` int(11) NOT NULL,
+  `id_producto` int(11) NOT NULL,
   `cantidad` decimal(10,2) NOT NULL DEFAULT 1.00 COMMENT 'Número de piezas/unidades',
   `precio_venta` decimal(10,2) NOT NULL,
   `costo_unitario` decimal(10,2) NOT NULL DEFAULT 0.00,
   `subtotal` decimal(10,2) NOT NULL,
   PRIMARY KEY (`id_detalle`),
   KEY `id_venta` (`id_venta`),
-  KEY `id_insumo` (`id_insumo`),
+  KEY `id_producto` (`id_producto`),
   CONSTRAINT `detalle_ventas_ibfk_1` FOREIGN KEY (`id_venta`) REFERENCES `ventas` (`id_venta`) ON DELETE CASCADE,
-  CONSTRAINT `detalle_ventas_ibfk_2` FOREIGN KEY (`id_insumo`) REFERENCES `insumos` (`id_insumo`)
+  CONSTRAINT `detalle_ventas_ibfk_2` FOREIGN KEY (`id_producto`) REFERENCES `productos` (`id_producto`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- =============================================================================
@@ -266,12 +266,18 @@ CREATE TABLE `pedidos_online` (
   `id_cliente` int(11) NOT NULL,
   `fecha_pedido` datetime NOT NULL DEFAULT current_timestamp(),
   `total` decimal(10,2) NOT NULL,
-  `nro_operacion_yape` varchar(50) NOT NULL,
-  `estado` tinyint(1) NOT NULL DEFAULT 1 COMMENT '1=Pendiente, 2=Entregado, 0=Rechazado',
+  `nro_operacion_yape` varchar(50) NOT NULL DEFAULT '',
+  `payment_intent_id` varchar(64) DEFAULT NULL COMMENT 'ID del PaymentIntent de Stripe (pi_...)',
+  `fecha_pago` datetime DEFAULT NULL COMMENT 'Se llena solo tras verificar status=succeeded en la API de Stripe',
+  `fecha_expira` datetime DEFAULT NULL COMMENT 'Si estado=3 y fecha_expira < NOW(), el barrido libera el stock',
+  `token_publico` char(32) NOT NULL DEFAULT '' COMMENT 'Token aleatorio exigido para ver la boleta pública',
+  `estado` tinyint(1) NOT NULL DEFAULT 3 COMMENT '3=Pendiente de pago, 1=Pagado/Pendiente entrega, 2=Entregado, 0=Rechazado, 4=Expirado',
   `id_venta` int(11) DEFAULT NULL,
   PRIMARY KEY (`id_pedido`),
   KEY `id_cliente` (`id_cliente`),
   KEY `id_venta` (`id_venta`),
+  UNIQUE KEY `uq_payment_intent` (`payment_intent_id`),
+  KEY `idx_estado_expira` (`estado`, `fecha_expira`),
   CONSTRAINT `pedidos_online_ibfk_1` FOREIGN KEY (`id_cliente`) REFERENCES `clientes` (`id_cliente`),
   CONSTRAINT `pedidos_online_ibfk_2` FOREIGN KEY (`id_venta`) REFERENCES `ventas` (`id_venta`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
@@ -279,15 +285,15 @@ CREATE TABLE `pedidos_online` (
 CREATE TABLE `detalle_pedidos_online` (
   `id_detalle` int(11) NOT NULL AUTO_INCREMENT,
   `id_pedido` int(11) NOT NULL,
-  `id_insumo` int(11) NOT NULL,
+  `id_producto` int(11) NOT NULL,
   `cantidad` decimal(10,2) NOT NULL,
   `precio_unitario` decimal(10,2) NOT NULL,
   `subtotal` decimal(10,2) NOT NULL,
   PRIMARY KEY (`id_detalle`),
   KEY `id_pedido` (`id_pedido`),
-  KEY `id_insumo` (`id_insumo`),
+  KEY `id_producto` (`id_producto`),
   CONSTRAINT `detalle_pedidos_online_ibfk_1` FOREIGN KEY (`id_pedido`) REFERENCES `pedidos_online` (`id_pedido`),
-  CONSTRAINT `detalle_pedidos_online_ibfk_2` FOREIGN KEY (`id_insumo`) REFERENCES `insumos` (`id_insumo`)
+  CONSTRAINT `detalle_pedidos_online_ibfk_2` FOREIGN KEY (`id_producto`) REFERENCES `productos` (`id_producto`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- =============================================================================

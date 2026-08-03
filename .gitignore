@@ -1,1 +1,4 @@
 .env
+*.zip
+*.xlsx
+assets/.venv_trace/

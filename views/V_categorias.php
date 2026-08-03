@@ -16,7 +16,7 @@ $categorias = $modelCat->listar();
     <div class="d-flex align-items-center justify-content-between mb-4">
         <div>
             <h4 class="mb-1 fw-bold text-dark">Categorías</h4>
-            <p class="text-muted mb-0" style="font-size: 14px;">Organiza los insumos en categorías.</p>
+            <p class="text-muted mb-0" style="font-size: 14px;">Organiza los productos en categorías.</p>
         </div>
         <button class="gp-btn-primary d-flex align-items-center gap-2 border-0" data-bs-toggle="modal" data-bs-target="#nuevaCategoriaModal">
             <i class="bi bi-plus-lg"></i>
@@ -120,7 +120,7 @@ $categorias = $modelCat->listar();
                     </div>
                     <div>
                         <label for="new_descripcion" class="form-label fw-semibold" style="font-size: 13px;">Descripción</label>
-                        <textarea class="form-control" id="new_descripcion" rows="3" placeholder="Breve descripción de los insumos en esta categoría"></textarea>
+                        <textarea class="form-control" id="new_descripcion" rows="3" placeholder="Breve descripción de los productos en esta categoría"></textarea>
                     </div>
                 </div>
                 <div class="modal-footer border-0 p-4 pt-0">

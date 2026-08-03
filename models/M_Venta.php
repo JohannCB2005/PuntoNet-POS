@@ -36,10 +36,10 @@ class M_Venta {
      *   1. Inicia una transacción.
      *   2. Inserta la cabecera en la tabla 'ventas'.
      *   3. Por cada ítem del carrito:
-     *      a. Bloquea la fila del insumo con SELECT ... FOR UPDATE.
+     *      a. Bloquea la fila del producto con SELECT ... FOR UPDATE.
      *      b. Valida que el stock en piezas sea suficiente; si no, lanza excepción.
      *      c. Inserta la línea en 'detalle_ventas'.
-     *      d. Descuenta stock_piezas en 'insumos'.
+     *      d. Descuenta stock_piezas en 'productos'.
      *   4. Confirma la transacción (COMMIT) si todo fue exitoso.
      *   5. Revierte (ROLLBACK) ante cualquier error, propagando el mensaje.
      *
@@ -65,29 +65,29 @@ class M_Venta {
 
             // Preparar sentencias reutilizables para el bucle
             $stmtStock   = $this->conexion->prepare(
-                "SELECT stock_piezas, costo_produccion FROM insumos WHERE id_insumo = ? FOR UPDATE"
+                "SELECT stock_piezas, costo_produccion FROM productos WHERE id_producto = ? FOR UPDATE"
             );
             $stmtDetalle = $this->conexion->prepare(
-                "INSERT INTO detalle_ventas (id_venta, id_insumo, cantidad, precio_venta, costo_unitario, subtotal)
+                "INSERT INTO detalle_ventas (id_venta, id_producto, cantidad, precio_venta, costo_unitario, subtotal)
                  VALUES (?, ?, ?, ?, ?, ?)"
             );
             $stmtDescuento = $this->conexion->prepare(
-                "UPDATE insumos SET stock_piezas = stock_piezas - ? WHERE id_insumo = ?"
+                "UPDATE productos SET stock_piezas = stock_piezas - ? WHERE id_producto = ?"
             );
 
             // --- PASO 2: Procesar cada línea del carrito ---
             foreach ($venta->detalles as $detalle) {
-                $id_insumo  = (int)   $detalle->id_insumo;
+                $id_producto  = (int)   $detalle->id_producto;
                 $piezas     = (float) $detalle->piezas;
                 $precio     = (float) $detalle->precio_venta;
                 $subtotal   = (float) $detalle->subtotal;
 
                 // a. Leer stock actual con bloqueo de fila
-                $stmtStock->execute([$id_insumo]);
+                $stmtStock->execute([$id_producto]);
                 $row = $stmtStock->fetch();
 
                 if ($row === false) {
-                    throw new Exception("Insumo ID {$id_insumo} no encontrado en inventario.");
+                    throw new Exception("Producto ID {$id_producto} no encontrado en inventario.");
                 }
 
                 $stock_actual = (float) $row['stock_piezas'];
@@ -99,10 +99,10 @@ class M_Venta {
                 }
 
                 // c. Insertar línea de detalle
-                $stmtDetalle->execute([$id_venta, $id_insumo, $piezas, $precio, $costo_actual, $subtotal]);
+                $stmtDetalle->execute([$id_venta, $id_producto, $piezas, $precio, $costo_actual, $subtotal]);
 
                 // d. Descontar stock
-                $stmtDescuento->execute([$piezas, $id_insumo]);
+                $stmtDescuento->execute([$piezas, $id_producto]);
             }
 
 
@@ -125,7 +125,7 @@ class M_Venta {
      *   1. Inicia una transacción.
      *   2. Marca la venta como inactiva (estado = 0).
      *   3. Recupera todas las líneas de detalle_ventas de esa venta.
-     *   4. Por cada línea, devuelve las piezas al stock del insumo.
+     *   4. Por cada línea, devuelve las piezas al stock del producto.
      *   5. COMMIT si todo es correcto, ROLLBACK en caso de error.
      *
      * @param int $id_venta ID de la venta a anular
@@ -143,17 +143,17 @@ class M_Venta {
 
             // --- PASO 2: Obtener ítems de la venta ---
             $stmtDetalles = $this->conexion->prepare(
-                "SELECT id_insumo, cantidad FROM detalle_ventas WHERE id_venta = ?"
+                "SELECT id_producto, cantidad FROM detalle_ventas WHERE id_venta = ?"
             );
             $stmtDetalles->execute([$id_venta]);
             $detalles = $stmtDetalles->fetchAll();
 
             // --- PASO 3: Revertir stock por cada ítem ---
             $stmtRevertir = $this->conexion->prepare(
-                "UPDATE insumos SET stock_piezas = stock_piezas + ? WHERE id_insumo = ?"
+                "UPDATE productos SET stock_piezas = stock_piezas + ? WHERE id_producto = ?"
             );
             foreach ($detalles as $detalle) {
-                $stmtRevertir->execute([$detalle['cantidad'], $detalle['id_insumo']]);
+                $stmtRevertir->execute([$detalle['cantidad'], $detalle['id_producto']]);
             }
 
             $this->conexion->commit();
@@ -216,12 +216,12 @@ class M_Venta {
                         WHEN i.id_talla IS NOT NULL AND t.nombre IS NOT NULL
                         THEN CONCAT(i.nombre, ' - T.', t.nombre)
                         ELSE i.nombre
-                    END AS insumo_nombre,
+                    END AS producto_nombre,
                     t.nombre AS talla_nombre,
                     i.id_talla,
                     um.abreviatura
                     FROM detalle_ventas dv
-                    INNER JOIN insumos i ON dv.id_insumo = i.id_insumo
+                    INNER JOIN productos i ON dv.id_producto = i.id_producto
                     INNER JOIN unidades_medida um ON i.id_unidad = um.id_unidad
                     LEFT JOIN tallas t ON i.id_talla = t.id_talla
                     WHERE dv.id_venta = ?";
