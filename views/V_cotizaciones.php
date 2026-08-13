@@ -43,7 +43,7 @@ $clientesRaw = $modelCliente->listarClientes();
             <h4 class="mb-1 fw-bold text-dark">Cotizaciones</h4>
             <p class="text-muted mb-0" style="font-size: 14px;">Administra presupuestos y cotizaciones para clientes.</p>
         </div>
-        <a href="index.php?modulo=nueva-cotizacion" class="gp-btn-primary d-flex align-items-center gap-2 border-0 text-decoration-none">
+        <a href="/nueva-cotizacion" class="gp-btn-primary d-flex align-items-center gap-2 border-0 text-decoration-none">
             <i class="bi bi-plus-lg"></i>
             <span>Nueva Cotización</span>
         </a>

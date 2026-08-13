@@ -15,7 +15,7 @@ $cajaAbierta = $modelCaja->obtenerCajaAbierta($id_usuario);
 $ventasAcumuladas = 0;
 if ($cajaAbierta) {
     // Si la caja está abierta, calcular las ventas registradas desde la fecha de apertura
-    $ventasAcumuladas = $modelCaja->calcularVentasAcumuladas($id_usuario, $cajaAbierta['fecha_apertura']);
+    $ventasAcumuladas = $modelCaja->calcularVentasAcumuladas($cajaAbierta['id_caja']);
 }
 ?>
 <div class="container-fluid px-0">

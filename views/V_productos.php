@@ -29,6 +29,23 @@ $bimestres = $modelProducto->obtenerBimestres();
 $isAdmin = ($_SESSION['rol'] === 'Administrador');
 ?>
 
+<style>
+    .ios-switch { position: relative; display: inline-flex; align-items: center; cursor: pointer; }
+    .ios-switch input { position: absolute; opacity: 0; width: 0; height: 0; margin: 0; }
+    .ios-switch .ios-slider {
+        position: relative; display: inline-flex; flex-shrink: 0;
+        width: 72px; height: 40px; background: #e9e9ea; border-radius: 40px;
+        transition: background-color .25s ease; box-shadow: inset 0 0 0 rgba(0,0,0,0);
+    }
+    .ios-switch .ios-slider::after {
+        content: ''; position: absolute; top: 3px; left: 3px;
+        width: 34px; height: 34px; background: #fff; border-radius: 50%;
+        box-shadow: 0 2px 6px rgba(0,0,0,.25); transition: transform .25s ease;
+    }
+    .ios-switch input:checked + .ios-slider { background: #34c759; }
+    .ios-switch input:checked + .ios-slider::after { transform: translateX(32px); }
+</style>
+
 <div class="container-fluid px-0">
     <!-- Encabezado de Página -->
     <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
@@ -98,7 +115,8 @@ $isAdmin = ($_SESSION['rol'] === 'Administrador');
                     <?php else: ?>
                         <?php foreach ($productos as $ins): ?>
                             <!-- Resaltar visualmente si el producto está bajo la cuota mínima de 20 unidades -->
-                            <?php $lowStock = ($ins['stock_piezas'] <= 20); ?>
+                            <?php $ilimitado = ($ins['stock_ilimitado'] ?? 0) == 1; ?>
+                            <?php $lowStock = ($ins['stock_piezas'] <= 20) && !$ilimitado; ?>
                             <?php 
                             $esPadre = ($ins['es_agrupador'] == 1);
                             $esHijo = ($ins['id_producto_padre'] != null);
@@ -153,6 +171,10 @@ $isAdmin = ($_SESSION['rol'] === 'Administrador');
                                 <td class="text-end">
                                     <?php if ($esPadre): ?>
                                         <span class="text-muted">—</span>
+                                    <?php elseif ($ilimitado): ?>
+                                        <span class="badge bg-success bg-opacity-10 text-success rounded-pill fw-bold" style="font-size: 11px;">
+                                            <i class="bi bi-infinity me-1"></i>Stock ilimitado
+                                        </span>
                                     <?php else: ?>
                                         <span class="<?php echo $lowStock ? 'text-danger fw-bold' : 'text-dark fw-medium'; ?>">
                                             <?php echo number_format($ins['stock_piezas'], 2); ?>
@@ -177,7 +199,9 @@ $isAdmin = ($_SESSION['rol'] === 'Administrador');
                                                     data-unidad="<?php echo $ins['unidad']; ?>"
                                                     data-precio="<?php echo $ins['precio_unitario']; ?>"
                                                     data-costo="<?php echo $ins['costo_produccion']; ?>"
+                                                    data-comision="<?php echo $ins['comision']; ?>"
                                                     data-stock="<?php echo $ins['stock_piezas']; ?>"
+                                                    data-stockilimitado="<?php echo $ins['stock_ilimitado'] ?? 0; ?>"
                                                     data-imagen="<?php echo htmlspecialchars($ins['imagen'] ?? ''); ?>"
                                                     data-talla="<?php echo $ins['id_talla'] ?? ''; ?>"
                                                     data-tipocorbata="<?php echo $ins['id_tipo_corbata'] ?? ''; ?>"
@@ -190,7 +214,8 @@ $isAdmin = ($_SESSION['rol'] === 'Administrador');
                                                     title="Editar">
                                                 <i class="bi bi-pencil-fill"></i>
                                             </button>
-                                            <button class="btn btn-link text-muted p-1 hover-text-success update-stock-btn" 
+                                            <button class="btn btn-link text-muted p-1 hover-text-success update-stock-btn"
+                                                    <?php echo $ilimitado ? 'data-ilimitado="1"' : ''; ?>
                                                     data-id="<?php echo $ins['id_producto']; ?>"
                                                     data-nombre="<?php echo htmlspecialchars($ins['nombre']); ?>"
                                                     data-stock="<?php echo $ins['stock_piezas']; ?>"
@@ -266,7 +291,7 @@ $isAdmin = ($_SESSION['rol'] === 'Administrador');
                     <!-- Cantidad -->
                     <div class="mb-3">
                         <label for="stock_cantidad" class="form-label fw-semibold" style="font-size:13px;">Cantidad</label>
-                        <input type="number" class="form-control" id="stock_cantidad" min="0.01" step="1"
+                        <input type="number" class="form-control" id="stock_cantidad" min="0.01" step="0.01"
                                placeholder="Ej. 10" style="border-radius:10px; height:46px; font-size:14px;" required>
                     </div>
 
@@ -425,18 +450,31 @@ $isAdmin = ($_SESSION['rol'] === 'Administrador');
                     <div class="row">
                         <div id="new_campos_precio_stock">
                             <div class="row">
-                                <div class="col-4">
+                                <div class="col-3">
                                     <label for="new_costo" class="form-label fw-semibold" style="font-size: 13px;">Costo base (S/)</label>
                                     <input type="number" class="form-control" id="new_costo" step="0.01" min="0" placeholder="0.00">
                                 </div>
-                                <div class="col-4">
+                                <div class="col-3">
                                     <label for="new_precio" class="form-label fw-semibold" style="font-size: 13px;">Precio Venta (S/)</label>
                                     <input type="number" class="form-control" id="new_precio" step="0.01" min="0" placeholder="0.00">
                                 </div>
-                                <div class="col-4">
+                                <div class="col-3">
+                                    <label for="new_comision" class="form-label fw-semibold" style="font-size: 13px;">Comisión (S/)</label>
+                                    <input type="number" class="form-control" id="new_comision" step="0.01" min="0" placeholder="0.00">
+                                </div>
+                                <div class="col-3">
                                     <label for="new_stock" class="form-label fw-semibold" style="font-size: 13px;">Stock inicial</label>
                                     <input type="number" class="form-control" id="new_stock" step="0.01" min="0" placeholder="0.00">
                                 </div>
+                            </div>
+                            <div class="mt-3 mb-3">
+                                <label class="ios-switch" for="new_stock_ilimitado">
+                                    <input type="checkbox" id="new_stock_ilimitado" role="switch">
+                                    <span class="ios-slider"></span>
+                                    <span class="ms-3 fw-semibold" style="font-size:14px; cursor:pointer;">
+                                        <i class="bi bi-infinity me-1 text-success"></i> Stock ilimitado <span class="text-muted" style="font-weight:400;">(servicio: no controla stock, ej. envío)</span>
+                                    </span>
+                                </label>
                             </div>
                         </div>
                     </div>
@@ -459,6 +497,7 @@ $isAdmin = ($_SESSION['rol'] === 'Administrador');
                             <div class="d-flex gap-2 align-items-center">
                                 <input type="number" id="new_precio_base_variante" class="form-control form-control-sm" step="0.01" min="0" placeholder="Precio base" style="width:110px;">
                                 <input type="number" id="new_costo_base_variante" class="form-control form-control-sm" step="0.01" min="0" placeholder="Costo base" style="width:110px;">
+                                <input type="number" id="new_comision_base_variante" class="form-control form-control-sm" step="0.01" min="0" placeholder="Comisión base" style="width:110px;">
                                 <button type="button" class="btn btn-sm btn-outline-primary" id="new_aplicar_precio_todos" style="font-size:12px; white-space:nowrap;">Aplicar a todos</button>
                             </div>
                         </div>
@@ -474,6 +513,7 @@ $isAdmin = ($_SESSION['rol'] === 'Administrador');
                                 </label>
                                 <input type="number" class="form-control form-control-sm new-talla-precio" step="0.01" min="0" placeholder="Precio" style="max-width:100px;" disabled>
                                 <input type="number" class="form-control form-control-sm new-talla-costo" step="0.01" min="0" placeholder="Costo" style="max-width:100px;" disabled>
+                                <input type="number" class="form-control form-control-sm new-talla-comision" step="0.01" min="0" placeholder="Comisión" style="max-width:100px;" disabled>
                                 <input type="number" class="form-control form-control-sm new-talla-stock" step="1" min="0" placeholder="Stock" style="max-width:80px;" disabled>
                             </div>
                             <?php endforeach; ?>
@@ -597,20 +637,33 @@ $isAdmin = ($_SESSION['rol'] === 'Administrador');
                         </div>
                     </div>
                     <div id="edit_campos_precio_stock" class="row">
-                        <div class="col-4">
+                        <div class="col-3">
                             <label for="edit_costo" class="form-label fw-semibold" style="font-size: 13px;">Costo base (S/)</label>
                             <input type="number" class="form-control" id="edit_costo" step="0.01" min="0">
                         </div>
-                        <div class="col-4">
+                        <div class="col-3">
                             <label for="edit_precio" class="form-label fw-semibold" style="font-size: 13px;">Precio Venta (S/)</label>
                             <input type="number" class="form-control" id="edit_precio" step="0.01" min="0">
                         </div>
-                        <div class="col-4">
+                        <div class="col-3">
+                            <label for="edit_comision" class="form-label fw-semibold" style="font-size: 13px;">Comisión (S/)</label>
+                            <input type="number" class="form-control" id="edit_comision" step="0.01" min="0">
+                        </div>
+                        <div class="col-3">
                             <label for="edit_stock" class="form-label fw-semibold" style="font-size: 13px;">Stock</label>
                             <input type="number" class="form-control" id="edit_stock" step="0.01" min="0" disabled title="Actualice el stock desde el panel principal usando el botón del Kardex">
                         </div>
+                        <div class="col-12 mt-3 mb-3">
+                            <label class="ios-switch" for="edit_stock_ilimitado">
+                                <input type="checkbox" id="edit_stock_ilimitado" role="switch">
+                                <span class="ios-slider"></span>
+                                <span class="ms-3 fw-semibold" style="font-size:14px; cursor:pointer;">
+                                    <i class="bi bi-infinity me-1 text-success"></i> Stock ilimitado <span class="text-muted" style="font-weight:400;">(servicio: no controla stock)</span>
+                                </span>
+                            </label>
+                        </div>
                     </div>
-                    
+
                     <!-- Panel de Variantes por Talla para Editar -->
                     <div id="edit_grupo_variantes" class="mt-3 d-none">
                         <div class="d-flex align-items-center justify-content-between mb-2">
@@ -618,6 +671,7 @@ $isAdmin = ($_SESSION['rol'] === 'Administrador');
                             <div class="d-flex gap-2 align-items-center">
                                 <input type="number" id="edit_precio_base_variante" class="form-control form-control-sm" step="0.01" min="0" placeholder="Precio base" style="width:110px;">
                                 <input type="number" id="edit_costo_base_variante" class="form-control form-control-sm" step="0.01" min="0" placeholder="Costo base" style="width:110px;">
+                                <input type="number" id="edit_comision_base_variante" class="form-control form-control-sm" step="0.01" min="0" placeholder="Comisión base" style="width:110px;">
                                 <button type="button" class="btn btn-sm btn-outline-primary" id="edit_aplicar_precio_todos" style="font-size:12px; white-space:nowrap;">Aplicar a todos</button>
                             </div>
                         </div>
@@ -633,6 +687,7 @@ $isAdmin = ($_SESSION['rol'] === 'Administrador');
                                 </label>
                                 <input type="number" class="form-control form-control-sm edit-talla-precio" step="0.01" min="0" placeholder="Precio" style="max-width:100px;" disabled>
                                 <input type="number" class="form-control form-control-sm edit-talla-costo" step="0.01" min="0" placeholder="Costo" style="max-width:100px;" disabled>
+                                <input type="number" class="form-control form-control-sm edit-talla-comision" step="0.01" min="0" placeholder="Comisión" style="max-width:100px;" disabled>
                                 <input type="hidden" class="edit-talla-idproducto" value="">
                             </div>
                             <?php endforeach; ?>
@@ -795,6 +850,21 @@ $isAdmin = ($_SESSION['rol'] === 'Administrador');
             });
         }
 
+        const chkNuevoIlimitado = document.getElementById('new_stock_ilimitado');
+        if (chkNuevoIlimitado) {
+            chkNuevoIlimitado.addEventListener('change', function() {
+                const stockInput = document.getElementById('new_stock');
+                if (this.checked) {
+                    stockInput.value = '0';
+                    stockInput.disabled = true;
+                    stockInput.setAttribute('title', 'Stock ilimitado: este producto no administra stock');
+                } else {
+                    stockInput.disabled = false;
+                    stockInput.removeAttribute('title');
+                }
+            });
+        }
+
         tallaChecks.forEach(chk => {
             chk.addEventListener('change', function() {
                 const container = this.closest('div');
@@ -808,11 +878,13 @@ $isAdmin = ($_SESSION['rol'] === 'Administrador');
             btnAplicarTodos.addEventListener('click', () => {
                 const precioBase = document.getElementById('new_precio_base_variante').value;
                 const costoBase = document.getElementById('new_costo_base_variante').value;
+                const comisionBase = document.getElementById('new_comision_base_variante').value;
                 tallaChecks.forEach(chk => {
                     if (chk.checked) {
                         const container = chk.closest('div');
                         if (precioBase) container.querySelector('.new-talla-precio').value = precioBase;
                         if (costoBase) container.querySelector('.new-talla-costo').value = costoBase;
+                        if (comisionBase) container.querySelector('.new-talla-comision').value = comisionBase;
                     }
                 });
             });
@@ -842,6 +914,7 @@ $isAdmin = ($_SESSION['rol'] === 'Administrador');
                                 id_talla: chk.value,
                                 precio_unitario: container.querySelector('.new-talla-precio').value || 0,
                                 costo_produccion: container.querySelector('.new-talla-costo').value || 0,
+                                comision: container.querySelector('.new-talla-comision').value || 0,
                                 stock_piezas: container.querySelector('.new-talla-stock').value || 0
                             });
                         }
@@ -867,7 +940,9 @@ $isAdmin = ($_SESSION['rol'] === 'Administrador');
                     payload.append('id_unidad', id_unidad);
                     payload.append('precio_unitario', document.getElementById('new_precio').value);
                     payload.append('costo_produccion', document.getElementById('new_costo').value);
+                    payload.append('comision', document.getElementById('new_comision').value || 0);
                     payload.append('stock', document.getElementById('new_stock').value);
+                    payload.append('stock_ilimitado', document.getElementById('new_stock_ilimitado').checked ? 1 : 0);
                     
                     if (document.getElementById('new_grupo_uniformes').style.display === 'block') {
                         payload.append('id_talla', document.getElementById('new_talla').value);
@@ -903,6 +978,7 @@ $isAdmin = ($_SESSION['rol'] === 'Administrador');
                                 payload.append(`variantes[${idx}][id_talla]`, chk.value);
                                 payload.append(`variantes[${idx}][precio_unitario]`, container.querySelector('.new-talla-precio').value || 0);
                                 payload.append(`variantes[${idx}][costo_produccion]`, container.querySelector('.new-talla-costo').value || 0);
+                                payload.append(`variantes[${idx}][comision]`, container.querySelector('.new-talla-comision').value || 0);
                                 payload.append(`variantes[${idx}][stock_piezas]`, container.querySelector('.new-talla-stock').value || 0);
                                 idx++;
                             }
@@ -953,6 +1029,7 @@ $isAdmin = ($_SESSION['rol'] === 'Administrador');
                     document.getElementById('edit_campos_precio_stock').classList.add('d-none');
                     document.getElementById('edit_grupo_variantes').classList.remove('d-none');
                     document.getElementById('editarProductoModalLabel').textContent = "Editar Familia de Producto";
+                    document.getElementById('edit_stock_ilimitado').checked = false;
                     
                     // Limpiar y poblar checkboxes de tallas
                     const idPadre = btn.dataset.id;
@@ -965,11 +1042,12 @@ $isAdmin = ($_SESSION['rol'] === 'Administrador');
                         const container = chk.closest('div');
                         const p = container.querySelector('.edit-talla-precio');
                         const c = container.querySelector('.edit-talla-costo');
+                        const co = container.querySelector('.edit-talla-comision');
                         const idHidden = container.querySelector('.edit-talla-idproducto');
-                        p.disabled = true; c.disabled = true;
-                        p.value = ''; c.value = ''; idHidden.value = '';
+                        p.disabled = true; c.disabled = true; co.disabled = true;
+                        p.value = ''; c.value = ''; co.value = ''; idHidden.value = '';
                     });
-                    
+
                     // Populate from children
                     children.forEach(childBtn => {
                         const tallaId = childBtn.dataset.talla; // wait, data-talla is currently id_talla! Yes!
@@ -979,10 +1057,12 @@ $isAdmin = ($_SESSION['rol'] === 'Administrador');
                             const container = chk.closest('div');
                             const p = container.querySelector('.edit-talla-precio');
                             const c = container.querySelector('.edit-talla-costo');
+                            const co = container.querySelector('.edit-talla-comision');
                             const idHidden = container.querySelector('.edit-talla-idproducto');
-                            p.disabled = false; c.disabled = false;
+                            p.disabled = false; c.disabled = false; co.disabled = false;
                             p.value = childBtn.dataset.precio;
                             c.value = childBtn.dataset.costo;
+                            co.value = childBtn.dataset.comision || 0;
                             idHidden.value = childBtn.dataset.id;
                         }
                     });
@@ -991,10 +1071,14 @@ $isAdmin = ($_SESSION['rol'] === 'Administrador');
                     document.getElementById('edit_campos_precio_stock').classList.remove('d-none');
                     document.getElementById('edit_grupo_variantes').classList.add('d-none');
                     document.getElementById('editarProductoModalLabel').textContent = "Editar Producto";
-                    
+
                     document.getElementById('edit_precio').value = btn.dataset.precio;
                     document.getElementById('edit_costo').value = btn.dataset.costo;
+                    document.getElementById('edit_comision').value = btn.dataset.comision || 0;
                     document.getElementById('edit_stock').value = btn.dataset.stock;
+                    const chkEditIlimitado = document.getElementById('edit_stock_ilimitado');
+                    chkEditIlimitado.checked = btn.dataset.stockilimitado === "1";
+                    chkEditIlimitado.dispatchEvent(new Event('change'));
                 }
 
                 // Previsualizar la imagen actual si existe
@@ -1042,13 +1126,20 @@ $isAdmin = ($_SESSION['rol'] === 'Administrador');
             });
         });
 
+        document.getElementById('edit_stock_ilimitado')?.addEventListener('change', function() {
+            const stockInput = document.getElementById('edit_stock');
+            if (this.checked) stockInput.value = '0';
+        });
+
         document.getElementById('edit_aplicar_precio_todos')?.addEventListener('click', () => {
             const precio = document.getElementById('edit_precio_base_variante').value;
             const costo = document.getElementById('edit_costo_base_variante').value;
+            const comision = document.getElementById('edit_comision_base_variante').value;
             document.querySelectorAll('.edit-talla-check:checked').forEach(chk => {
                 const container = chk.closest('div');
                 if (precio !== '') container.querySelector('.edit-talla-precio').value = precio;
                 if (costo !== '') container.querySelector('.edit-talla-costo').value = costo;
+                if (comision !== '') container.querySelector('.edit-talla-comision').value = comision;
             });
         });
 
@@ -1083,6 +1174,7 @@ $isAdmin = ($_SESSION['rol'] === 'Administrador');
                             formData.append(`variantes[${idx}][id_talla]`, chk.value);
                             formData.append(`variantes[${idx}][precio_unitario]`, container.querySelector('.edit-talla-precio').value || 0);
                             formData.append(`variantes[${idx}][costo_produccion]`, container.querySelector('.edit-talla-costo').value || 0);
+                            formData.append(`variantes[${idx}][comision]`, container.querySelector('.edit-talla-comision').value || 0);
                             const idChild = container.querySelector('.edit-talla-idproducto').value;
                             if (idChild) {
                                 formData.append(`variantes[${idx}][id_producto]`, idChild);
@@ -1098,6 +1190,7 @@ $isAdmin = ($_SESSION['rol'] === 'Administrador');
                 } else {
                     const precio_unitario = document.getElementById('edit_precio').value;
                     const costo_produccion = document.getElementById('edit_costo').value;
+                    const comision = document.getElementById('edit_comision').value || 0;
                     const stock = document.getElementById('edit_stock').value;
 
                     formData.append('id_producto', id_producto);
@@ -1106,7 +1199,9 @@ $isAdmin = ($_SESSION['rol'] === 'Administrador');
                     formData.append('id_unidad', id_unidad);
                     formData.append('precio_unitario', precio_unitario);
                     formData.append('costo_produccion', costo_produccion);
+                    formData.append('comision', comision);
                     formData.append('stock', stock);
+                    formData.append('stock_ilimitado', document.getElementById('edit_stock_ilimitado').checked ? 1 : 0);
                     
                     // Add attributes
                     if (document.getElementById('edit_grupo_uniformes').style.display === 'block') {
@@ -1211,6 +1306,10 @@ $isAdmin = ($_SESSION['rol'] === 'Administrador');
 
         document.querySelectorAll('.update-stock-btn').forEach(btn => {
             btn.addEventListener('click', () => {
+                if (btn.dataset.ilimitado === "1") {
+                    Swal.fire({ icon: 'info', title: 'Stock ilimitado', text: 'Este producto es un servicio: no administra stock.', confirmButtonColor: '#0284c7' });
+                    return;
+                }
                 const esPadre = btn.dataset.espadre === "1";
                 const id_producto = btn.dataset.id;
                 

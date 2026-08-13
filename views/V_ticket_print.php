@@ -7,43 +7,147 @@ if (session_status() === PHP_SESSION_NONE) {
 if (!isset($_SESSION['id_usuario'])) {
     die('Acceso no autorizado.');
 }
+header('X-Frame-Options: SAMEORIGIN');
 
 // Cargar la conexión y el modelo de Ventas
 require_once dirname(__DIR__) . '/config/conexion.php';
+require_once dirname(__DIR__) . '/config/sunat.php';
 require_once dirname(__DIR__) . '/models/M_Venta.php';
 
-$id_venta = isset($_GET['id']) ? intval($_GET['id']) : 0;
-$format   = isset($_GET['format']) ? $_GET['format'] : '80mm'; // Formatos válidos: 80mm | 58mm | a4
+$id_venta       = isset($_GET['id']) ? intval($_GET['id']) : 0;
+$id_separacion  = isset($_GET['separacion']) ? intval($_GET['separacion']) : 0;
+$format         = isset($_GET['format']) ? $_GET['format'] : '80mm'; // Formatos válidos: 80mm | 58mm | a4
 
-if ($id_venta <= 0) { die('ID de venta inválido.'); }
+if ($id_venta <= 0 && $id_separacion <= 0) { die('Falta el parámetro id o separacion.'); }
 
 $model  = M_Venta::singleton();
+$nombresMetodo = [1 => 'Efectivo', 2 => 'Yape/Plin', 3 => 'Tarjeta'];
 
-// Restricción por rol: Vendedor regular solo puede acceder a sus propios comprobantes
-$id_vendedor = ($_SESSION['rol'] !== 'Administrador') ? $_SESSION['id_usuario'] : null;
-$ventas = $model->listar($id_vendedor);
-$venta  = null;
-foreach ($ventas as $v) {
-    if ($v['id_venta'] == $id_venta) { $venta = $v; break; }
+// Banner "ABONO A SEPARACIÓN" + resumen mercadería/pagado/saldo, solo cuando se
+// imprime UNA venta puntual (anticipo o abono) que pertenece a una separación.
+$infoSeparacionAbono = null;
+// Tabla de abonos + resumen "Total · Anticipo · Saldo cancelado", solo en el
+// comprobante FINAL de una separación ya despachada (impreso por ?separacion=).
+$abonosParaImprimir  = null;
+
+if ($id_separacion > 0) {
+    // ========= MODO: Comprobante final de una separación (mercadería completa) =========
+    require_once dirname(__DIR__) . '/models/M_Separacion.php';
+    $sep = M_Separacion::singleton()->obtenerPorId($id_separacion);
+    if (!$sep) { die('Separación no encontrada.'); }
+
+    $detalles = $model->obtenerDetallesPorVenta($sep['id_venta_anticipo']);
+    $codigo   = $sep['codigo'];
+    $venta    = ['cliente' => $sep['cliente'], 'numero_documento' => $sep['numero_documento'], 'vendedor' => $sep['vendedor']];
+
+    $tipoComprobanteFinal = $sep['tipo_comprobante_final'] ?: 3;
+    $tipo_doc = $tipoComprobanteFinal == 1 ? 'BOLETA DE VENTA'
+              : ($tipoComprobanteFinal == 2 ? 'FACTURA ELECTRÓNICA' : 'NOTA DE VENTA');
+    $fecha_emision = date('Y-m-d / H:i:s', strtotime($sep['fecha_despacho'] ?: $sep['fecha']));
+    $fecha_venc    = date('Y-m-d', strtotime($sep['fecha']));
+    $subtotal = $sep['total'] / 1.18;
+    $igv      = $sep['total'] - $subtotal;
+    $total    = $sep['total'];
+    $estado   = $sep['estado'] == 2 ? 'DESPACHADA' : ($sep['estado'] == 1 ? 'PENDIENTE' : 'ANULADA');
+
+    $abonosParaImprimir = $sep['abonos'];
+    $anticipoMonto = 0.0;
+    $saldoCancelado = 0.0;
+    foreach ($abonosParaImprimir as $a) {
+        if ($a['es_anticipo'] == 1) { $anticipoMonto += (float) $a['total']; }
+        else { $saldoCancelado += (float) $a['total']; }
+    }
+    $formaPagoTexto = sprintf(
+        'Total: S/%s · Anticipo: S/%s · Saldo cancelado: S/%s',
+        number_format($total, 2), number_format($anticipoMonto, 2), number_format($saldoCancelado, 2)
+    );
+} else {
+    // ========= MODO: Comprobante de una venta puntual (el flujo de siempre) =========
+    // Restricción por rol: Vendedor regular solo puede acceder a sus propios comprobantes
+    $id_vendedor = ($_SESSION['rol'] !== 'Administrador') ? $_SESSION['id_usuario'] : null;
+    $ventas = $model->listar($id_vendedor);
+    $venta  = null;
+    foreach ($ventas as $v) {
+        if ($v['id_venta'] == $id_venta) { $venta = $v; break; }
+    }
+    if (!$venta) { die('Venta no encontrada.'); }
+
+    // Recuperar productos vendidos de la transacción y variables globales de facturación
+    $detalles = $model->obtenerDetallesPorVenta($id_venta);
+    $codigo   = 'V-' . str_pad($venta['id_venta'], 6, '0', STR_PAD_LEFT);
+
+    // Desglose real de pago mixto: una o más líneas en pagos_venta (efectivo/yape/tarjeta).
+    $stmtPagos = Conexion::singleton()->getConexion()->prepare(
+        "SELECT metodo_pago, monto FROM pagos_venta WHERE id_venta = ? ORDER BY id_pago"
+    );
+    $stmtPagos->execute([$id_venta]);
+    $pagosVenta = $stmtPagos->fetchAll();
+    $formaPagoTexto = implode(' · ', array_map(function ($p) use ($nombresMetodo) {
+        $nombre = $nombresMetodo[$p['metodo_pago']] ?? 'Otro';
+        return $nombre . ': S/' . number_format($p['monto'], 2);
+    }, $pagosVenta));
+    if ($formaPagoTexto === '') {
+        $formaPagoTexto = 'EFECTIVO / TRANSFERENCIA';
+    }
+    $tipo_doc = $venta['tipo_comprobante'] == 1 ? 'BOLETA DE VENTA'
+              : ($venta['tipo_comprobante'] == 2 ? 'FACTURA ELECTRÓNICA' : 'NOTA DE VENTA');
+    $fecha_emision  = date('Y-m-d / H:i:s', strtotime($venta['fecha']));
+    $fecha_venc     = date('Y-m-d', strtotime($venta['fecha']));
+    // Persistidos al registrar la venta (M_Venta::registrarEnTransaccion()), no
+    // calculados aquí: SUNAT valida el IGV al céntimo y un total/1.18 al vuelo
+    // puede descuadrar por redondeo frente a lo que se envió a SUNAT.
+    $subtotal = (float) $venta['subtotal'];
+    $igv      = (float) $venta['igv'];
+    $total    = $venta['total'];
+    $estado   = $venta['estado'] == 1 ? 'COMPLETADA' : 'ANULADA';
+
+    // Si esta venta puntual es un anticipo/abono de una separación, se imprime como
+    // tal: banner + Valor mercadería / Pagado hoy / Saldo pendiente.
+    $stmtInfoSep = Conexion::singleton()->getConexion()->prepare(
+        "SELECT s.id_separacion, s.codigo, s.total AS total_mercaderia,
+                IFNULL((SELECT SUM(v2.total) FROM ventas v2 WHERE v2.id_separacion = s.id_separacion AND v2.estado = 1), 0) AS abonado
+         FROM ventas v INNER JOIN separaciones s ON s.id_separacion = v.id_separacion
+         WHERE v.id_venta = ?"
+    );
+    $stmtInfoSep->execute([$id_venta]);
+    $infoSeparacionAbono = $stmtInfoSep->fetch() ?: null;
 }
-if (!$venta) { die('Venta no encontrada.'); }
-
-// Recuperar productos vendidos de la transacción y variables globales de facturación
-$detalles = $model->obtenerDetallesPorVenta($id_venta);
-$codigo   = 'V-' . str_pad($venta['id_venta'], 6, '0', STR_PAD_LEFT);
-$tipo_doc = $venta['tipo_comprobante'] == 1 ? 'BOLETA DE VENTA'
-          : ($venta['tipo_comprobante'] == 2 ? 'FACTURA ELECTRÓNICA' : 'NOTA DE VENTA');
-$fecha_emision  = date('Y-m-d / H:i:s', strtotime($venta['fecha']));
-$fecha_venc     = date('Y-m-d', strtotime($venta['fecha']));
-$subtotal = $venta['total'] / 1.18;
-$igv      = $venta['total'] - $subtotal;
-$total    = $venta['total'];
-$estado   = $venta['estado'] == 1 ? 'COMPLETADA' : 'ANULADA';
 
 // Ajustes del ancho y tipografía para formatos de ticketeras térmicas
 $isTicket = ($format === '80mm' || $format === '58mm');
 $ticketW  = $format === '58mm' ? '56mm' : '76mm';
 $ticketFs = $format === '58mm' ? '9px'  : '11px';
+
+// Serie-correlativo real, hash y código QR SUNAT — solo aplican a una venta
+// puntual con serie asignada (un comprobante que realmente se envía a SUNAT).
+// El comprobante final de una separación combina varias ventas y no es en sí
+// mismo un documento SUNAT, así que no lleva estos elementos.
+$esComprobanteSunat = !$id_separacion && !empty($venta['serie']);
+$codigoReal = $esComprobanteSunat
+    ? ($venta['serie'] . '-' . str_pad((string) $venta['correlativo'], 8, '0', STR_PAD_LEFT))
+    : $codigo;
+$qrValor = '';
+if ($esComprobanteSunat) {
+    $stmtCli = Conexion::singleton()->getConexion()->prepare(
+        "SELECT p.tipo_documento, p.numero_documento FROM ventas v
+         LEFT JOIN clientes c ON v.id_cliente = c.id_cliente
+         LEFT JOIN personas p ON c.id_persona = p.id_persona
+         WHERE v.id_venta = ?"
+    );
+    $stmtCli->execute([$id_venta]);
+    $cli = $stmtCli->fetch();
+    $tipoDocSunat = $venta['tipo_comprobante'] == 2 ? '01' : '03';
+    $catalogo06 = [1 => '1', 2 => '6', 3 => '7'];
+    $tipoDocCliente = empty($cli['numero_documento']) ? '0' : ($catalogo06[(int) $cli['tipo_documento']] ?? '1');
+    $numDocCliente = $cli['numero_documento'] ?: '00000000';
+    // Formato QR SUNAT: RUC|tipoDoc|serie|correlativo|IGV|total|fechaEmision|tipoDocReceptor|numDocReceptor|hash
+    $qrValor = implode('|', [
+        SUNAT_RUC, $tipoDocSunat, $venta['serie'], $venta['correlativo'],
+        number_format($igv, 2, '.', ''), number_format($total, 2, '.', ''),
+        date('Y-m-d', strtotime($venta['fecha'])),
+        $tipoDocCliente, $numDocCliente, $venta['sunat_hash'] ?? '',
+    ]);
+}
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -270,19 +374,25 @@ p { margin: 1px 0; }
 <?php if (!$isTicket): /* ========= MAQUETADO A4 ========= */ ?>
 <div class="header">
     <div class="header-brand">
-        <div class="brand-logo"><img src="../assets/Logo Login PuntoNet.png" style="height: 60px; filter: grayscale(100%);" alt="NISSI"></div>
+        <div class="brand-logo"><img src="../assets/logo.svg" style="height: 60px; filter: grayscale(100%);" alt="NISSI"></div>
         <div class="brand-info">
-            <p class="biz-name">Confecciones NISSI</p>
-            <p>Av. Principal S/N</p>
-            <p>RUC: 20000000000</p>
+            <p class="biz-name"><?php echo htmlspecialchars(SUNAT_RAZON_SOCIAL ?: 'Confecciones NISSI'); ?></p>
+            <p><?php echo htmlspecialchars(SUNAT_DIRECCION ?: 'Av. Principal S/N'); ?></p>
+            <p>RUC: <?php echo htmlspecialchars(SUNAT_RUC ?: '20000000000'); ?></p>
             <p>Tel: 999 999 999 | nissi@uniformes.com</p>
         </div>
     </div>
     <div class="header-doc">
         <div class="doc-type"><?php echo $tipo_doc; ?></div>
-        <div class="doc-code"><?php echo $codigo; ?></div>
+        <div class="doc-code"><?php echo $codigoReal; ?></div>
     </div>
 </div>
+
+<?php if ($infoSeparacionAbono): ?>
+<div style="background:#fef3c7; border:1.5px dashed #d97706; padding:8px 14px; margin-bottom:14px; font-size:9.5pt; font-weight:bold; text-align:center; color:#92400e;">
+    ABONO A SEPARACIÓN <?php echo htmlspecialchars($infoSeparacionAbono['codigo']); ?>
+</div>
+<?php endif; ?>
 
 <hr class="sep">
 
@@ -291,12 +401,17 @@ p { margin: 1px 0; }
         <div class="info-row"><span class="info-label">Cliente:</span><span class="info-value"><?php echo htmlspecialchars($venta['cliente']); ?></span></div>
         <div class="info-row"><span class="info-label">Doc. / RUC:</span><span class="info-value"><?php echo htmlspecialchars($venta['numero_documento']); ?></span></div>
         <div class="info-row"><span class="info-label">Vendedor:</span><span class="info-value"><?php echo htmlspecialchars($venta['vendedor']); ?></span></div>
-        <div class="info-row"><span class="info-label">Forma de Pago:</span><span class="info-value">EFECTIVO / TRANSFERENCIA</span></div>
+        <div class="info-row"><span class="info-label">Forma de Pago:</span><span class="info-value"><?php echo htmlspecialchars($formaPagoTexto); ?></span></div>
         <div class="info-row"><span class="info-label">Estado:</span><span class="info-value"><?php echo $estado; ?></span></div>
     </div>
     <div>
         <div class="info-row"><span class="info-label">Fecha de emisión:</span><span class="info-value"><?php echo $fecha_emision; ?></span></div>
         <div class="info-row"><span class="info-label">Fecha vencimiento:</span><span class="info-value"><?php echo $fecha_venc; ?></span></div>
+        <?php if ($infoSeparacionAbono): ?>
+        <div class="info-row"><span class="info-label">Valor mercadería:</span><span class="info-value">S/ <?php echo number_format($infoSeparacionAbono['total_mercaderia'], 2); ?></span></div>
+        <div class="info-row"><span class="info-label">Pagado hoy:</span><span class="info-value">S/ <?php echo number_format($total, 2); ?></span></div>
+        <div class="info-row"><span class="info-label">Saldo pendiente:</span><span class="info-value">S/ <?php echo number_format(max(0, $infoSeparacionAbono['total_mercaderia'] - $infoSeparacionAbono['abonado']), 2); ?></span></div>
+        <?php endif; ?>
     </div>
 </div>
 
@@ -327,6 +442,27 @@ p { margin: 1px 0; }
     </tbody>
 </table>
 
+<?php if ($abonosParaImprimir): ?>
+<table class="prod-table" style="margin-bottom: 14px;">
+    <thead>
+        <tr>
+            <th>FECHA</th>
+            <th>TIPO</th>
+            <th class="r">MONTO</th>
+        </tr>
+    </thead>
+    <tbody>
+        <?php foreach ($abonosParaImprimir as $a): ?>
+        <tr>
+            <td><?php echo date('Y-m-d', strtotime($a['fecha'])); ?></td>
+            <td><?php echo $a['es_anticipo'] == 1 ? 'Anticipo' : 'Abono'; ?></td>
+            <td class="r">S/ <?php echo number_format($a['total'], 2); ?></td>
+        </tr>
+        <?php endforeach; ?>
+    </tbody>
+</table>
+<?php endif; ?>
+
 <div class="totals-wrap">
     <table class="totals-table">
         <tr>
@@ -344,6 +480,17 @@ p { margin: 1px 0; }
     </table>
 </div>
 
+<?php if ($esComprobanteSunat): ?>
+<div style="display:flex; align-items:center; gap:14px; margin-top:16px;">
+    <div id="qrSunat"></div>
+    <div style="font-size:8pt; color:#444; line-height:1.5;">
+        <p>Representación impresa del comprobante electrónico.</p>
+        <p>Consulta la validez en <strong>www.sunat.gob.pe</strong>.</p>
+        <p style="word-break:break-all;">Hash: <?php echo htmlspecialchars($venta['sunat_hash'] ?? '—'); ?></p>
+    </div>
+</div>
+<?php endif; ?>
+
 <div class="footer">
     <p><strong>CONDICIÓN DE PAGO:</strong> Al contado</p>
     <p class="thanks">¡Gracias por su compra!</p>
@@ -351,11 +498,11 @@ p { margin: 1px 0; }
 
 <?php else: /* ========= MAQUETADO TICKETERAS TÉRMICAS ========= */ ?>
 
-<div class="brand-logo"><img src="../assets/Logo Login PuntoNet.png" style="height: 40px; filter: grayscale(100%);" alt="NISSI"></div>
+<div class="brand-logo"><img src="../assets/logo.svg" style="height: 40px; filter: grayscale(100%);" alt="NISSI"></div>
 <div class="biz-info">
-    <p class="biz-name">Confecciones NISSI</p>
-    <p>RUC: 20000000000</p>
-    <p>Av. Principal S/N</p>
+    <p class="biz-name"><?php echo htmlspecialchars(SUNAT_RAZON_SOCIAL ?: 'Confecciones NISSI'); ?></p>
+    <p>RUC: <?php echo htmlspecialchars(SUNAT_RUC ?: '20000000000'); ?></p>
+    <p><?php echo htmlspecialchars(SUNAT_DIRECCION ?: 'Av. Principal S/N'); ?></p>
     <p>Tel: 999 999 999</p>
 </div>
 
@@ -363,8 +510,13 @@ p { margin: 1px 0; }
 
 <div class="doc-box">
     <div class="doc-type"><?php echo $tipo_doc; ?></div>
-    <div class="doc-code"><?php echo $codigo; ?></div>
+    <div class="doc-code"><?php echo $codigoReal; ?></div>
 </div>
+
+<?php if ($infoSeparacionAbono): ?>
+<hr class="sep">
+<p class="tc bold" style="font-size: 1.05em;">ABONO A SEPARACIÓN <?php echo htmlspecialchars($infoSeparacionAbono['codigo']); ?></p>
+<?php endif; ?>
 
 <hr class="sep">
 
@@ -375,8 +527,13 @@ p { margin: 1px 0; }
         <tr><td>Cliente:</td><td><?php echo htmlspecialchars($venta['cliente']); ?></td></tr>
         <tr><td>Doc.:</td><td><?php echo htmlspecialchars($venta['numero_documento']); ?></td></tr>
         <tr><td>Vendedor:</td><td><?php echo htmlspecialchars($venta['vendedor']); ?></td></tr>
-        <tr><td>F. Pago:</td><td>EFECTIVO / TRANSF</td></tr>
+        <tr><td>F. Pago:</td><td><?php echo htmlspecialchars($formaPagoTexto); ?></td></tr>
         <tr><td>Estado:</td><td><?php echo $estado; ?></td></tr>
+        <?php if ($infoSeparacionAbono): ?>
+        <tr><td>Mercadería:</td><td>S/ <?php echo number_format($infoSeparacionAbono['total_mercaderia'], 2); ?></td></tr>
+        <tr><td>Pagado hoy:</td><td>S/ <?php echo number_format($total, 2); ?></td></tr>
+        <tr><td>Saldo:</td><td>S/ <?php echo number_format(max(0, $infoSeparacionAbono['total_mercaderia'] - $infoSeparacionAbono['abonado']), 2); ?></td></tr>
+        <?php endif; ?>
     </table>
 </div>
 
@@ -407,13 +564,52 @@ p { margin: 1px 0; }
     </tbody>
 </table>
 
+<?php if ($abonosParaImprimir): ?>
+<table class="prod-table">
+    <thead>
+        <tr><th>FECHA</th><th>TIPO</th><th class="r">MONTO</th></tr>
+    </thead>
+    <tbody>
+        <?php foreach ($abonosParaImprimir as $a): ?>
+        <tr>
+            <td><?php echo date('Y-m-d', strtotime($a['fecha'])); ?></td>
+            <td><?php echo $a['es_anticipo'] == 1 ? 'Anticipo' : 'Abono'; ?></td>
+            <td class="r">S/ <?php echo number_format($a['total'], 2); ?></td>
+        </tr>
+        <?php endforeach; ?>
+    </tbody>
+</table>
+<?php endif; ?>
+
 <div class="total-row"><span>OP. GRAVADA:</span><span>S/ <?php echo number_format($subtotal, 2); ?></span></div>
 <div class="total-row"><span>IGV (18%):</span><span>S/ <?php echo number_format($igv, 2); ?></span></div>
 <div class="total-row grand"><span>TOTAL A PAGAR: S/</span><span><?php echo number_format($total, 2); ?></span></div>
 
+<?php if ($esComprobanteSunat): ?>
+<hr class="sep">
+<div id="qrSunat" class="tc" style="margin: 4px 0;"></div>
+<p class="tc" style="font-size: 0.8em;">Representación impresa del comprobante electrónico.</p>
+<p class="tc" style="font-size: 0.7em; word-break: break-all;">Hash: <?php echo htmlspecialchars($venta['sunat_hash'] ?? '—'); ?></p>
+<?php endif; ?>
+
 <hr class="sep" style="margin-top:8px;">
 <p class="footer-msg">¡Gracias por su compra!</p>
 
+<?php endif; ?>
+
+<?php if ($esComprobanteSunat): ?>
+<!-- Librería de QR solo cuando hace falta: un ticket que nunca fue a SUNAT
+     (Nota de Venta) no necesita cargarla. Mismo patrón que V_reportes.php,
+     que ya trae librerías por CDN (jsPDF, xlsx) sin pasar por Composer. -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script>
+    new QRCode(document.getElementById('qrSunat'), {
+        text: <?php echo json_encode($qrValor); ?>,
+        width: <?php echo $isTicket ? 90 : 110; ?>,
+        height: <?php echo $isTicket ? 90 : 110; ?>,
+        correctLevel: QRCode.CorrectLevel.M,
+    });
+</script>
 <?php endif; ?>
 
 <!-- Disparar automáticamente la impresión del navegador si se incluye el parámetro print=1 en la URL -->

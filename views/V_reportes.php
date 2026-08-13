@@ -4,6 +4,12 @@ if (!isset($_SESSION['id_usuario']) || $_SESSION['rol'] !== 'Administrador') {
     echo "<h1>Acceso denegado</h1>";
     exit;
 }
+
+// "Hoy" según MySQL: estos filtros se comparan contra columnas DATETIME de la base,
+// y PHP corre en UTC mientras MySQL va en hora local (ver fechaHoyBD()). Con date()
+// los reportes abrían en el día siguiente desde las 19:00 hora de Perú.
+require_once dirname(__DIR__) . '/config/conexion.php';
+$hoyBD = fechaHoyBD();
 ?>
 
 <!-- CDNs para exportación y gráficos -->
@@ -51,11 +57,11 @@ if (!isset($_SESSION['id_usuario']) || $_SESSION['rol'] !== 'Administrador') {
         <div class="d-flex flex-wrap gap-2 align-items-end">
             <div>
                 <label class="form-label text-muted fw-semibold mb-1" style="font-size: 12px;">Desde</label>
-                <input type="date" id="filtroDesde" class="form-control form-control-sm" value="<?php echo date('Y-m-d'); ?>">
+                <input type="date" id="filtroDesde" class="form-control form-control-sm" value="<?php echo htmlspecialchars($hoyBD); ?>">
             </div>
             <div>
                 <label class="form-label text-muted fw-semibold mb-1" style="font-size: 12px;">Hasta</label>
-                <input type="date" id="filtroHasta" class="form-control form-control-sm" value="<?php echo date('Y-m-d'); ?>">
+                <input type="date" id="filtroHasta" class="form-control form-control-sm" value="<?php echo htmlspecialchars($hoyBD); ?>">
             </div>
             <button class="btn btn-primary btn-sm px-3 fw-semibold" id="btnFiltrar" style="height: 31px; background-color: #0284c7; border: none;">
                 <i class="bi bi-funnel"></i> Aplicar
@@ -432,6 +438,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     let badge = '';
                     if (i.estado_stock === 'Agotado') badge = '<span class="badge bg-danger">Agotado</span>';
                     else if (i.estado_stock === 'Bajo') badge = '<span class="badge bg-warning text-dark">Bajo Stock</span>';
+                    else if (i.estado_stock === 'Ilimitado') badge = '<span class="badge bg-success"><i class="bi bi-infinity"></i> Ilimitado</span>';
                     else badge = '<span class="badge bg-success">Normal</span>';
 
                     tbody.innerHTML += `

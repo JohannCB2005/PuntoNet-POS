@@ -75,6 +75,14 @@ switch ($action) {
             exit;
         }
 
+        // No dejar al sistema sin Administradores: degradar al último a Vendedor
+        // cierra la puerta por fuera, sin forma de recuperarla desde la interfaz.
+        // ROL_ADMINISTRADOR = 1 (tabla roles).
+        if ($id_rol !== 1 && $model->contarAdministradoresActivos($id_usuario) === 0) {
+            echo json_encode(["success" => false, "mensaje" => "No puedes quitarle el rol de Administrador al único administrador activo: el sistema quedaría sin acceso de administración."]);
+            exit;
+        }
+
         $usuario = new Usuario($tipo_documento, $numero_documento, $nombres_razon_social, $apellidos, $direccion, $telefono, $id_rol, $username, '');
         $usuario->id_usuario = $id_usuario;
 
@@ -105,6 +113,19 @@ switch ($action) {
 
         if ($id_usuario <= 0) {
             echo json_encode(["success" => false, "mensaje" => "ID de usuario inválido."]);
+            exit;
+        }
+
+        // Autoeliminación: aunque queden otros administradores, borrarse a uno mismo
+        // cierra la sesión en curso de forma confusa. Que lo haga otro administrador.
+        if ((int) $id_usuario === (int) $_SESSION['id_usuario']) {
+            echo json_encode(["success" => false, "mensaje" => "No puedes eliminar tu propio usuario."]);
+            exit;
+        }
+
+        // Y nunca al último administrador activo (ver contarAdministradoresActivos()).
+        if ($model->contarAdministradoresActivos($id_usuario) === 0) {
+            echo json_encode(["success" => false, "mensaje" => "No puedes eliminar al único administrador activo: el sistema quedaría sin acceso de administración."]);
             exit;
         }
 

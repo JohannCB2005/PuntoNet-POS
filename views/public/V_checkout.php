@@ -1,15 +1,27 @@
 <?php
-require_once dirname(dirname(__DIR__)) . '/config/stripe.php';
-$stripePublicKey = STRIPE_PK;
+session_start();
+require_once dirname(dirname(__DIR__)) . '/models/M_Cliente.php';
+require_once dirname(dirname(__DIR__)) . '/models/M_Producto.php';
+
+// La compra requiere cuenta — ya no existe checkout como invitado.
+if (!isset($_SESSION['id_cliente'])) {
+    header('Location: V_cuenta.php?volver=checkout');
+    exit;
+}
+
+$clienteCuenta = M_Cliente::singleton()->obtenerClientePorId((int) $_SESSION['id_cliente']);
+$niveles = M_Producto::singleton()->obtenerNiveles();
+$grados = M_Producto::singleton()->obtenerGrados();
 ?>
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Krypton exige este viewport exacto; sin maximum-scale/user-scalable avisa CLIENT_705. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Checkout Seguro — NISSI STORE</title>
     <!-- Favicon -->
-    <link rel="icon" type="image/png" href="../../assets/Logo navegador PuntoNet.png">
+    <link rel="icon" type="image/svg+xml" href="../../assets/logo.svg">
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -17,8 +29,10 @@ $stripePublicKey = STRIPE_PK;
     <!-- Bootstrap + Icons -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
-    <!-- Stripe.js -->
-    <script src="https://js.stripe.com/v3/"></script>
+    <!-- Izipay / Krypton: estilos del formulario embebido. El script se carga
+         dinámicamente al generar el FormToken (ver initIzipay más abajo), porque
+         kr-public-key debe ir en la etiqueta y el token no existe hasta entonces. -->
+    <link rel="stylesheet" href="https://static.micuentaweb.pe/static/js/krypton-client/V4.0/ext/classic.css">
 
     <style>
         :root {
@@ -166,33 +180,24 @@ $stripePublicKey = STRIPE_PK;
             margin: 24px 0;
         }
 
-        /* ─── Stripe Container ───────────────────────── */
-        #stripe-element-container {
+        /* ─── Contenedor del formulario de Izipay ─────── */
+        #izipay-form-container {
             background: #f8fafc;
             border: 1.5px solid var(--border);
             border-radius: 12px;
             padding: 16px;
             min-height: 52px;
-            transition: border-color .2s;
         }
-        #stripe-element-container.StripeElement--focus {
-            border-color: var(--primary);
-            box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.12);
-        }
-        .stripe-logo-row {
+        .pasarela-nota {
             display: flex;
             align-items: center;
             gap: 8px;
             margin-bottom: 14px;
-        }
-        .stripe-logo-row img {
-            height: 22px;
-            opacity: .55;
-        }
-        .stripe-logo-row span {
             font-size: 0.78rem;
             color: var(--muted);
         }
+        /* El botón de pago lo pinta Krypton dentro de su propio formulario. */
+        .kr-embedded { width: 100%; }
 
         /* ─── Pay Button ──────────────────────────────── */
         .btn-pay {
@@ -355,8 +360,8 @@ $stripePublicKey = STRIPE_PK;
 
     <!-- Navbar -->
     <nav class="co-nav">
-        <a href="../../tienda.php" class="co-nav-brand">
-            <img src="../../assets/Logo navegador PuntoNet.png" alt="Logo" height="28"
+        <a href="../../store.php" class="co-nav-brand">
+            <img src="../../assets/logo.svg" alt="Logo" height="28"
                  onerror="this.onerror=null; this.style.display='none'; this.nextElementSibling.insertAdjacentHTML('beforebegin','<span style=\'font-size:1.4rem;\'>🌿</span> ');">
             <span><span class="brand-accent">NISSI STORE</span> Checkout</span>
         </a>
@@ -376,10 +381,10 @@ $stripePublicKey = STRIPE_PK;
             <div id="empty-cart-msg" class="co-card" style="display:none;">
                 <i class="bi bi-basket2"></i>
                 <p class="fw-semibold mb-3">Tu cesta está vacía.</p>
-                <a href="../../tienda.php" class="btn btn-primary rounded-pill px-4">Volver a la tienda</a>
+                <a href="../../store.php" class="btn btn-primary rounded-pill px-4">Volver a la tienda</a>
             </div>
 
-            <!-- ══ SECCIÓN 1: Datos del Cliente ══ -->
+            <!-- ══ SECCIÓN 1: Datos del Cliente (de la cuenta) ══ -->
             <div class="co-card" id="cardDatos">
                 <h2 class="co-card-title">
                     <span class="step-badge">1</span>
@@ -389,40 +394,130 @@ $stripePublicKey = STRIPE_PK;
                 <div class="row g-3">
                     <div class="col-6">
                         <label class="co-label">DNI</label>
-                        <input type="text" id="coDni" class="co-input" maxlength="8" placeholder="12345678">
+                        <input type="text" class="co-input" value="<?php echo htmlspecialchars($clienteCuenta['numero_documento'] ?? ''); ?>" disabled>
                     </div>
                     <div class="col-6">
                         <label class="co-label">Teléfono / Celular</label>
-                        <input type="tel" id="coTelefono" class="co-input" maxlength="15" placeholder="987654321">
+                        <input type="tel" class="co-input" value="<?php echo htmlspecialchars($clienteCuenta['telefono'] ?? 'No registrado'); ?>" disabled>
                     </div>
                     <div class="col-6">
                         <label class="co-label">Nombres</label>
-                        <input type="text" id="coNombres" class="co-input" placeholder="Juan Carlos">
+                        <input type="text" class="co-input" value="<?php echo htmlspecialchars($clienteCuenta['nombres_razon_social'] ?? ''); ?>" disabled>
                     </div>
                     <div class="col-6">
                         <label class="co-label">Apellidos</label>
-                        <input type="text" id="coApellidos" class="co-input" placeholder="Pérez García">
+                        <input type="text" class="co-input" value="<?php echo htmlspecialchars($clienteCuenta['apellidos'] ?? ''); ?>" disabled>
                     </div>
                 </div>
             </div>
 
-            <!-- ══ SECCIÓN 2: Pasarela de Pago Stripe ══ -->
-            <div class="co-card" id="cardPago">
+            <!-- ══ SECCIÓN 1.5: Tipo de comprobante ══ -->
+            <div class="co-card" id="cardComprobante">
                 <h2 class="co-card-title">
                     <span class="step-badge">2</span>
+                    ¿Boleta o Factura?
+                </h2>
+
+                <div class="row g-2 mb-3">
+                    <div class="col-6">
+                        <input type="radio" class="btn-check" name="tipoComprobante" id="comprobanteBoleta" value="1" checked>
+                        <label class="btn btn-outline-primary w-100 py-2" for="comprobanteBoleta">
+                            <i class="bi bi-receipt me-1"></i> Boleta
+                        </label>
+                    </div>
+                    <div class="col-6">
+                        <input type="radio" class="btn-check" name="tipoComprobante" id="comprobanteFactura" value="2">
+                        <label class="btn btn-outline-primary w-100 py-2" for="comprobanteFactura">
+                            <i class="bi bi-building me-1"></i> Factura
+                        </label>
+                    </div>
+                </div>
+
+                <div id="camposFactura" style="display:none;">
+                    <div class="row g-3 align-items-end">
+                        <div class="col-8">
+                            <label class="co-label">RUC</label>
+                            <input type="text" id="coRuc" class="co-input" maxlength="11" inputmode="numeric" placeholder="11 dígitos">
+                        </div>
+                        <div class="col-4">
+                            <button type="button" id="btnBuscarRuc" class="btn btn-outline-primary w-100">
+                                <span id="rucSpinner" class="spinner-border spinner-border-sm" style="display:none;"></span>
+                                <span id="rucBtnLabel">Buscar</span>
+                            </button>
+                        </div>
+                        <div class="col-12">
+                            <label class="co-label">Razón social</label>
+                            <input type="text" id="coRazonSocial" class="co-input" disabled placeholder="Se completa al buscar el RUC">
+                        </div>
+                    </div>
+                    <p id="rucError" class="text-danger mb-0 mt-2" style="display:none; font-size:0.85rem;"></p>
+                </div>
+            </div>
+
+            <!-- ══ SECCIÓN 3: Entrega ══ -->
+            <div class="co-card" id="cardEntrega">
+                <h2 class="co-card-title">
+                    <span class="step-badge">3</span>
+                    ¿Cómo quieres recibir tu pedido?
+                </h2>
+
+                <div class="row g-2 mb-3">
+                    <div class="col-6">
+                        <input type="radio" class="btn-check" name="tipoEntrega" id="entregaTienda" value="1" checked>
+                        <label class="btn btn-outline-primary w-100 py-2" for="entregaTienda">
+                            <i class="bi bi-shop me-1"></i> Recoger en tienda
+                        </label>
+                    </div>
+                    <div class="col-6">
+                        <input type="radio" class="btn-check" name="tipoEntrega" id="entregaColegio" value="2">
+                        <label class="btn btn-outline-primary w-100 py-2" for="entregaColegio">
+                            <i class="bi bi-mortarboard me-1"></i> Entregar en el colegio
+                        </label>
+                    </div>
+                </div>
+
+                <div id="camposEntregaColegio" style="display:none;">
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label class="co-label">Nombre del estudiante</label>
+                            <input type="text" id="coEstudiante" class="co-input" placeholder="Nombre y apellidos del estudiante">
+                        </div>
+                        <div class="col-6">
+                            <label class="co-label">Nivel</label>
+                            <select id="coNivel" class="co-input">
+                                <option value="">Seleccionar</option>
+                                <?php foreach ($niveles as $n): ?>
+                                    <option value="<?php echo $n['id_nivel']; ?>"><?php echo htmlspecialchars($n['nombre']); ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                        <div class="col-6">
+                            <label class="co-label">Grado</label>
+                            <select id="coGrado" class="co-input" disabled>
+                                <option value="">Elige primero el nivel</option>
+                            </select>
+                        </div>
+                        <div class="col-12">
+                            <label class="co-label">Observaciones (opcional)</label>
+                            <textarea id="coObservaciones" class="co-input" rows="2" placeholder="Ej: entregar en dirección, horario de recreo, etc."></textarea>
+                        </div>
+                    </div>
+                </div>
+                <p id="entregaTiendaMsg" class="text-muted mb-0" style="font-size:0.85rem;">
+                    <i class="bi bi-info-circle"></i> Podrás recogerlo en nuestra tienda una vez confirmado el pago.
+                </p>
+            </div>
+
+            <!-- ══ SECCIÓN 4: Pago con Izipay ══ -->
+            <div class="co-card" id="cardPago">
+                <h2 class="co-card-title">
+                    <span class="step-badge">4</span>
                     Método de Pago
                 </h2>
 
-                <div class="stripe-logo-row">
-                    <img src="https://upload.wikimedia.org/wikipedia/commons/b/ba/Stripe_Logo%2C_revised_2016.svg" alt="Stripe">
-                    <span>Encriptación SSL · Datos protegidos</span>
-                </div>
-
-                <!-- Stripe Payment Element se montará aquí -->
-                <div id="stripe-element-container">
-                    <div id="payment-element">
-                        <!-- Stripe inserts UI here -->
-                    </div>
+                <div class="pasarela-nota">
+                    <i class="bi bi-shield-lock-fill"></i>
+                    <span>Pago procesado por Izipay · Encriptación SSL · No almacenamos datos de tu tarjeta</span>
                 </div>
 
                 <!-- Error de pago -->
@@ -431,20 +526,29 @@ $stripePublicKey = STRIPE_PK;
                     <span id="payment-error-msg"></span>
                 </div>
 
-                <!-- Botón principal -->
-                <button id="btn-pay" class="btn-pay" disabled>
+                <!-- Paso A: botón que reserva el pedido y pide el formulario de pago.
+                     Krypton necesita el FormToken (y por tanto el pedido ya creado)
+                     antes de poder renderizar el formulario de tarjeta. -->
+                <button id="btn-pay" class="btn-pay">
                     <span class="spinner-sm" id="pay-spinner"></span>
-                    <i class="bi bi-shield-lock-fill" id="pay-icon"></i>
-                    <span id="pay-label">Confirmar y Pagar</span>
+                    <i class="bi bi-lock-fill" id="pay-icon"></i>
+                    <span id="pay-label">Continuar al pago</span>
                 </button>
 
-                <p class="security-note">
-                    <i class="bi bi-lock-fill"></i>
-                    Transacción segura con Stripe. No almacenamos datos de tu tarjeta.
+                <!-- Paso B: aquí Krypton monta el formulario de tarjeta -->
+                <div id="izipay-form-container" class="d-none">
+                    <!-- El div .kr-embedded se inserta por JS justo antes de renderizar.
+                         Si estuviera aquí desde el inicio, Krypton lo auto-renderizaría
+                         (sin token) al cargarse y chocaría con nuestro render real. -->
+                </div>
+
+                <p class="security-note" id="reservaNota" style="display:none;">
+                    <i class="bi bi-clock-history"></i>
+                    Tu pedido queda reservado 10 minutos mientras completas el pago.
                 </p>
 
                 <div class="text-center mt-3">
-                    <a href="../../tienda.php" class="btn-back">
+                    <a href="../../store.php" class="btn-back">
                         <i class="bi bi-arrow-left"></i> Volver a la tienda
                     </a>
                 </div>
@@ -490,7 +594,6 @@ $stripePublicKey = STRIPE_PK;
     // ─────────────────────────────────────────────────────────────
     const cart = JSON.parse(sessionStorage.getItem('puntonet_cart') || '[]');
     let totalAmount = cart.reduce((s, i) => s + i.subtotal, 0);
-    let paymentIntentId = null;
 
     if (cart.length === 0) {
         document.getElementById('empty-cart-msg').style.display = 'block';
@@ -522,235 +625,298 @@ $stripePublicKey = STRIPE_PK;
         const fmt = n => `S/ ${n.toFixed(2)}`;
         document.getElementById('summarySubtotal').textContent = fmt(total);
         document.getElementById('summaryTotal').textContent    = fmt(total);
-        document.getElementById('pay-label').textContent       = `Confirmar y Pagar — S/ ${total.toFixed(2)}`;
+        document.getElementById('pay-label').textContent       = `Continuar al pago — S/ ${total.toFixed(2)}`;
     }
 
     // ─────────────────────────────────────────────────────────────
-    // 2. Stripe initialization — el monto SIEMPRE lo calcula el servidor
-    //    a partir de {id_producto, cantidad}; nunca enviamos precios.
+    // 2. Pago con Izipay (formulario embebido Krypton).
+    //
+    //    Krypton exige el FormToken ANTES de poder pintar el formulario, y el
+    //    orderId va dentro de ese token. Por eso el pedido se crea primero
+    //    (reservando stock) y solo después aparece el formulario de tarjeta.
+    //    El monto SIEMPRE lo calcula el servidor a partir de {id_producto, cantidad}.
     // ─────────────────────────────────────────────────────────────
-    const stripe   = Stripe('<?php echo htmlspecialchars($stripePublicKey); ?>');
-    let elements   = null;
-    let clientSecret = null;
+    let pedidoCreado = null;   // { id_pedido, token } una vez reservado
+    let kryptonCargado = false;
 
-    async function initStripe() {
-        if (cart.length === 0) return;
+    // Carga kr-payment-form.min.js una sola vez, con la clave pública que
+    // devuelve el servidor (es la única credencial que puede ver el navegador).
+    function cargarKrypton(publicKey) {
+        if (kryptonCargado) return Promise.resolve();
+        return new Promise((resolve, reject) => {
+            const s = document.createElement('script');
+            s.src = 'https://static.micuentaweb.pe/static/js/krypton-client/V4.0/stable/kr-payment-form.min.js';
+            s.setAttribute('kr-public-key', publicKey);
+            s.setAttribute('kr-post-url-success', 'V_checkout_success.php');
+            s.setAttribute('kr-language', 'es-ES');
+            s.onload = () => {
+                const ext = document.createElement('script');
+                ext.src = 'https://static.micuentaweb.pe/static/js/krypton-client/V4.0/ext/classic.js';
+                ext.onload = () => { kryptonCargado = true; resolve(); };
+                ext.onerror = () => reject(new Error('No se pudo cargar el tema del formulario.'));
+                document.head.appendChild(ext);
+            };
+            s.onerror = () => reject(new Error('No se pudo cargar la pasarela de pago.'));
+            document.head.appendChild(s);
+        });
+    }
+
+    // Paso A: reservar el pedido. Devuelve false si algo impide continuar.
+    async function reservarPedido() {
+        const payload = {
+            carrito: cart.map(i => ({ id_producto: i.id_producto, cantidad: i.cantidad })),
+            tipo_entrega: parseInt(document.querySelector('input[name="tipoEntrega"]:checked').value),
+            observaciones: document.getElementById('coObservaciones').value.trim(),
+            tipo_comprobante: parseInt(document.querySelector('input[name="tipoComprobante"]:checked').value),
+        };
+        if (payload.tipo_entrega === 2) {
+            payload.estudiante_nombre = document.getElementById('coEstudiante').value.trim();
+            payload.id_nivel = parseInt(document.getElementById('coNivel').value);
+            payload.id_grado = parseInt(document.getElementById('coGrado').value);
+        }
+        if (payload.tipo_comprobante === 2) {
+            payload.ruc_facturacion = document.getElementById('coRuc').value.trim();
+        }
+
+        const res  = await fetch('../../controllers/C_Ecommerce.php?action=crear_pedido', {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify(payload),
+        });
+        const json = await res.json();
+
+        if (!json.success) {
+            if (json.requiere_login) {
+                window.location.href = 'V_cuenta.php?volver=checkout';
+                return false;
+            }
+            showError(json.mensaje || 'No pudimos reservar tu pedido.');
+            return false;
+        }
+
+        pedidoCreado = { id_pedido: json.id_pedido, token: json.token };
+        return true;
+    }
+
+    // Paso B: pedir el FormToken de ese pedido y montar el formulario de tarjeta.
+    async function montarFormularioPago() {
+        const res = await fetch('../../controllers/C_Izipay.php?action=form_token', {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify(pedidoCreado),
+        });
+        const json = await res.json();
+
+        if (!json.success || !json.formToken) {
+            showError(json.mensaje || 'No pudimos iniciar el pago.');
+            return false;
+        }
+
+        const contenedor = document.getElementById('izipay-form-container');
+        const yaEstabaCargado = kryptonCargado;
+
+        // El div debe existir ANTES de que Krypton se inicialice: si se añade durante
+        // la inicialización, la propia librería avisa de parpadeo en la interfaz.
+        contenedor.innerHTML = '<div class="kr-embedded"></div>';
+        contenedor.classList.remove('d-none');
+        document.getElementById('reservaNota').style.display = '';
+        document.getElementById('btn-pay').style.display = 'none';
+
+        // Los datos de entrega ya están comprometidos en el pedido: permitir
+        // cambiarlos ahora daría un pedido distinto al que se está cobrando.
+        bloquearDatosEntrega();
+
+        await cargarKrypton(json.public_key);
+
+        if (!window.KR) {
+            showError('No se pudo cargar la pasarela de pago.');
+            return false;
+        }
+
+        KR.onError(err => showError(err.errorMessage || 'No se pudo procesar el pago.'));
+
+        // En un reintento Krypton ya está inicializado y con un formulario montado
+        // sobre el token anterior: hay que retirarlo o el render nuevo falla.
+        if (yaEstabaCargado) {
+            await KR.removeForms();
+        }
+
+        // El token se entrega por setFormConfig, que además dispara el render. NO se
+        // llama a renderElements() después: sería un segundo render y Krypton avisaría
+        // de "un formulario ya está renderizado".
+        await KR.setFormConfig({ formToken: json.formToken, 'kr-language': 'es-ES' });
+
+        return true;
+    }
+
+    function bloquearDatosEntrega() {
+        document.querySelectorAll('#cardDatos input, #cardDatos select, #cardDatos textarea')
+            .forEach(el => { el.disabled = true; });
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // 2.5 Comprobante: Boleta vs Factura (RUC validado contra SUNAT antes de pagar)
+    // ─────────────────────────────────────────────────────────────
+    // Solo se puede continuar con Factura si el RUC actual ya fue confirmado por
+    // consultar_ruc. Se resetea cada vez que el campo cambia: no basta con haber
+    // buscado un RUC antes si el cliente lo edita después sin volver a buscar.
+    let rucValidado = false;
+
+    document.querySelectorAll('input[name="tipoComprobante"]').forEach(radio => {
+        radio.addEventListener('change', () => {
+            const esFactura = document.getElementById('comprobanteFactura').checked;
+            document.getElementById('camposFactura').style.display = esFactura ? 'block' : 'none';
+        });
+    });
+
+    document.getElementById('coRuc').addEventListener('input', function() {
+        this.value = this.value.replace(/\D/g, '').slice(0, 11);
+        rucValidado = false;
+        document.getElementById('coRazonSocial').value = '';
+        document.getElementById('rucError').style.display = 'none';
+    });
+
+    document.getElementById('btnBuscarRuc').addEventListener('click', async () => {
+        const ruc = document.getElementById('coRuc').value.trim();
+        const errorEl = document.getElementById('rucError');
+        errorEl.style.display = 'none';
+
+        if (ruc.length !== 11) {
+            errorEl.textContent = 'El RUC debe tener 11 dígitos.';
+            errorEl.style.display = 'block';
+            return;
+        }
+
+        const btn = document.getElementById('btnBuscarRuc');
+        document.getElementById('rucSpinner').style.display = 'inline-block';
+        document.getElementById('rucBtnLabel').textContent = 'Buscando...';
+        btn.disabled = true;
 
         try {
-            const res = await fetch('../../controllers/C_PaymentIntent.php?action=crear', {
-                method: 'POST',
+            const res  = await fetch('../../controllers/C_ClienteAuth.php?action=consultar_ruc', {
+                method:  'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    carrito: cart.map(i => ({ id_producto: i.id_producto, cantidad: i.cantidad })),
-                }),
+                body:    JSON.stringify({ ruc }),
             });
+            const json = await res.json();
 
-            // Guard: check the response is actually JSON before parsing
-            const contentType = res.headers.get('content-type') || '';
-            if (!contentType.includes('application/json')) {
-                const raw = await res.text();
-                console.error('Respuesta no-JSON de C_PaymentIntent.php:', raw);
-                showError('Error del servidor de pagos (respuesta inesperada). Revisa la consola para más detalles.');
+            if (!json.success) {
+                errorEl.textContent = json.mensaje || 'No se pudo validar el RUC.';
+                errorEl.style.display = 'block';
+                rucValidado = false;
                 return;
             }
 
-            const data = await res.json();
-
-            if (data.error) {
-                showError('Error: ' + data.error);
-                return;
-            }
-            if (!data.client_secret) {
-                showError('No se recibió client_secret de Stripe. Verifica la configuración del servidor.');
-                return;
-            }
-            clientSecret = data.client_secret;
-            paymentIntentId = data.payment_intent_id;
-            totalAmount = parseFloat(data.total);
-            renderSummary(data.items, totalAmount);
-
-            const appearance = {
-                theme: 'stripe',
-                variables: {
-                    colorPrimary:      '#15803d',
-                    colorBackground:   '#f8fafc',
-                    colorText:         '#0f172a',
-                    colorDanger:       '#dc2626',
-                    fontFamily:        'Inter, system-ui, sans-serif',
-                    spacingUnit:       '4px',
-                    borderRadius:      '8px',
-                    fontSizeBase:      '15px',
-                },
-                rules: {
-                    '.Input': {
-                        border:          '1.5px solid #e2e8f0',
-                        boxShadow:       'none',
-                        padding:         '11px 14px',
-                    },
-                    '.Input:focus': {
-                        border:          '1.5px solid #15803d',
-                        boxShadow:       '0 0 0 3px rgba(21,128,61,.12)',
-                    },
-                    '.Label': {
-                        fontSize:        '0.78rem',
-                        fontWeight:      '600',
-                        textTransform:   'uppercase',
-                        letterSpacing:   '0.4px',
-                        color:           '#64748b',
-                    },
-                }
-            };
-
-            elements = stripe.elements({ appearance, clientSecret });
-
-            const paymentElement = elements.create('payment', {
-                layout: { type: 'tabs', defaultCollapsed: false },
-                // Nunca guardar la tarjeta ni mostrar opción de guardarla
-                terms: {
-                    card:       'never',
-                    applePay:   'never',
-                    googlePay:  'never',
-                    paypal:     'never',
-                    auBecsDebit:'never',
-                    bancontact: 'never',
-                    ideal:      'never',
-                    sepaDebit:  'never',
-                    sofort:     'never',
-                    usBankAccount: 'never',
-                },
-                // Desactivar wallets (Apple Pay / Google Pay) — requieren HTTPS y dominio verificado
-                wallets: {
-                    applePay:  'never',
-                    googlePay: 'never',
-                },
-                // Ocultar campo de guardar para uso futuro
-                savePaymentMethod: { payment_method_save: 'hidden' },
-            });
-            paymentElement.mount('#payment-element');
-
-            paymentElement.on('ready', () => {
-                document.getElementById('btn-pay').disabled = false;
-            });
-
-        } catch (err) {
-            showError('Error al conectar con el servidor de pagos. Intenta de nuevo.');
-            console.error(err);
+            document.getElementById('coRazonSocial').value = json.data.razon_social;
+            rucValidado = true;
+        } catch (e) {
+            errorEl.textContent = 'Error de conexión al validar el RUC.';
+            errorEl.style.display = 'block';
+            rucValidado = false;
+        } finally {
+            document.getElementById('rucSpinner').style.display = 'none';
+            document.getElementById('rucBtnLabel').textContent = 'Buscar';
+            btn.disabled = false;
         }
+    });
+
+    function validateComprobante() {
+        if (!document.getElementById('comprobanteFactura').checked) return true;
+        return rucValidado && document.getElementById('coRuc').value.trim().length === 11;
     }
 
-    initStripe();
+    // ─────────────────────────────────────────────────────────────
+    // 3. Entrega: recojo en tienda vs. entrega en colegio (cascada nivel → grado)
+    // ─────────────────────────────────────────────────────────────
+    const gradosPorNivel = <?php echo json_encode(array_map(fn($g) => ['id_grado' => (int) $g['id_grado'], 'id_nivel' => (int) $g['id_nivel'], 'nombre' => $g['nombre']], $grados)); ?>;
 
-    // ─────────────────────────────────────────────────────────────
-    // 3. Form validation helpers
-    // ─────────────────────────────────────────────────────────────
-    function validateDatos() {
-        const fields = [
-            { id: 'coDni',      label: 'DNI' },
-            { id: 'coNombres',  label: 'Nombres' },
-            { id: 'coApellidos',label: 'Apellidos' },
-            { id: 'coTelefono', label: 'Teléfono' },
-        ];
+    document.querySelectorAll('input[name="tipoEntrega"]').forEach(radio => {
+        radio.addEventListener('change', () => {
+            const esColegio = document.getElementById('entregaColegio').checked;
+            document.getElementById('camposEntregaColegio').style.display = esColegio ? 'block' : 'none';
+            document.getElementById('entregaTiendaMsg').style.display = esColegio ? 'none' : 'block';
+        });
+    });
+
+    document.getElementById('coNivel').addEventListener('change', function() {
+        const idNivel = parseInt(this.value);
+        const selectGrado = document.getElementById('coGrado');
+        if (!idNivel) {
+            selectGrado.innerHTML = '<option value="">Elige primero el nivel</option>';
+            selectGrado.disabled = true;
+            return;
+        }
+        const opciones = gradosPorNivel.filter(g => g.id_nivel === idNivel);
+        selectGrado.innerHTML = '<option value="">Seleccionar</option>' +
+            opciones.map(g => `<option value="${g.id_grado}">${g.nombre}</option>`).join('');
+        selectGrado.disabled = false;
+    });
+
+    function validateEntrega() {
+        if (!document.getElementById('entregaColegio').checked) return true;
+
+        const campos = ['coEstudiante', 'coNivel', 'coGrado'];
         let valid = true;
-        fields.forEach(f => {
-            const el = document.getElementById(f.id);
-            const val = el.value.trim();
-            if (!val) {
+        campos.forEach(id => {
+            const el = document.getElementById(id);
+            if (!el.value.trim()) {
                 el.classList.add('is-invalid');
                 valid = false;
             } else {
                 el.classList.remove('is-invalid');
             }
         });
-
-        const dniEl = document.getElementById('coDni');
-        if (dniEl.value.trim().length !== 8) {
-            dniEl.classList.add('is-invalid');
-            valid = false;
-        }
         return valid;
     }
 
-    // Remove invalid class on input
-    ['coDni','coNombres','coApellidos','coTelefono'].forEach(id => {
+    ['coEstudiante', 'coNivel', 'coGrado'].forEach(id => {
         document.getElementById(id).addEventListener('input', () => {
+            document.getElementById(id).classList.remove('is-invalid');
+        });
+        document.getElementById(id).addEventListener('change', () => {
             document.getElementById(id).classList.remove('is-invalid');
         });
     });
 
     // ─────────────────────────────────────────────────────────────
-    // 4. Pay button — submit flow
+    // 4. "Continuar al pago": reserva el pedido y muestra el formulario.
+    //    A partir de ahí el cobro lo gestiona el formulario de Krypton, que al
+    //    completarse hace POST a V_checkout_success.php con kr-answer + kr-hash.
     // ─────────────────────────────────────────────────────────────
     document.getElementById('btn-pay').addEventListener('click', async () => {
         hideError();
 
-        // Validate customer data first
-        if (!validateDatos()) {
-            document.getElementById('cardDatos').scrollIntoView({ behavior: 'smooth', block: 'center' });
-            showError('Por favor completa correctamente tus datos personales antes de pagar.');
+        if (!validateComprobante()) {
+            document.getElementById('cardComprobante').scrollIntoView({ behavior: 'smooth', block: 'center' });
+            showError('Busca y confirma el RUC para emitir Factura, o cambia a Boleta.');
             return;
         }
-
-        if (!elements || !clientSecret || !paymentIntentId) {
-            showError('El sistema de pago aún no está listo. Espera un momento.');
+        if (!validateEntrega()) {
+            document.getElementById('cardEntrega').scrollIntoView({ behavior: 'smooth', block: 'center' });
+            showError('Completa el nombre del estudiante, nivel y grado para la entrega en el colegio.');
+            return;
+        }
+        if (cart.length === 0) {
+            showError('Tu carrito está vacío.');
             return;
         }
 
         setLoading(true);
-
-        // First: register the order (estado "pendiente de pago") and reserve stock.
-        // Nunca enviamos precios ni el total: el servidor los recalcula desde el carrito.
-        const clientePayload = {
-            cliente: {
-                dni:       document.getElementById('coDni').value.trim(),
-                nombres:   document.getElementById('coNombres').value.trim(),
-                apellidos: document.getElementById('coApellidos').value.trim(),
-                telefono:  document.getElementById('coTelefono').value.trim(),
-                direccion: '',
-            },
-            carrito: cart.map(i => ({ id_producto: i.id_producto, cantidad: i.cantidad })),
-            payment_intent_id: paymentIntentId,
-        };
-
-        let id_pedido = null;
-        let token = null;
         try {
-            const pedidoRes = await fetch('../../controllers/C_Ecommerce.php?action=crear_pedido', {
-                method:  'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body:    JSON.stringify(clientePayload),
-            });
-            const pedidoData = await pedidoRes.json();
-
-            if (!pedidoData.success) {
-                showError(pedidoData.mensaje || 'Error al registrar el pedido.');
+            // Si el cliente ya reservó antes y falló al montar el formulario, no se
+            // vuelve a crear el pedido: se reutiliza el mismo y se pide otro token.
+            if (!pedidoCreado && !(await reservarPedido())) {
                 setLoading(false);
                 return;
             }
-            id_pedido = pedidoData.id_pedido;
-            token = pedidoData.token;
+            if (!(await montarFormularioPago())) {
+                setLoading(false);
+                return;
+            }
         } catch (e) {
-            showError('Error de conexión al registrar el pedido.');
+            showError('Error de conexión con la pasarela de pago. Intenta de nuevo.');
             setLoading(false);
             return;
-        }
-
-        // Second: confirm payment with Stripe
-        const { error } = await stripe.confirmPayment({
-            elements,
-            confirmParams: {
-                return_url: window.location.origin
-                    + window.location.pathname.replace('V_checkout.php', 'V_checkout_success.php')
-                    + '?id=' + id_pedido + '&t=' + encodeURIComponent(token),
-            },
-        });
-
-        // If we reach here, there was an error (redirect on success)
-        if (error) {
-            if (error.type === 'card_error' || error.type === 'validation_error') {
-                showError(error.message);
-            } else {
-                showError('Ocurrió un error inesperado. Por favor intenta de nuevo.');
-            }
         }
         setLoading(false);
     });
@@ -769,7 +935,7 @@ $stripePublicKey = STRIPE_PK;
         icon.style.display    = loading ? 'none'  : 'inline';
         label.textContent     = loading
             ? 'Procesando pago...'
-            : `Confirmar y Pagar — S/ ${totalAmount.toFixed(2)}`;
+            : `Continuar al pago — S/ ${totalAmount.toFixed(2)}`;
     }
 
     function showError(msg) {

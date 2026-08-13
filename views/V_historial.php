@@ -12,6 +12,12 @@ $modelVenta = M_Venta::singleton();
 // Restricción por rol: Si es vendedor, solo puede ver su propio historial, de lo contrario (admin) carga todo
 $id_vendedor = ($_SESSION['rol'] !== 'Administrador') ? $_SESSION['id_usuario'] : null;
 $ventas = $modelVenta->listar($id_vendedor);
+
+// Ventana de cambio de talla por rol: Vendedor 1 día, Administrador 7 (seguro para feriados).
+// Se resuelve aquí con dias_transcurridos, que ya viene calculado en SQL (DATEDIFF contra NOW()
+// de MySQL) — nunca se compara una fecha de BD contra el reloj de PHP, que en este entorno
+// corre en una zona horaria distinta y ya rompió el checkout una vez por esa mezcla.
+$diasMaxCambioTalla = ($_SESSION['rol'] === 'Administrador') ? 7 : 1;
 ?>
 
 <div class="container-fluid px-0">
@@ -75,13 +81,14 @@ $ventas = $modelVenta->listar($id_vendedor);
                         <th scope="col" class="pb-3 text-center">Tipo</th>
                         <th scope="col" class="pb-3 text-center">Total</th>
                         <th scope="col" class="pb-3 text-center">Estado</th>
+                        <th scope="col" class="pb-3 text-center">SUNAT</th>
                         <th scope="col" class="pb-3 text-center">Acciones</th>
                     </tr>
                 </thead>
                 <tbody>
                     <?php if (empty($ventas)): ?>
                         <tr>
-                            <td colspan="8" class="text-center py-5 text-muted">
+                            <td colspan="9" class="text-center py-5 text-muted">
                                 <i class="bi bi-receipt-cutoff fs-2 mb-2 d-block"></i>
                                 No se encontraron ventas registradas.
                             </td>
@@ -108,16 +115,25 @@ $ventas = $modelVenta->listar($id_vendedor);
                                     <?php echo htmlspecialchars($v['vendedor']); ?>
                                 </td>
                                 <td class="text-center">
-                                    <span class="badge bg-secondary bg-opacity-10 text-secondary px-2.5 py-1.5 fw-semibold" style="font-size: 11px;">
-                                        <?php 
-                                            if ($v['tipo_comprobante'] == 1) echo 'Boleta';
-                                            elseif ($v['tipo_comprobante'] == 2) echo 'Factura';
-                                            else echo 'Nota de Venta';
-                                         ?>
-                                    </span>
+                                    <?php if ((int) $v['origen'] === 3): ?>
+                                        <span class="badge bg-info bg-opacity-10 text-info px-2.5 py-1.5 fw-semibold" style="font-size: 11px;" title="Diferencia de precio por un cambio de talla, no es una venta nueva">
+                                            <i class="bi bi-arrow-left-right"></i> Cambio de talla
+                                        </span>
+                                    <?php else: ?>
+                                        <span class="badge bg-secondary bg-opacity-10 text-secondary px-2.5 py-1.5 fw-semibold" style="font-size: 11px;">
+                                            <?php
+                                                if ($v['tipo_comprobante'] == 1) echo 'Boleta';
+                                                elseif ($v['tipo_comprobante'] == 2) echo 'Factura';
+                                                else echo 'Nota de Venta';
+                                             ?>
+                                        </span>
+                                    <?php endif; ?>
                                 </td>
-                                <td class="text-center fw-bold text-dark">
+                                <td class="text-center fw-bold <?php echo $v['total'] < 0 ? 'text-danger' : 'text-dark'; ?>">
                                     S/ <?php echo number_format($v['total'], 2); ?>
+                                    <?php if ((int) $v['origen'] === 3 && $v['total'] < 0): ?>
+                                        <div class="text-muted fw-normal" style="font-size: 10.5px;">Devuelto al cliente</div>
+                                    <?php endif; ?>
                                 </td>
                                 <td class="text-center">
                                     <span class="status-badge <?php echo $v['estado'] == 1 ? 'gp-badge-success' : 'gp-badge-danger'; ?>">
@@ -125,9 +141,27 @@ $ventas = $modelVenta->listar($id_vendedor);
                                     </span>
                                 </td>
                                 <td class="text-center">
+                                    <?php
+                                        $estadoSunat = (int) $v['estado_sunat'];
+                                        $sunatBadges = [
+                                            0 => ['—', 'bg-light text-muted'],
+                                            1 => ['Pendiente', 'bg-warning bg-opacity-10 text-warning'],
+                                            2 => ['Aceptado', 'bg-success bg-opacity-10 text-success'],
+                                            3 => ['Rechazado', 'bg-danger bg-opacity-10 text-danger'],
+                                            4 => ['Baja en trámite', 'bg-info bg-opacity-10 text-info'],
+                                            5 => ['Dado de baja', 'bg-secondary bg-opacity-10 text-secondary'],
+                                        ];
+                                        [$sunatTexto, $sunatClase] = $sunatBadges[$estadoSunat] ?? $sunatBadges[0];
+                                        $sunatTitulo = trim(($v['serie'] ? $v['serie'] . '-' . str_pad($v['correlativo'], 8, '0', STR_PAD_LEFT) . ' — ' : '') . ($v['sunat_mensaje'] ?? ''));
+                                    ?>
+                                    <span class="badge <?php echo $sunatClase; ?> px-2 py-1.5 fw-semibold" style="font-size: 10.5px;" title="<?php echo htmlspecialchars($sunatTitulo); ?>">
+                                        <?php echo $sunatTexto; ?>
+                                    </span>
+                                </td>
+                                <td class="text-center">
                                     <div class="d-inline-flex gap-1 justify-content-center">
                                         <!-- Botón Ver Detalles (Modal con AJAX) -->
-                                        <button class="btn btn-link text-muted p-1 hover-text-primary view-details-btn" 
+                                        <button class="btn btn-link text-muted p-1 hover-text-primary view-details-btn"
                                                 data-id="<?php echo $v['id_venta']; ?>"
                                                 data-codigo="V-<?php echo str_pad($v['id_venta'], 6, '0', STR_PAD_LEFT); ?>"
                                                 data-cliente="<?php echo htmlspecialchars($v['cliente']); ?>"
@@ -135,6 +169,7 @@ $ventas = $modelVenta->listar($id_vendedor);
                                                 data-total="<?php echo number_format($v['total'], 2); ?>"
                                                 data-tipo="<?php echo $v['tipo_comprobante'] == 1 ? 'Boleta' : ($v['tipo_comprobante'] == 2 ? 'Factura' : 'Nota de Venta'); ?>"
                                                 data-estado="<?php echo $v['estado'] == 1 ? 'Completada' : 'Anulada'; ?>"
+                                                data-puede-cambiar="<?php echo ($v['estado'] == 1 && (int) $v['origen'] !== 3 && (int) $v['dias_transcurridos'] <= $diasMaxCambioTalla) ? '1' : '0'; ?>"
                                                 title="Ver Detalle">
                                             <i class="bi bi-eye-fill"></i>
                                         </button>
@@ -145,12 +180,56 @@ $ventas = $modelVenta->listar($id_vendedor);
                                                 style="color: #6b7280;">
                                             <i class="bi bi-printer-fill"></i>
                                         </button>
-                                        <!-- Botón Anular (Retorna productos al stock) -->
+                                        <!-- Botón Anular (Retorna productos al stock; si el comprobante ya fue
+                                             aceptado por SUNAT y está dentro de 7 días, además encola la baja) -->
                                         <?php if ($v['estado'] == 1): ?>
-                                            <button class="btn btn-link text-muted p-1 hover-text-danger cancel-sale-btn" 
+                                            <button class="btn btn-link text-muted p-1 hover-text-danger cancel-sale-btn"
                                                     data-id="<?php echo $v['id_venta']; ?>"
                                                     title="Anular Venta">
                                                 <i class="bi bi-x-circle-fill"></i>
+                                            </button>
+                                        <?php endif; ?>
+                                        <!-- Reenviar: el envío automático falló, reintentar a mano. Solo
+                                             Administrador, igual que el endpoint — emitir consume un
+                                             correlativo real y declara un monto ante SUNAT. -->
+                                        <?php if ($_SESSION['rol'] === 'Administrador' && in_array($estadoSunat, [1, 3], true)): ?>
+                                            <button class="btn btn-link text-muted p-1 hover-text-primary sunat-reenviar-btn"
+                                                    data-id="<?php echo $v['id_venta']; ?>"
+                                                    title="Reenviar a SUNAT">
+                                                <i class="bi bi-cloud-arrow-up-fill"></i>
+                                            </button>
+                                        <?php elseif ($estadoSunat === 4): ?>
+                                            <button class="btn btn-link text-muted p-1 hover-text-primary sunat-consultar-baja-btn"
+                                                    data-id="<?php echo $v['id_venta']; ?>"
+                                                    title="Consultar estado de la baja">
+                                                <i class="bi bi-arrow-repeat"></i>
+                                            </button>
+                                        <?php elseif ($_SESSION['rol'] === 'Administrador' && $v['estado'] == 0 && $estadoSunat === 2): ?>
+                                            <!-- La venta ya se anuló localmente pero el aviso automático a SUNAT
+                                                 (Comunicación de Baja / Resumen de baja) falló por red: sin este
+                                                 botón no había forma de reintentarlo desde la UI. -->
+                                            <button class="btn btn-link text-muted p-1 hover-text-danger sunat-dar-de-baja-btn"
+                                                    data-id="<?php echo $v['id_venta']; ?>"
+                                                    title="Reintentar aviso de baja a SUNAT">
+                                                <i class="bi bi-send-exclamation-fill"></i>
+                                            </button>
+                                        <?php endif; ?>
+                                        <!-- Ver XML/CDR guardado, para depurar un rechazo -->
+                                        <?php if ($estadoSunat !== 0): ?>
+                                            <button class="btn btn-link text-muted p-1 sunat-ver-cdr-btn"
+                                                    data-id="<?php echo $v['id_venta']; ?>"
+                                                    title="Ver estado SUNAT">
+                                                <i class="bi bi-file-earmark-text"></i>
+                                            </button>
+                                        <?php endif; ?>
+                                        <!-- Nota de Crédito: única salida legal cuando ya no se puede anular
+                                             directamente (comprobante aceptado hace más de 7 días). Solo Admin. -->
+                                        <?php if ($_SESSION['rol'] === 'Administrador' && $estadoSunat === 2 && $v['estado'] == 1): ?>
+                                            <button class="btn btn-link text-muted p-1 hover-text-danger sunat-nota-credito-btn"
+                                                    data-id="<?php echo $v['id_venta']; ?>"
+                                                    data-total="<?php echo number_format($v['total'], 2); ?>"
+                                                    title="Emitir Nota de Crédito">
+                                                <i class="bi bi-receipt-cutoff"></i>
                                             </button>
                                         <?php endif; ?>
                                     </div>
@@ -236,6 +315,54 @@ $ventas = $modelVenta->listar($id_vendedor);
             </div>
             <div class="modal-footer border-0 p-4 pt-0">
                 <button type="button" class="btn btn-light fw-semibold w-100" data-bs-dismiss="modal" style="border-radius: 8px;">Cerrar Comprobante</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Cambio de Talla -->
+<div class="modal fade" id="cambioTallaModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 15px;">
+            <div class="modal-header gp-bg-primary text-white border-0 py-3" style="border-radius: 15px 15px 0 0;">
+                <h6 class="modal-title fw-bold"><i class="bi bi-arrow-left-right me-2"></i>Cambiar talla</h6>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close" style="box-shadow: none;"></button>
+            </div>
+            <div class="modal-body p-4">
+                <div id="cambioTallaLoading" class="text-center py-4">
+                    <div class="spinner-border text-primary" role="status"></div>
+                </div>
+                <div id="cambioTallaError" class="alert alert-danger" style="display:none;"></div>
+                <div id="cambioTallaContent" style="display:none;">
+                    <p class="mb-2 text-muted" style="font-size: 13px;">
+                        Talla actual: <strong id="cambioTallaActual" class="text-dark"></strong>
+                    </p>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold" style="font-size: 13px;">Nueva talla</label>
+                        <select class="form-select" id="cambioTallaSelect"></select>
+                    </div>
+                    <div id="cambioTallaDiferenciaBox" class="p-3 rounded-3 mb-3" style="background:#f8fafc;">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span class="text-muted" style="font-size: 13px;">Diferencia</span>
+                            <strong id="cambioTallaDiferencia" style="font-size: 15px;">S/ 0.00</strong>
+                        </div>
+                        <p id="cambioTallaDiferenciaNota" class="text-muted mb-0 mt-1" style="font-size: 12px;"></p>
+                    </div>
+                    <div id="cambioTallaMetodoPagoBox" class="mb-3" style="display:none;">
+                        <label class="form-label fw-semibold" style="font-size: 13px;">Método de pago de la diferencia</label>
+                        <select class="form-select" id="cambioTallaMetodoPago">
+                            <option value="1">Efectivo</option>
+                            <option value="2">Yape/Plin</option>
+                            <option value="3">Tarjeta</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer border-0 p-4 pt-0">
+                <button type="button" class="btn btn-light fw-semibold" data-bs-dismiss="modal" style="border-radius: 8px;">Cancelar</button>
+                <button type="button" class="btn btn-primary fw-semibold" id="btnConfirmarCambioTalla" style="border-radius: 8px;" disabled>
+                    Confirmar cambio
+                </button>
             </div>
         </div>
     </div>
@@ -342,6 +469,7 @@ $ventas = $modelVenta->listar($id_vendedor);
         document.querySelectorAll('.view-details-btn').forEach(btn => {
             btn.addEventListener('click', async () => {
                 const id = btn.dataset.id;
+                const puedeCambiarTalla = btn.dataset.puedeCambiar === '1';
                 document.getElementById('ticketCodigo').innerText = btn.dataset.codigo;
                 document.getElementById('ticketCliente').innerText = btn.dataset.cliente;
                 document.getElementById('ticketFecha').innerText = btn.dataset.fecha;
@@ -375,9 +503,20 @@ $ventas = $modelVenta->listar($id_vendedor);
                             const cantDisplay = pesoNeto > 0
                                 ? `${piezas} pzs · ${pesoNeto.toFixed(2)} Kg`
                                 : `${piezas} ${item.abreviatura}`;
+                            // Solo tiene sentido cambiar la talla de productos con variantes
+                            // (id_producto_padre no nulo) y dentro de la ventana permitida.
+                            const puedeCambiarLinea = puedeCambiarTalla && item.id_producto_padre;
+                            const btnCambiar = puedeCambiarLinea
+                                ? `<button type="button" class="btn btn-link btn-sm p-0 ms-2 cambiar-talla-btn"
+                                        data-id-detalle="${item.id_detalle}"
+                                        data-producto-nombre="${escapeHtmlHist(item.producto_nombre)}"
+                                        title="Cambiar talla">
+                                        <i class="bi bi-arrow-left-right"></i>
+                                   </button>`
+                                : '';
                             rowsHtml += `
                                 <tr>
-                                    <td class="ps-0 text-dark fw-medium">${item.producto_nombre}</td>
+                                    <td class="ps-0 text-dark fw-medium">${item.producto_nombre}${btnCambiar}</td>
                                     <td class="text-center text-muted">${cantDisplay}</td>
                                     <td class="text-end text-muted">S/ ${prec.toFixed(2)}</td>
                                     <td class="text-end pe-0 fw-semibold text-dark">S/ ${subt.toFixed(2)}</td>
@@ -445,7 +584,310 @@ $ventas = $modelVenta->listar($id_vendedor);
             });
         });
 
-        // 4. Lógica para impresión de tickets con Iframe reactivo
+        // 3b. Acciones SUNAT: reenviar envío/baja fallidos, consultar una baja en
+        //     trámite, ver el CDR guardado y emitir Nota de Crédito (venta aceptada
+        //     hace más de 7 días, ya no se puede anular directamente).
+        document.querySelectorAll('.sunat-reenviar-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const id = btn.dataset.id;
+                Swal.fire({
+                    title: '¿Reenviar a SUNAT?',
+                    text: 'Se reintentará el envío de este comprobante.',
+                    icon: 'question',
+                    showCancelButton: true,
+                    confirmButtonColor: '#0284c7',
+                    confirmButtonText: 'Sí, reenviar',
+                    cancelButtonText: 'Cancelar'
+                }).then(async (result) => {
+                    if (!result.isConfirmed) return;
+                    try {
+                        const response = await fetch('./controllers/C_Sunat.php?action=reenviar', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ id_venta: id })
+                        });
+                        const data = await response.json();
+                        Swal.fire({
+                            icon: data.success ? 'success' : 'error',
+                            title: data.success ? 'Enviado' : 'No se pudo enviar',
+                            text: data.mensaje,
+                            confirmButtonColor: '#0284c7'
+                        }).then(() => { if (data.success) window.location.reload(); });
+                    } catch (err) {
+                        Swal.fire({ icon: 'error', title: 'Error de red', text: 'No se pudo contactar al servidor.' });
+                    }
+                });
+            });
+        });
+
+        document.querySelectorAll('.sunat-consultar-baja-btn').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const id = btn.dataset.id;
+                try {
+                    const response = await fetch(`./controllers/C_Sunat.php?action=consultar_baja&id_venta=${id}`);
+                    const data = await response.json();
+                    Swal.fire({
+                        icon: data.success ? 'success' : 'info',
+                        title: 'Estado de la baja',
+                        text: data.mensaje,
+                        confirmButtonColor: '#0284c7'
+                    }).then(() => window.location.reload());
+                } catch (err) {
+                    Swal.fire({ icon: 'error', title: 'Error de red', text: 'No se pudo contactar al servidor.' });
+                }
+            });
+        });
+
+        document.querySelectorAll('.sunat-dar-de-baja-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const id = btn.dataset.id;
+                Swal.fire({
+                    title: 'Reintentar aviso de baja a SUNAT',
+                    text: 'Esta venta ya está anulada localmente; el intento anterior de avisarle a SUNAT falló. ¿Reintentar?',
+                    icon: 'question',
+                    showCancelButton: true,
+                    confirmButtonColor: '#ef4444',
+                    confirmButtonText: 'Sí, reintentar',
+                    cancelButtonText: 'Cancelar'
+                }).then(async (result) => {
+                    if (!result.isConfirmed) return;
+                    try {
+                        const response = await fetch('./controllers/C_Sunat.php?action=dar_de_baja', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ id_venta: id, motivo: 'Anulación solicitada por el usuario' })
+                        });
+                        const data = await response.json();
+                        Swal.fire({
+                            icon: data.success ? 'success' : 'error',
+                            title: data.success ? 'Baja encolada' : 'No se pudo enviar',
+                            text: data.mensaje,
+                            confirmButtonColor: '#0284c7'
+                        }).then(() => { if (data.success) window.location.reload(); });
+                    } catch (err) {
+                        Swal.fire({ icon: 'error', title: 'Error de red', text: 'No se pudo contactar al servidor.' });
+                    }
+                });
+            });
+        });
+
+        document.querySelectorAll('.sunat-ver-cdr-btn').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const id = btn.dataset.id;
+                try {
+                    const response = await fetch(`./controllers/C_Sunat.php?action=ver_cdr&tipo_documento=venta&id_referencia=${id}`);
+                    const data = await response.json();
+                    if (!data.success) {
+                        Swal.fire({ icon: 'info', title: 'Sin información', text: data.mensaje, confirmButtonColor: '#0284c7' });
+                        return;
+                    }
+                    Swal.fire({
+                        icon: 'info',
+                        title: 'Estado SUNAT',
+                        html: `<p class="text-start mb-1"><b>Fecha:</b> ${escapeHtmlHist(data.data.fecha)}</p>
+                               <p class="text-start mb-1"><b>XML firmado:</b> ${data.data.xml_firmado ? 'guardado (' + data.data.xml_firmado.length + ' caracteres)' : '—'}</p>
+                               <p class="text-start mb-0"><b>CDR:</b> ${data.data.cdr_zip_base64 ? 'guardado' : 'aún no llega'}</p>`,
+                        confirmButtonColor: '#0284c7'
+                    });
+                } catch (err) {
+                    Swal.fire({ icon: 'error', title: 'Error de red', text: 'No se pudo contactar al servidor.' });
+                }
+            });
+        });
+
+        document.querySelectorAll('.sunat-nota-credito-btn').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const id = btn.dataset.id;
+                const total = btn.dataset.total;
+                const { value: form } = await Swal.fire({
+                    title: 'Emitir Nota de Crédito',
+                    html: `
+                        <p class="text-start text-muted mb-2" style="font-size: 13px;">
+                            Esta venta ya fue aceptada por SUNAT hace más de 7 días: ya no se puede anular
+                            directamente. La Nota de Crédito la anula ante SUNAT y devuelve el dinero desde
+                            la caja de hoy.
+                        </p>
+                        <input id="ncMotivo" class="swal2-input" placeholder="Motivo de la anulación">
+                        <select id="ncMetodo" class="swal2-select">
+                            <option value="1">Efectivo</option>
+                            <option value="2">Tarjeta</option>
+                            <option value="3">Yape/Plin</option>
+                        </select>
+                        <input id="ncMonto" type="number" step="0.01" class="swal2-input" value="${total}" placeholder="Monto a devolver">
+                    `,
+                    focusConfirm: false,
+                    showCancelButton: true,
+                    confirmButtonColor: '#ef4444',
+                    confirmButtonText: 'Emitir Nota de Crédito',
+                    cancelButtonText: 'Cancelar',
+                    preConfirm: () => {
+                        const motivo = document.getElementById('ncMotivo').value.trim();
+                        const metodo_pago = parseInt(document.getElementById('ncMetodo').value, 10);
+                        const monto = parseFloat(document.getElementById('ncMonto').value);
+                        if (!motivo) { Swal.showValidationMessage('Indica el motivo de la anulación.'); return false; }
+                        if (!monto || monto <= 0) { Swal.showValidationMessage('Indica un monto válido.'); return false; }
+                        return { motivo, pagos: [{ metodo_pago, monto }] };
+                    }
+                });
+                if (!form) return;
+
+                try {
+                    const response = await fetch('./controllers/C_Sunat.php?action=nota_credito', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ id_venta: id, motivo: form.motivo, pagos: form.pagos })
+                    });
+                    const data = await response.json();
+                    Swal.fire({
+                        icon: data.success ? 'success' : 'error',
+                        title: data.success ? 'Nota de Crédito emitida' : 'No se pudo emitir',
+                        text: data.mensaje,
+                        confirmButtonColor: '#0284c7'
+                    }).then(() => { if (data.success) window.location.reload(); });
+                } catch (err) {
+                    Swal.fire({ icon: 'error', title: 'Error de red', text: 'No se pudo contactar al servidor.' });
+                }
+            });
+        });
+
+        // 4. Cambio de talla: no edita la venta original (queda intacta), solo mueve
+        //    stock hoy y —si hay diferencia de precio— la cobra/devuelve como una venta
+        //    nueva (origen=3). El servidor vuelve a validar todo (ventana, hermandad,
+        //    stock); esto es solo la UX.
+        function escapeHtmlHist(str) {
+            return String(str ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+        }
+
+        const cambioTallaModalEl = document.getElementById('cambioTallaModal');
+        const cambioTallaModal   = new bootstrap.Modal(cambioTallaModalEl);
+        let cambioTallaIdDetalle = null;
+        let cambioTallaHermanas  = [];
+
+        document.getElementById('ticketItems').addEventListener('click', async (e) => {
+            const btn = e.target.closest('.cambiar-talla-btn');
+            if (!btn) return;
+
+            cambioTallaIdDetalle = btn.dataset.idDetalle;
+
+            document.getElementById('cambioTallaLoading').style.display = 'block';
+            document.getElementById('cambioTallaError').style.display   = 'none';
+            document.getElementById('cambioTallaContent').style.display = 'none';
+            document.getElementById('btnConfirmarCambioTalla').disabled = true;
+
+            cambioTallaModal.show();
+
+            try {
+                const res  = await fetch(`./controllers/C_CambioTalla.php?action=tallas_disponibles&id_detalle=${cambioTallaIdDetalle}`);
+                const json = await res.json();
+
+                document.getElementById('cambioTallaLoading').style.display = 'none';
+
+                if (!json.success) {
+                    document.getElementById('cambioTallaError').textContent = json.mensaje || 'No se pudo cargar la información.';
+                    document.getElementById('cambioTallaError').style.display = 'block';
+                    return;
+                }
+
+                const data = json.data;
+                cambioTallaHermanas = data.hermanas || [];
+
+                document.getElementById('cambioTallaActual').textContent =
+                    `${data.producto_vigente.nombre} — S/ ${parseFloat(data.producto_vigente.precio_unitario).toFixed(2)}`;
+
+                const select = document.getElementById('cambioTallaSelect');
+                if (cambioTallaHermanas.length === 0) {
+                    select.innerHTML = '<option value="">Sin otras tallas con stock</option>';
+                    document.getElementById('cambioTallaContent').style.display = 'block';
+                    return;
+                }
+
+                select.innerHTML = cambioTallaHermanas.map(h => `
+                    <option value="${h.id_producto}">
+                        Talla ${escapeHtmlHist(h.talla || '—')} — S/ ${parseFloat(h.precio_unitario).toFixed(2)} (stock: ${parseFloat(h.stock_piezas)})
+                    </option>
+                `).join('');
+
+                actualizarDiferenciaCambioTalla();
+                document.getElementById('cambioTallaContent').style.display = 'block';
+                document.getElementById('btnConfirmarCambioTalla').disabled = false;
+            } catch (err) {
+                document.getElementById('cambioTallaLoading').style.display = 'none';
+                document.getElementById('cambioTallaError').textContent = 'Error de conexión.';
+                document.getElementById('cambioTallaError').style.display = 'block';
+            }
+        });
+
+        function actualizarDiferenciaCambioTalla() {
+            const select = document.getElementById('cambioTallaSelect');
+            const hermana = cambioTallaHermanas.find(h => String(h.id_producto) === select.value);
+            if (!hermana) return;
+
+            const diferencia = parseFloat(hermana.diferencia_unitaria);
+            const diferenciaEl = document.getElementById('cambioTallaDiferencia');
+            const notaEl        = document.getElementById('cambioTallaDiferenciaNota');
+            const metodoBox     = document.getElementById('cambioTallaMetodoPagoBox');
+
+            diferenciaEl.textContent = `S/ ${diferencia.toFixed(2)}`;
+            diferenciaEl.className   = diferencia > 0 ? 'text-danger' : (diferencia < 0 ? 'text-success' : 'text-muted');
+
+            if (diferencia > 0) {
+                notaEl.textContent = 'El cliente paga esta diferencia.';
+                metodoBox.style.display = 'block';
+            } else if (diferencia < 0) {
+                notaEl.textContent = 'Se le devuelve esta diferencia al cliente.';
+                metodoBox.style.display = 'block';
+            } else {
+                notaEl.textContent = 'Sin diferencia de precio.';
+                metodoBox.style.display = 'none';
+            }
+        }
+
+        document.getElementById('cambioTallaSelect').addEventListener('change', actualizarDiferenciaCambioTalla);
+
+        document.getElementById('btnConfirmarCambioTalla').addEventListener('click', async () => {
+            const select = document.getElementById('cambioTallaSelect');
+            const idProductoEntrante = select.value;
+            if (!idProductoEntrante) return;
+
+            const metodoPago = document.getElementById('cambioTallaMetodoPago').value;
+            const btnConfirmar = document.getElementById('btnConfirmarCambioTalla');
+            btnConfirmar.disabled = true;
+            btnConfirmar.textContent = 'Guardando...';
+
+            try {
+                const res  = await fetch('./controllers/C_CambioTalla.php?action=registrar', {
+                    method:  'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body:    JSON.stringify({
+                        id_detalle: cambioTallaIdDetalle,
+                        id_producto_entrante: idProductoEntrante,
+                        metodo_pago: metodoPago,
+                    }),
+                });
+                const json = await res.json();
+
+                if (json.ok) {
+                    cambioTallaModal.hide();
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Talla cambiada',
+                        text: json.mensaje,
+                        showConfirmButton: false,
+                        timer: 1500,
+                    }).then(() => window.location.reload());
+                } else {
+                    Swal.fire({ icon: 'error', title: 'No se pudo cambiar la talla', text: json.mensaje, confirmButtonColor: '#0284c7' });
+                    btnConfirmar.disabled = false;
+                    btnConfirmar.textContent = 'Confirmar cambio';
+                }
+            } catch (err) {
+                Swal.fire({ icon: 'error', title: 'Error de red', text: 'No se pudo contactar al servidor.' });
+                btnConfirmar.disabled = false;
+                btnConfirmar.textContent = 'Confirmar cambio';
+            }
+        });
+
+        // 5. Lógica para impresión de tickets con Iframe reactivo
         let histCurrentId     = null;
         let histCurrentFormat = '80mm';
 

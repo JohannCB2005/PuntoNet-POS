@@ -5,7 +5,7 @@ session_start();
 // Definir cabecera de respuesta JSON
 header('Content-Type: application/json');
 
-// Validar que el usuario esté autenticado y sea Administrador (Kardex es un módulo admin-only, igual que en index.php)
+// Validar que el usuario esté autenticado y sea Administrador (Kardex es un módulo admin-only, igual que en /)
 if (!isset($_SESSION['id_usuario']) || $_SESSION['rol'] !== 'Administrador') {
     echo json_encode(['success' => false, 'mensaje' => 'No autorizado.']);
     exit;

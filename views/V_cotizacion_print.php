@@ -6,8 +6,10 @@ if (session_status() === PHP_SESSION_NONE) {
 if (!isset($_SESSION['id_usuario'])) {
     die('Acceso no autorizado.');
 }
+header('X-Frame-Options: SAMEORIGIN');
 
 require_once dirname(__DIR__) . '/config/conexion.php';
+require_once dirname(__DIR__) . '/config/sunat.php';
 require_once dirname(__DIR__) . '/models/M_Cotizacion.php';
 
 $id_cotizacion = isset($_GET['id']) ? intval($_GET['id']) : 0;
@@ -270,11 +272,11 @@ p { margin: 1px 0; }
 <?php if (!$isTicket): /* ========= MAQUETADO A4 ========= */ ?>
 <div class="header">
     <div class="header-brand">
-        <div class="brand-logo"><img src="../assets/Logo Login PuntoNet.png" style="height: 60px; filter: grayscale(100%);" alt="NISSI"></div>
+        <div class="brand-logo"><img src="../assets/logo.svg" style="height: 60px; filter: grayscale(100%);" alt="NISSI"></div>
         <div class="brand-info">
-            <p class="biz-name">Confecciones NISSI</p>
-            <p>Av. Principal S/N</p>
-            <p>RUC: 20000000000</p>
+            <p class="biz-name"><?php echo htmlspecialchars(SUNAT_RAZON_SOCIAL ?: 'Confecciones NISSI'); ?></p>
+            <p><?php echo htmlspecialchars(SUNAT_DIRECCION ?: 'Av. Principal S/N'); ?></p>
+            <p>RUC: <?php echo htmlspecialchars(SUNAT_RUC ?: '20000000000'); ?></p>
             <p>Tel: 999 999 999 | nissi@uniformes.com</p>
         </div>
     </div>
@@ -355,11 +357,11 @@ p { margin: 1px 0; }
 
 <?php else: /* ========= MAQUETADO TICKETERAS TÉRMICAS ========= */ ?>
 
-<div class="brand-logo"><img src="../assets/Logo Login PuntoNet.png" style="height: 40px; filter: grayscale(100%);" alt="NISSI"></div>
+<div class="brand-logo"><img src="../assets/logo.svg" style="height: 40px; filter: grayscale(100%);" alt="NISSI"></div>
 <div class="biz-info">
-    <p class="biz-name">Confecciones NISSI</p>
-    <p>RUC: 20000000000</p>
-    <p>Av. Principal S/N</p>
+    <p class="biz-name"><?php echo htmlspecialchars(SUNAT_RAZON_SOCIAL ?: 'Confecciones NISSI'); ?></p>
+    <p>RUC: <?php echo htmlspecialchars(SUNAT_RUC ?: '20000000000'); ?></p>
+    <p><?php echo htmlspecialchars(SUNAT_DIRECCION ?: 'Av. Principal S/N'); ?></p>
     <p>Tel: 999 999 999</p>
 </div>
 

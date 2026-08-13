@@ -34,10 +34,10 @@ class M_Producto {
      */
     public function registrar(Producto $producto) {
         try {
-            $sql = "INSERT INTO productos (id_categoria, id_unidad, nombre, precio_unitario, costo_produccion,
-                    stock_piezas, estado, imagen, id_talla, id_tipo_corbata, id_nivel, id_grado,
+            $sql = "INSERT INTO productos (id_categoria, id_unidad, nombre, precio_unitario, costo_produccion, comision,
+                    stock_piezas, stock_ilimitado, estado, imagen, id_talla, id_tipo_corbata, id_nivel, id_grado,
                     id_area, id_bimestre, es_agrupador, id_producto_padre)
-                    VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
             $stmt = $this->conexion->prepare($sql);
 
             $stmt->execute([
@@ -46,7 +46,9 @@ class M_Producto {
                 $producto->nombre,
                 $producto->precio_unitario,
                 $producto->costo_produccion,
+                $producto->comision,
                 $producto->stock_piezas,
+                $producto->stock_ilimitado ?? 0,
                 $producto->imagen,
                 $producto->id_talla,
                 $producto->id_tipo_corbata,
@@ -65,6 +67,45 @@ class M_Producto {
     }
 
     /**
+     * Precio de catálogo vigente de un conjunto de productos, indexado por id.
+     *
+     * El POS y las separaciones reciben el carrito desde el navegador, precio
+     * incluido. Ese precio NO puede ser la fuente de verdad: quien controle la
+     * petición puede registrar una prenda de S/200 a S/1 y el kardex, los reportes
+     * y el comprobante electrónico lo darían por bueno, sin rastro contra el precio
+     * de lista. Los controladores reescriben el precio con esto antes de construir
+     * la venta — mismo criterio que ya usa el checkout público en
+     * M_Ecommerce::calcularCarrito().
+     *
+     * No aplica a la conversión de cotizaciones: ahí el precio viene congelado de
+     * detalle_cotizaciones (la cotización respeta el precio que se cotizó), y ese
+     * dato ya está dentro del sistema, no lo manda el navegador.
+     *
+     * @param int[] $ids
+     * @return array<int,float> id_producto => precio_unitario
+     */
+    public function obtenerPreciosVigentes(array $ids): array {
+        $ids = array_values(array_unique(array_filter(array_map('intval', $ids), fn($i) => $i > 0)));
+        if (empty($ids)) {
+            return [];
+        }
+        try {
+            $placeholders = implode(',', array_fill(0, count($ids), '?'));
+            $stmt = $this->conexion->prepare(
+                "SELECT id_producto, precio_unitario FROM productos WHERE id_producto IN ($placeholders)"
+            );
+            $stmt->execute($ids);
+            $precios = [];
+            foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $fila) {
+                $precios[(int) $fila['id_producto']] = (float) $fila['precio_unitario'];
+            }
+            return $precios;
+        } catch (PDOException $e) {
+            return [];
+        }
+    }
+
+    /**
      * Lista todos los productos activos en el inventario
      * Utiliza un doble INNER JOIN para obtener los nombres textuales de la categoría y la unidad de medida.
      * @return array Listado asociativo con detalles del producto
@@ -72,8 +113,8 @@ class M_Producto {
     public function listar() {
         try {
             $sql = "SELECT i.id_producto, i.id_categoria, i.id_unidad, c.nombre AS categoria,
-                    u.nombre AS unidad, u.abreviatura, i.nombre, i.precio_unitario, i.costo_produccion,
-                    i.stock_piezas, i.estado, i.imagen,
+                    u.nombre AS unidad, u.abreviatura, i.nombre, i.precio_unitario, i.costo_produccion, i.comision,
+                    i.stock_piezas, i.stock_ilimitado, i.estado, i.imagen,
                     i.id_talla, i.id_tipo_corbata, i.id_nivel, i.id_grado, i.id_area, i.id_bimestre,
                     i.es_agrupador, i.id_producto_padre,
                     t.nombre AS talla, t.orden AS talla_orden,
@@ -125,8 +166,8 @@ class M_Producto {
     public function actualizar(Producto $producto) {
         try {
             $sql = "UPDATE productos SET id_categoria = ?, id_unidad = ?, nombre = ?,
-                    precio_unitario = ?, costo_produccion = ?, stock_piezas = ?,
-                    imagen = COALESCE(?, imagen), id_talla = ?, id_tipo_corbata = ?,
+                    precio_unitario = ?, costo_produccion = ?, comision = ?, stock_piezas = ?,
+                    stock_ilimitado = ?, imagen = COALESCE(?, imagen), id_talla = ?, id_tipo_corbata = ?,
                     id_nivel = ?, id_grado = ?, id_area = ?, id_bimestre = ?
                     WHERE id_producto = ?";
             $stmt = $this->conexion->prepare($sql);
@@ -137,7 +178,9 @@ class M_Producto {
                 $producto->nombre,
                 $producto->precio_unitario,
                 $producto->costo_produccion,
+                $producto->comision,
                 $producto->stock_piezas,
+                $producto->stock_ilimitado ?? 0,
                 $producto->imagen,
                 $producto->id_talla,
                 $producto->id_tipo_corbata,
@@ -180,9 +223,9 @@ class M_Producto {
 
             // 2. Crear cada variante como hijo del padre
             $sqlHijo = "INSERT INTO productos
-                        (id_categoria, id_unidad, nombre, precio_unitario, costo_produccion,
+                        (id_categoria, id_unidad, nombre, precio_unitario, costo_produccion, comision,
                          stock_piezas, estado, imagen, id_talla, es_agrupador, id_producto_padre)
-                        VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?, 0, ?)";
+                        VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?, 0, ?)";
             $stmtH = $this->conexion->prepare($sqlHijo);
 
             foreach ($variantes as $v) {
@@ -192,6 +235,7 @@ class M_Producto {
                     $datosPadre['nombre'],
                     floatval($v['precio_unitario']),
                     floatval($v['costo_produccion']),
+                    floatval($v['comision'] ?? 0),
                     floatval($v['stock_piezas']),
                     $datosPadre['imagen'] ?? null,
                     intval($v['id_talla']),
@@ -214,7 +258,7 @@ class M_Producto {
      */
     public function obtenerVariantes(int $id_padre): array {
         try {
-            $sql = "SELECT i.id_producto, i.nombre, i.precio_unitario, i.costo_produccion,
+            $sql = "SELECT i.id_producto, i.nombre, i.precio_unitario, i.costo_produccion, i.comision,
                            i.stock_piezas, i.imagen, i.id_talla,
                            t.nombre AS talla, t.orden AS talla_orden
                     FROM productos i
@@ -274,10 +318,10 @@ class M_Producto {
             $hijosMantenidos = [];
 
             // 3. Procesar variantes enviadas
-            $sqlInsertHijo = "INSERT INTO productos (id_categoria, id_unidad, nombre, precio_unitario, costo_produccion, stock_piezas, estado, id_talla, es_agrupador, id_producto_padre) VALUES (?, ?, ?, ?, ?, ?, 1, ?, 0, ?)";
+            $sqlInsertHijo = "INSERT INTO productos (id_categoria, id_unidad, nombre, precio_unitario, costo_produccion, comision, stock_piezas, estado, id_talla, es_agrupador, id_producto_padre) VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, 0, ?)";
             $stmtInsertHijo = $this->conexion->prepare($sqlInsertHijo);
-            
-            $sqlUpdateHijo = "UPDATE productos SET id_categoria = ?, id_unidad = ?, nombre = ?, precio_unitario = ?, costo_produccion = ?, id_talla = ? WHERE id_producto = ? AND id_producto_padre = ?";
+
+            $sqlUpdateHijo = "UPDATE productos SET id_categoria = ?, id_unidad = ?, nombre = ?, precio_unitario = ?, costo_produccion = ?, comision = ?, id_talla = ? WHERE id_producto = ? AND id_producto_padre = ?";
             $stmtUpdateHijo = $this->conexion->prepare($sqlUpdateHijo);
 
             foreach ($variantes as $v) {
@@ -289,6 +333,7 @@ class M_Producto {
                         $datosPadre['nombre'],
                         $v['precio_unitario'],
                         $v['costo_produccion'],
+                        $v['comision'] ?? 0,
                         $v['id_talla'],
                         $v['id_producto'],
                         $id_padre
@@ -302,6 +347,7 @@ class M_Producto {
                         $datosPadre['nombre'],
                         $v['precio_unitario'],
                         $v['costo_produccion'],
+                        $v['comision'] ?? 0,
                         $v['stock_piezas'] ?? 0,
                         $v['id_talla'],
                         $id_padre

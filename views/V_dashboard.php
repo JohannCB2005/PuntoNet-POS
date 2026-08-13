@@ -21,7 +21,7 @@ $stmt = $dbh->query("SELECT COUNT(*) as count FROM usuarios u INNER JOIN persona
 $activeUsers = intval($stmt->fetch()['count']);
 
 // 4. Contar la cantidad de productos que tienen stock crítico igual o inferior a 20 unidades
-$stmt = $dbh->query("SELECT COUNT(*) as count FROM productos WHERE stock_piezas <= 20 AND estado = 1");
+$stmt = $dbh->query("SELECT COUNT(*) as count FROM productos WHERE stock_piezas <= 20 AND estado = 1 AND stock_ilimitado = 0");
 $lowStockCount = intval($stmt->fetch()['count']);
 
 // 5. Consultar las últimas 5 ventas para mostrar en el historial reciente

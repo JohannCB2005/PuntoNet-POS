@@ -11,7 +11,13 @@ if (!isset($_SESSION['id_usuario'])) {
             <h4 class="mb-1 fw-bold text-dark">Pedidos Online (Click & Collect)</h4>
             <p class="text-muted mb-0" style="font-size: 14px;">Gestiona las compras realizadas a través de la tienda web.</p>
         </div>
-        <div>
+        <div class="d-flex align-items-center gap-3">
+            <div class="form-check form-switch mb-0">
+                <input class="form-check-input" type="checkbox" id="chkIncluirNoCompletados">
+                <label class="form-check-label text-muted" style="font-size: 13px;" for="chkIncluirNoCompletados">
+                    Ver intentos de pago no completados
+                </label>
+            </div>
             <button class="btn btn-outline-primary fw-semibold shadow-sm" id="btnActualizar">
                 <i class="bi bi-arrow-clockwise me-1"></i> Actualizar
             </button>
@@ -28,6 +34,8 @@ if (!isset($_SESSION['id_usuario'])) {
                             <th>N° Pedido</th>
                             <th>Fecha</th>
                             <th>Cliente</th>
+                            <th>Comprobante</th>
+                            <th>Entrega</th>
                             <th>Referencia de Pago</th>
                             <th>Total</th>
                             <th>Estado</th>
@@ -73,48 +81,109 @@ if (!isset($_SESSION['id_usuario'])) {
 </div>
 
 <script>
+const ROL_USUARIO = '<?php echo addslashes($_SESSION['rol']); ?>';
+
 document.addEventListener('DOMContentLoaded', () => {
     cargarPedidos();
 
     document.getElementById('btnActualizar').addEventListener('click', cargarPedidos);
+    document.getElementById('chkIncluirNoCompletados').addEventListener('change', cargarPedidos);
 
     function escapeHtml(str) {
         return String(str ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
     }
 
+    // Etiqueta del estado 5 depende de la modalidad de entrega — es lo que hace útil el seguimiento.
+    function etiquetaPreparado(tipoEntrega) {
+        return parseInt(tipoEntrega) === 2 ? 'Preparado para envío al colegio' : 'Listo para recoger';
+    }
+    function etiquetaEntregado(tipoEntrega) {
+        return parseInt(tipoEntrega) === 2 ? 'Entregado al estudiante' : 'Entregado';
+    }
+
     async function cargarPedidos() {
         try {
-            const res = await fetch('./controllers/C_Ecommerce.php?action=listar_pedidos');
+            const incluirNoCompletados = document.getElementById('chkIncluirNoCompletados').checked;
+            const url = './controllers/C_Ecommerce.php?action=listar_pedidos' + (incluirNoCompletados ? '&incluir_no_completados=1' : '');
+            const res = await fetch(url);
             const result = await res.json();
             if (result.success) {
                 const tbody = document.querySelector('#tablaPedidos tbody');
                 tbody.innerHTML = '';
                 if (result.data.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="7" class="text-center py-4 text-muted">No hay pedidos online.</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="8" class="text-center py-4 text-muted">No hay pedidos online.</td></tr>';
                 } else {
                     result.data.forEach(p => {
+                        const estado = parseInt(p.estado);
                         let estadoBadge = '';
+                        let fechasHtml = '';
                         let acciones = `<button class="btn btn-sm btn-info text-white fw-bold me-1" onclick="verDetalles(${p.id_pedido})"><i class="bi bi-eye"></i></button>`;
+                        const puedeRechazar = ROL_USUARIO === 'Administrador';
 
-                        if (p.estado == 1) {
-                            estadoBadge = '<span class="badge bg-warning text-dark">Pendiente</span>';
+                        if (estado === 1) {
+                            estadoBadge = '<span class="badge bg-warning text-dark">Pagado — en proceso</span>';
                             acciones += `
-                                <button class="btn btn-sm btn-success fw-bold me-1" onclick="gestionarPedido(${p.id_pedido}, 'aprobar')"><i class="bi bi-check-lg"></i> Aprobar</button>
-                                <button class="btn btn-sm btn-danger fw-bold" onclick="gestionarPedido(${p.id_pedido}, 'rechazar')"><i class="bi bi-x-lg"></i> Rechazar</button>
+                                <button class="btn btn-sm btn-primary fw-bold me-1" onclick="gestionarPedido(${p.id_pedido}, 'preparar')"><i class="bi bi-box-seam"></i> Preparar</button>
+                                <button class="btn btn-sm btn-success fw-bold me-1" onclick="gestionarPedido(${p.id_pedido}, 'entregar')"><i class="bi bi-check-lg"></i> Entregar</button>
                             `;
-                        } else if (p.estado == 2) {
-                            estadoBadge = '<span class="badge bg-success">Aprobado / Entregado</span>';
-                            acciones += `<a href="index.php?modulo=historial&buscar=${p.id_venta}" class="btn btn-sm btn-outline-primary fw-bold">Ver Venta #${p.id_venta}</a>`;
-                        } else if (p.estado == 3) {
+                            if (puedeRechazar) {
+                                acciones += `<button class="btn btn-sm btn-danger fw-bold" onclick="gestionarPedido(${p.id_pedido}, 'rechazar')"><i class="bi bi-x-lg"></i> Rechazar</button>`;
+                            }
+                        } else if (estado === 5) {
+                            estadoBadge = `<span class="badge bg-info text-dark">${etiquetaPreparado(p.tipo_entrega)}</span>`;
+                            fechasHtml = p.fecha_preparado ? `<div class="small text-muted mt-1">Preparado: ${escapeHtml(p.fecha_preparado)}</div>` : '';
+                            acciones += `<button class="btn btn-sm btn-success fw-bold me-1" onclick="gestionarPedido(${p.id_pedido}, 'entregar')"><i class="bi bi-check-lg"></i> Entregar</button>`;
+                            if (puedeRechazar) {
+                                acciones += `<button class="btn btn-sm btn-danger fw-bold" onclick="gestionarPedido(${p.id_pedido}, 'rechazar')"><i class="bi bi-x-lg"></i> Rechazar</button>`;
+                            }
+                        } else if (estado === 2) {
+                            estadoBadge = `<span class="badge bg-success">${etiquetaEntregado(p.tipo_entrega)}</span>`;
+                            fechasHtml = p.fecha_entregado ? `<div class="small text-muted mt-1">Entregado: ${escapeHtml(p.fecha_entregado)}</div>` : '';
+                            acciones += `<a href="/historial?buscar=${p.id_venta}" class="btn btn-sm btn-outline-primary fw-bold">Ver Venta #${p.id_venta}</a>`;
+                        } else if (estado === 3) {
                             estadoBadge = '<span class="badge bg-secondary">Esperando pago</span>';
-                        } else if (p.estado == 4) {
+                        } else if (estado === 4) {
                             estadoBadge = '<span class="badge bg-dark">Expirado / Pago fallido</span>';
                         } else {
                             estadoBadge = '<span class="badge bg-danger">Rechazado</span>';
+                            if (p.motivo_rechazo) {
+                                fechasHtml = `<div class="small text-muted mt-1" title="${escapeHtml(p.motivo_rechazo)}"><i class="bi bi-chat-left-text"></i> ${escapeHtml(p.motivo_rechazo)}</div>`;
+                            }
                         }
 
                         let cliente = p.apellidos ? `${p.apellidos}, ${p.nombres_razon_social}` : p.nombres_razon_social;
-                        let referenciaPago = p.payment_intent_id || p.nro_operacion_yape || '—';
+
+                        // Boleta/Factura: con Factura se factura a la entidad con RUC resuelta en
+                        // el checkout (razon_social_facturacion), NO a la cuenta del comprador.
+                        let comprobanteHtml = '<span class="badge bg-light text-dark border">Boleta</span>';
+                        if (parseInt(p.tipo_comprobante) === 2) {
+                            comprobanteHtml = `<span class="badge bg-info-subtle text-info-emphasis border">Factura</span>`;
+                            if (p.razon_social_facturacion) {
+                                comprobanteHtml += `<div class="small text-muted mt-1">${escapeHtml(p.razon_social_facturacion)}<br>RUC: ${escapeHtml(p.ruc_facturacion)}</div>`;
+                            }
+                        }
+
+                        // Ya viene escapado y con marcado: NO volver a pasarlo por escapeHtml().
+                        // El UUID es lo que se busca en el Back Office de Izipay para
+                        // cuadrar el pedido con la transacción concreta.
+                        let referenciaPagoHtml = escapeHtml(p.referencia_pago || p.nro_operacion_yape || '—');
+                        if (p.transaccion_uuid) {
+                            referenciaPagoHtml += `<div class="small text-muted" style="font-size:.7rem;word-break:break-all;" title="UUID de la transaccion en Izipay">${escapeHtml(p.transaccion_uuid)}</div>`;
+                        }
+
+                        let entregaHtml = '<span class="badge bg-light text-dark border"><i class="bi bi-shop"></i> Recojo en tienda</span>';
+                        if (parseInt(p.tipo_entrega) === 2) {
+                            entregaHtml = `
+                                <span class="badge bg-light text-dark border"><i class="bi bi-mortarboard"></i> Entrega en colegio</span>
+                                <div class="small text-muted mt-1">
+                                    ${escapeHtml(p.estudiante_nombre)}<br>
+                                    ${escapeHtml(p.nivel_nombre || '')} ${escapeHtml(p.grado_nombre || '')}
+                                </div>
+                            `;
+                        }
+                        if (p.observaciones) {
+                            entregaHtml += `<div class="small text-muted mt-1"><i class="bi bi-chat-left-text"></i> ${escapeHtml(p.observaciones)}</div>`;
+                        }
 
                         tbody.innerHTML += `
                             <tr>
@@ -124,9 +193,11 @@ document.addEventListener('DOMContentLoaded', () => {
                                     <div class="fw-semibold">${escapeHtml(cliente)}</div>
                                     <small class="text-muted">DNI: ${escapeHtml(p.numero_documento)} | Tel: ${escapeHtml(p.telefono || '-')}</small>
                                 </td>
-                                <td class="font-monospace">${escapeHtml(referenciaPago)}</td>
+                                <td>${comprobanteHtml}</td>
+                                <td>${entregaHtml}</td>
+                                <td class="font-monospace">${referenciaPagoHtml}</td>
                                 <td class="fw-bold text-success">S/ ${parseFloat(p.total).toFixed(2)}</td>
-                                <td>${estadoBadge}</td>
+                                <td>${estadoBadge}${fechasHtml}</td>
                                 <td class="text-end">${acciones}</td>
                             </tr>
                         `;
@@ -162,38 +233,65 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     window.gestionarPedido = (id_pedido, accion) => {
-        let title = accion === 'aprobar' ? '¿Aprobar Pedido?' : '¿Rechazar Pedido?';
-        let text = accion === 'aprobar'
-            ? 'Se generará una Venta en el sistema con el pago ya verificado.'
-            : 'El stock reservado será devuelto al inventario.';
-            
+        if (accion === 'rechazar') {
+            Swal.fire({
+                title: '¿Rechazar pedido?',
+                html: 'El stock reservado será devuelto al inventario. El motivo que escribas <strong>se le enviará al cliente por correo</strong>, junto con la indicación de coordinar la devolución del dinero por WhatsApp con Atención al Cliente.',
+                icon: 'warning',
+                input: 'textarea',
+                inputPlaceholder: 'Motivo del rechazo (obligatorio)...',
+                showCancelButton: true,
+                confirmButtonText: 'Rechazar pedido',
+                cancelButtonText: 'Cancelar',
+                confirmButtonColor: '#dc3545',
+                inputValidator: (value) => {
+                    if (!value || !value.trim()) return 'Debes escribir un motivo.';
+                }
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    enviarGestion(id_pedido, accion, result.value.trim());
+                }
+            });
+            return;
+        }
+
+        const titulos = { preparar: '¿Marcar como preparado?', entregar: '¿Marcar como entregado?' };
+        const textos = {
+            preparar: 'El pedido pasará a estado "preparado", listo para su recojo o envío.',
+            entregar: 'Se generará la venta correspondiente y se notificará al cliente por correo.'
+        };
+
         Swal.fire({
-            title: title,
-            text: text,
+            title: titulos[accion] || '¿Confirmar acción?',
+            text: textos[accion] || '',
             icon: 'question',
             showCancelButton: true,
             confirmButtonText: 'Sí, continuar',
             cancelButtonText: 'Cancelar'
-        }).then(async (result) => {
+        }).then((result) => {
             if (result.isConfirmed) {
-                try {
-                    const res = await fetch('./controllers/C_Ecommerce.php?action=gestionar_pedido', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ id_pedido, accion })
-                    });
-                    const data = await res.json();
-                    if (data.success) {
-                        Swal.fire({ icon: 'success', title: 'Éxito', text: data.mensaje, timer: 1500, showConfirmButton: false });
-                        cargarPedidos();
-                    } else {
-                        Swal.fire({ icon: 'error', title: 'Error', text: data.mensaje });
-                    }
-                } catch(e) {
-                    Swal.fire({ icon: 'error', title: 'Error', text: 'Error de red.' });
-                }
+                enviarGestion(id_pedido, accion, null);
             }
         });
     };
+
+    async function enviarGestion(id_pedido, accion, motivo) {
+        try {
+            const res = await fetch('./controllers/C_Ecommerce.php?action=gestionar_pedido', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id_pedido, accion, motivo })
+            });
+            const data = await res.json();
+            if (data.success) {
+                Swal.fire({ icon: 'success', title: 'Éxito', text: data.mensaje, timer: 1500, showConfirmButton: false });
+                cargarPedidos();
+            } else {
+                Swal.fire({ icon: 'error', title: 'Error', text: data.mensaje });
+            }
+        } catch (e) {
+            Swal.fire({ icon: 'error', title: 'Error', text: 'Error de red.' });
+        }
+    }
 });
 </script>

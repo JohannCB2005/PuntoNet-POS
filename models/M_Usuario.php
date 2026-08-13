@@ -104,11 +104,11 @@ class M_Usuario {
     public function listarUsuarios() {
         try {
             $sql = "SELECT p.tipo_documento, p.nombres_razon_social, p.apellidos, p.numero_documento, p.telefono,
-                        u.id_usuario, u.id_rol, u.username, r.nombre AS rol, p.estado
+                        u.id_usuario, u.id_rol, u.username, r.nombre AS rol, u.estado
                     FROM usuarios u
                     INNER JOIN personas p ON u.id_persona = p.id_persona
                     INNER JOIN roles r ON u.id_rol = r.id_rol
-                    WHERE p.estado = 1";
+                    WHERE u.estado = 1";
             $stmt = $this->conexion->prepare($sql);
             $stmt->execute();
             return $stmt->fetchAll();
@@ -172,19 +172,53 @@ class M_Usuario {
 
     /**
      * Desactivación lógica de un usuario.
+     *
+     * Apaga usuarios.estado, NO personas.estado: la misma fila de personas puede
+     * tener además una cuenta de cliente en la tienda (M_Cliente filtra por
+     * p.estado = 1), y dar de baja a un trabajador no debe borrarle su cuenta de
+     * comprador ni sus pedidos. Ver migrations/add_usuarios_estado.sql.
+     *
      * @param int $id_usuario
      * @param int $nuevoEstado
      * @return bool
      */
     public function EliminarUsuario($id_usuario, $nuevoEstado) {
         try {
-            $stmt = $this->conexion->prepare(
-                "UPDATE personas SET estado=? WHERE id_persona=(SELECT id_persona FROM usuarios WHERE id_usuario=?)"
-            );
+            $stmt = $this->conexion->prepare("UPDATE usuarios SET estado=? WHERE id_usuario=?");
             $stmt->execute([$nuevoEstado, $id_usuario]);
             return true;
         } catch (PDOException $e) {
             return false;
+        }
+    }
+
+    /**
+     * Cuántos Administradores activos quedan, excluyendo opcionalmente a uno.
+     *
+     * Existe para que no se pueda dejar al sistema sin ningún administrador: ni
+     * borrando al último, ni degradándolo a Vendedor. Es una puerta sin llave por
+     * fuera — no hay forma de recuperar el acceso desde la interfaz, solo tocando
+     * la base de datos a mano.
+     *
+     * "Activo" se mide sobre usuarios.estado, que es lo que apaga EliminarUsuario().
+     */
+    public function contarAdministradoresActivos(?int $excluyendoIdUsuario = null): int {
+        try {
+            $sql = "SELECT COUNT(*) FROM usuarios u
+                    INNER JOIN roles r ON u.id_rol = r.id_rol
+                    WHERE r.nombre = 'Administrador' AND u.estado = 1";
+            $params = [];
+            if ($excluyendoIdUsuario !== null) {
+                $sql .= " AND u.id_usuario <> ?";
+                $params[] = $excluyendoIdUsuario;
+            }
+            $stmt = $this->conexion->prepare($sql);
+            $stmt->execute($params);
+            return (int) $stmt->fetchColumn();
+        } catch (PDOException $e) {
+            // Ante la duda, decir que no queda ninguno: bloquea la operación
+            // peligrosa en vez de permitirla a ciegas.
+            return 0;
         }
     }
 
@@ -196,11 +230,14 @@ class M_Usuario {
      */
     public function verificarLogin($username) {
         try {
-            $sql = "SELECT u.id_usuario, p.nombres_razon_social, p.apellidos, u.username, u.password, r.nombre AS rol, p.estado
+            // El gate es usuarios.estado, no personas.estado: este último lo pone a 1
+            // M_Cliente::registrarCuenta(), así que un ex-trabajador podía recuperar el
+            // acceso al panel con solo registrarse como cliente en la tienda.
+            $sql = "SELECT u.id_usuario, p.nombres_razon_social, p.apellidos, u.username, u.password, r.nombre AS rol, u.estado
                     FROM usuarios u
                     INNER JOIN personas p ON u.id_persona = p.id_persona
                     INNER JOIN roles r ON u.id_rol = r.id_rol
-                    WHERE u.username = ? AND p.estado = 1";
+                    WHERE u.username = ? AND u.estado = 1";
             $stmt = $this->conexion->prepare($sql);
             $stmt->bindParam(1, $username);
             $stmt->execute();

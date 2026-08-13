@@ -66,7 +66,8 @@ switch ($action) {
             CURLOPT_URL => $endpoint,
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_CUSTOMREQUEST => "POST",
-            CURLOPT_SSL_VERIFYPEER => false,
+            CURLOPT_SSL_VERIFYPEER => true,
+            CURLOPT_SSL_VERIFYHOST => 2,
             CURLOPT_POSTFIELDS => $params,
             CURLOPT_HTTPHEADER => [
                 'Accept: application/json',
@@ -202,7 +203,8 @@ switch ($action) {
             CURLOPT_URL => $endpoint,
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_CUSTOMREQUEST => "POST",
-            CURLOPT_SSL_VERIFYPEER => false,
+            CURLOPT_SSL_VERIFYPEER => true,
+            CURLOPT_SSL_VERIFYHOST => 2,
             CURLOPT_POSTFIELDS => $params,
             CURLOPT_HTTPHEADER => [
                 'Accept: application/json',
@@ -313,10 +315,7 @@ switch ($action) {
         $apellidos = isset($input['apellidos']) ? trim($input['apellidos']) : '';
         $direccion = isset($input['direccion']) ? trim($input['direccion']) : '';
         $telefono = isset($input['telefono']) ? trim($input['telefono']) : '';
-        $tipo_cliente = isset($input['tipo_cliente']) ? intval($input['tipo_cliente']) : 1; 
-        $id_tipo_trabajador = isset($input['id_tipo_trabajador']) && $input['id_tipo_trabajador'] !== '' ? intval($input['id_tipo_trabajador']) : null;
-        $id_facultad = isset($input['id_facultad']) && $input['id_facultad'] !== '' ? intval($input['id_facultad']) : null;
-        $codigo_planilla = isset($input['codigo_planilla']) && trim($input['codigo_planilla']) !== '' ? trim($input['codigo_planilla']) : null; 
+        $tipo_cliente = isset($input['tipo_cliente']) ? intval($input['tipo_cliente']) : 1;
 
         // Validación de campos requeridos
         if (empty($numero_documento) || empty($nombres_razon_social)) {
@@ -325,7 +324,7 @@ switch ($action) {
         }
 
         // Crear la entidad cliente
-        $cliente = new Cliente($tipo_documento, $numero_documento, $nombres_razon_social, $apellidos, $direccion, $telefono, $tipo_cliente, $id_tipo_trabajador, $id_facultad, $codigo_planilla);
+        $cliente = new Cliente($tipo_documento, $numero_documento, $nombres_razon_social, $apellidos, $direccion, $telefono, $tipo_cliente);
         
         // Intentar registrar el cliente
         $resultado = $model->registrarCliente($cliente);
@@ -357,9 +356,6 @@ switch ($action) {
         $direccion = isset($input['direccion']) ? trim($input['direccion']) : '';
         $telefono = isset($input['telefono']) ? trim($input['telefono']) : '';
         $tipo_cliente = isset($input['tipo_cliente']) ? intval($input['tipo_cliente']) : 1;
-        $id_tipo_trabajador = isset($input['id_tipo_trabajador']) && $input['id_tipo_trabajador'] !== '' ? intval($input['id_tipo_trabajador']) : null;
-        $id_facultad = isset($input['id_facultad']) && $input['id_facultad'] !== '' ? intval($input['id_facultad']) : null;
-        $codigo_planilla = isset($input['codigo_planilla']) && trim($input['codigo_planilla']) !== '' ? trim($input['codigo_planilla']) : null;
 
         // Validaciones previas
         if ($id_cliente <= 0 || empty($numero_documento) || empty($nombres_razon_social)) {
@@ -368,7 +364,7 @@ switch ($action) {
         }
 
         // Crear entidad y guardar id
-        $cliente = new Cliente($tipo_documento, $numero_documento, $nombres_razon_social, $apellidos, $direccion, $telefono, $tipo_cliente, $id_tipo_trabajador, $id_facultad, $codigo_planilla);
+        $cliente = new Cliente($tipo_documento, $numero_documento, $nombres_razon_social, $apellidos, $direccion, $telefono, $tipo_cliente);
         $cliente->id_cliente = $id_cliente;
 
         // Ejecutar actualización

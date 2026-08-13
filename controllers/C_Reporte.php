@@ -10,9 +10,13 @@ require_once '../models/M_Reporte.php';
 $action = isset($_GET['action']) ? $_GET['action'] : '';
 $model = new M_Reporte();
 
-// Obtener parámetros comunes
-$desde = isset($_GET['desde']) && !empty($_GET['desde']) ? $_GET['desde'] : date('Y-m-d');
-$hasta = isset($_GET['hasta']) && !empty($_GET['hasta']) ? $_GET['hasta'] : date('Y-m-d');
+// Obtener parámetros comunes. "Hoy" por defecto se toma del reloj de MySQL, no del
+// de PHP: estos valores se comparan contra columnas DATETIME de la base y ambos
+// relojes difieren 5 horas (ver fechaHoyBD() en config/conexion.php).
+require_once dirname(__DIR__) . '/config/conexion.php';
+$hoy = fechaHoyBD();
+$desde = isset($_GET['desde']) && !empty($_GET['desde']) ? $_GET['desde'] : $hoy;
+$hasta = isset($_GET['hasta']) && !empty($_GET['hasta']) ? $_GET['hasta'] : $hoy;
 $agrupacion = isset($_GET['agrupacion']) ? $_GET['agrupacion'] : 'dia';
 
 switch ($action) {

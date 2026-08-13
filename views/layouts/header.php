@@ -6,7 +6,9 @@
     <!-- Título de página dinámico -->
     <title><?php echo isset($title) ? $title : 'NISSI POS'; ?></title>
     <!-- Icono oficial de la aplicación -->
-    <link rel="icon" type="image/png" href="assets/Logo navegador PuntoNet.png">
+    <link rel="icon" type="image/png" sizes="64x64" href="assets/favicons/favicon-64.png">
+    <link rel="icon" type="image/png" sizes="128x128" href="assets/favicons/favicon-128.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="assets/favicons/apple-touch-icon.png">
     <!-- Tipografía Google Fonts: Plus Jakarta Sans -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -86,33 +88,87 @@
             padding: 20px 12px;
         }
 
-        .menu-header {
-            font-size: 11px;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.8px;
-            color: rgba(255,255,255,0.3);
+        /* Grupos desplegables del menú: encabezado clicable + subíndices */
+        .sidebar-group {
             margin-top: 20px;
-            margin-bottom: 8px;
-            padding-left: 12px;
         }
 
-        .menu-header:first-child {
-            margin-top: 0;
+        /* El primer elemento de la barra (Dashboard o el primer grupo según rol)
+           no necesita separación superior. */
+        .sidebar-menu > * + * {
+            margin-top: 20px;
+        }
+
+        .menu-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            width: 100%;
+            margin-bottom: 6px;
+            padding: 9px 12px;
+            background: none;
+            border: none;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: rgba(255,255,255,0.35);
+            text-align: left;
+            cursor: pointer;
+            transition: background-color 0.2s ease, color 0.2s ease;
+        }
+
+        .menu-header:hover {
+            background-color: rgba(255,255,255,0.06);
+            color: rgba(255,255,255,0.8);
+        }
+
+        .menu-header-arrow {
+            font-size: 13px;
+            opacity: 0.7;
+            transition: transform 0.25s ease;
+        }
+
+        /* El grupo cuyo módulo está activo se sombrea para indicar la selección,
+           igual que resalta un elemento del menú. */
+        .sidebar-group.has-active > .menu-header {
+            background-color: rgba(29, 78, 216, 0.3);
+            color: #ffffff;
+        }
+
+        .sidebar-group.has-active > .menu-header:hover {
+            background-color: rgba(29, 78, 216, 0.38);
+        }
+
+        /* Cuerpo del grupo: se pliega/despliega con transición de altura. */
+        .menu-group-items {
+            overflow: hidden;
+            max-height: 0;
+            transition: max-height 0.25s ease;
+        }
+
+        .sidebar-group.open .menu-group-items {
+            max-height: 420px;
+        }
+
+        .sidebar-group.open .menu-header-arrow {
+            transform: rotate(180deg);
         }
 
         .menu-item {
             display: flex;
             align-items: center;
-            gap: 12px;
-            padding: 10px 14px;
+            gap: 10px;
+            padding: 7px 12px;
             border-radius: 8px;
-            color: rgba(255,255,255,0.7);
+            color: rgba(255,255,255,0.65);
             text-decoration: none;
-            font-size: 14px;
+            font-size: 13px;
             font-weight: 500;
             transition: all 0.2s ease;
-            margin-bottom: 4px;
+            margin-bottom: 2px;
             border: none;
             background: none;
             width: 100%;
@@ -124,14 +180,21 @@
             color: #ffffff;
         }
 
+        /* El elemento seleccionado solo resalta las letras (el sombreado de la
+           selección lo lleva la categoría a la que pertenece). */
         .menu-item.active {
-            background-color: var(--gp-primary);
-            color: #ffffff;
-            font-weight: 600;
+            background-color: transparent;
+            color: #60a5fa;
+            font-weight: 700;
+        }
+
+        .menu-item.active:hover {
+            background-color: var(--gp-sidebar-hover);
+            color: #60a5fa;
         }
 
         .menu-item i {
-            font-size: 18px;
+            font-size: 16px;
         }
 
         /* Barra de navegación superior (Navbar) */
@@ -185,6 +248,16 @@
         .sidebar.collapsed ~ .main-content {
             margin-left: 72px;
             width: calc(100% - 72px);
+        }
+
+        /* En modo iconos (colapsado en escritorio) no queda espacio para los
+           encabezados, así que los subíndices se muestran siempre
+           independientemente de si el grupo está plegado o desplegado. */
+        @media (min-width: 992px) {
+            .sidebar.collapsed .menu-group-items {
+                max-height: none !important;
+                overflow: visible;
+            }
         }
 
         /* Tarjetas de diseño premium */
@@ -259,6 +332,129 @@
             background: #94a3b8;
         }
 
+        /* ── Fondo oscuro del menú lateral en móvil ──────────────────────────────
+           Sin esto el sidebar se abría "flotando" sobre el contenido sin separarlo
+           visualmente, y no había ninguna zona evidente donde tocar para cerrarlo. */
+        .sidebar-backdrop {
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.5);
+            z-index: 999;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s ease, visibility 0.3s ease;
+        }
+        .sidebar-backdrop.show {
+            opacity: 1;
+            visibility: visible;
+        }
+        @media (min-width: 992px) {
+            /* En escritorio el sidebar es fijo: el fondo nunca debe aparecer. */
+            .sidebar-backdrop { display: none; }
+        }
+
+        /* ── Tablet (992px–1199px) ───────────────────────────────────────────────
+           Cabe el sidebar, pero a 260px se come el espacio que necesitan las tablas.
+           Se deja en modo iconos por defecto; el botón de contraer sigue funcionando
+           igual y el usuario puede expandirlo cuando quiera. */
+        @media (min-width: 992px) and (max-width: 1199.98px) {
+            .sidebar:not(.expanded) { width: 72px; }
+            .sidebar:not(.expanded) .brand-text,
+            .sidebar:not(.expanded) .menu-item span,
+            .sidebar:not(.expanded) .menu-header { display: none; }
+            .sidebar:not(.expanded) .menu-item { justify-content: center; padding: 10px 0; }
+            .sidebar:not(.expanded) .menu-group-items {
+                max-height: none !important;
+                overflow: visible;
+            }
+            .sidebar:not(.expanded) + .top-navbar { left: 72px; }
+            .sidebar:not(.expanded) ~ .main-content {
+                margin-left: 72px;
+                width: calc(100% - 72px);
+            }
+        }
+
+        /* ── Táctil (hasta 991.98px) ─────────────────────────────────────────────
+           Los controles de acción de las tablas medían 24–31px de alto. La guía de
+           accesibilidad pide 44px como mínimo para el dedo; se aplica solo en pantallas
+           táctiles para no agrandar la interfaz de escritorio, que se usa con ratón. */
+        @media (max-width: 991.98px) {
+            /* Cubre también los botones sueltos de cabecera (Filtrar, Exportar…), que
+               llevan `height: 31px` en un style inline; min-height gana a height. */
+            .btn,
+            .table .btn-link,
+            .btn-link.p-1 {
+                min-height: 44px;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+            }
+            /* Los de solo icono además necesitan ancho: si no, quedan altos y finos. */
+            .table .btn-link,
+            .btn-link.p-1 {
+                min-width: 44px;
+            }
+            .cat-filter-btn,
+            .hist-format-btn {
+                min-height: 40px;
+                padding-top: 8px;
+                padding-bottom: 8px;
+            }
+            /* Los campos por debajo de 16px hacen que iOS haga zoom automático al
+               enfocarlos, descuadrando toda la pantalla. Lleva !important porque
+               muchas vistas fijan el tamaño con `style` inline (font-size: 13.5px),
+               y eso gana a cualquier regla de hoja de estilos por específica que sea;
+               la alternativa era editar estilos inline en las 17 vistas. */
+            .form-control,
+            .form-select,
+            .form-control-sm,
+            .form-select-sm {
+                font-size: 16px !important;
+                min-height: 44px;
+            }
+
+            /* El botón hamburguesa quedaba en 24x34px: es el control más usado en
+               móvil y hay que poder acertarle con el pulgar. */
+            #mobile-toggle-sidebar {
+                min-width: 44px;
+                min-height: 44px;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+            }
+            /* Las tablas siguen con scroll horizontal (decisión tomada), pero se
+               acompaña: inercia en iOS y la primera columna fija para no perder de
+               vista de qué fila se está leyendo al desplazarse. */
+            .table-responsive {
+                -webkit-overflow-scrolling: touch;
+            }
+            .table-responsive > .table > thead > tr > th:first-child,
+            .table-responsive > .table > tbody > tr > td:first-child {
+                position: sticky;
+                left: 0;
+                background-color: var(--gp-card);
+                z-index: 2;
+                box-shadow: 1px 0 0 var(--gp-border);
+            }
+            .table-responsive > .table > thead > tr > th:first-child {
+                z-index: 3;
+            }
+        }
+
+        /* ── Móvil estrecho (hasta 575.98px) ─────────────────────────────────── */
+        @media (max-width: 575.98px) {
+            .main-content {
+                padding-left: 10px;
+                padding-right: 10px;
+            }
+            .gp-card { padding: 16px; }
+            /* Cabeceras de módulo: título y acciones se apilan en vez de competir
+               por el ancho y truncarse. */
+            .gp-card h4, h4.fw-bold { font-size: 1.15rem; }
+            /* Los diálogos de SweetAlert se salían del alto útil con teclado abierto. */
+            .swal2-popup { width: 92vw !important; font-size: 14px; }
+        }
+
         /* Reglas responsivas para pantallas móviles */
         @media (max-width: 991.98px) {
             .sidebar {
@@ -284,9 +480,11 @@
                 width: 260px;
             }
             .sidebar.collapsed.show .brand-text, 
-            .sidebar.collapsed.show .menu-item span,
-            .sidebar.collapsed.show .menu-header {
+            .sidebar.collapsed.show .menu-item span {
                 display: inline;
+            }
+            .sidebar.collapsed.show .menu-header {
+                display: flex;
             }
             .sidebar.collapsed.show .menu-item {
                 justify-content: start;
@@ -296,4 +494,6 @@
     </style>
 </head>
 <body>
+    <!-- Fondo oscuro del menú lateral en móvil (ver .sidebar-backdrop arriba). -->
+    <div class="sidebar-backdrop" id="sidebar-backdrop" aria-hidden="true"></div>
     <div class="wrapper d-flex">

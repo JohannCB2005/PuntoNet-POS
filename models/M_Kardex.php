@@ -40,7 +40,7 @@ class M_Kardex {
                     INNER JOIN unidades_medida u ON i.id_unidad = u.id_unidad
                     LEFT JOIN tallas t ON i.id_talla = t.id_talla
                     LEFT JOIN productos p ON i.id_producto_padre = p.id_producto
-                    WHERE i.estado = 1 AND i.es_agrupador = 0
+                    WHERE i.estado = 1 AND i.es_agrupador = 0 AND i.stock_ilimitado = 0
                     ORDER BY c.nombre, nombre_padre, t.orden, i.nombre";
             $stmt = $this->conexion->prepare($sql);
             $stmt->execute();
@@ -102,6 +102,7 @@ class M_Kardex {
                     INNER JOIN personas p ON cl.id_persona = p.id_persona
                     WHERE dv.id_producto = ?
                       AND v.estado = 1
+                      AND v.origen != 3
                       {$fechaWhere}
                       {$busquedaWhere}
                     ORDER BY v.fecha ASC";

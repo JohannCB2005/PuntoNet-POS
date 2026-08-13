@@ -25,7 +25,10 @@ switch ($action) {
         foreach ($cotizaciones as $c) {
             // Verificar si venció y está pendiente
             $estado = $c['estado'];
-            if ($estado == 1 && strtotime($c['fecha_vencimiento']) < strtotime(date('Y-m-d'))) {
+            // El vencimiento se compara contra el reloj de MySQL: con date() de PHP,
+            // desde las 19:00 hora de Perú una cotización que vence HOY ya salía como
+            // vencida (ver fechaHoyBD() en config/conexion.php).
+            if ($estado == 1 && strtotime($c['fecha_vencimiento']) < strtotime(fechaHoyBD())) {
                 $estado = 3; // Vencida visualmente
             }
             
@@ -130,7 +133,11 @@ switch ($action) {
             exit;
         }
 
-        // Crear objeto Venta
+        // Crear objeto Venta — si el vendedor tiene caja abierta, la venta queda ligada a ella;
+        // si no, queda sin caja física asociada (igual que un pedido online).
+        require_once dirname(__DIR__) . '/models/M_Caja.php';
+        $cajaAbierta = M_Caja::singleton()->obtenerCajaAbierta($_SESSION['id_usuario']);
+
         $venta = new Venta(
             null,
             $_SESSION['id_usuario'],
@@ -139,6 +146,8 @@ switch ($action) {
             $tipo_comprobante,
             $cotData['total'],
             $metodo_pago,
+            1,
+            $cajaAbierta['id_caja'] ?? null,
             1
         );
 

@@ -129,6 +129,7 @@ class M_Reporte {
                     i.precio_unitario,
                     (i.stock_piezas * i.precio_unitario) as valor_stock,
                     CASE 
+                        WHEN i.stock_ilimitado = 1 THEN 'Ilimitado'
                         WHEN i.stock_piezas <= 0 THEN 'Agotado'
                         WHEN i.stock_piezas <= 20 THEN 'Bajo'
                         ELSE 'Normal' 

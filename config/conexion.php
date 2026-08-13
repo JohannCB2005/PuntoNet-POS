@@ -35,14 +35,28 @@ class Conexion {
                 ]
             ];
         } else {
-            $configs = [
-                [
-                    'host'   => $_env['DB_PROD_HOST'] ?? '',
-                    'dbname' => $_env['DB_PROD_NAME'] ?? '',
-                    'user'   => $_env['DB_PROD_USER'] ?? '',
-                    'pass'   => $_env['DB_PROD_PASS'] ?? ''
-                ]
+            $_prodConfig = [
+                'host'   => $_env['DB_PROD_HOST'] ?? '',
+                'dbname' => $_env['DB_PROD_NAME'] ?? '',
+                'user'   => $_env['DB_PROD_USER'] ?? '',
+                'pass'   => $_env['DB_PROD_PASS'] ?? ''
             ];
+
+            if (!empty($_prodConfig['host']) && !empty($_prodConfig['dbname'])) {
+                $configs = [$_prodConfig];
+            } else {
+                // Sin credenciales de producción configuradas (por ejemplo en un túnel
+                // local como Cloudflare Tunnel) se usan las credenciales locales de desarrollo.
+                $configs = [
+                    [
+                        'host' => 'localhost',
+                        'dbname' => 'puntonet_pos',
+                        'user' => 'puntonet_user',
+                        'pass' => 'puntonet2026'
+                    ]
+                ];
+            }
+            unset($_prodConfig);
         }
         unset($_envFile, $_env);
 
@@ -171,6 +185,28 @@ class Conexion {
 
     public function getConexion() {
         return $this->dbh;
+    }
+}
+
+/**
+ * Fecha de "hoy" según el reloj de MySQL, que es el único que importa para filtrar
+ * columnas DATETIME de la base.
+ *
+ * En este entorno MySQL corre en hora local (time_zone = SYSTEM) y PHP en UTC: 5
+ * horas de diferencia. Usar date('Y-m-d') como valor por defecto de un filtro que
+ * después se compara contra DATE(fecha_apertura) hace que, desde las 19:00 hora de
+ * Perú, la consulta pida el día SIGUIENTE — "Control de Cajas" y "Reportes" salen
+ * vacíos con la tienda todavía abierta.
+ *
+ * Regla del proyecto: las fechas de BD se comparan siempre contra el reloj de la BD.
+ * Esto es la versión "valor por defecto" de esa misma regla.
+ */
+function fechaHoyBD(): string {
+    try {
+        return (string) Conexion::singleton()->getConexion()->query('SELECT CURDATE()')->fetchColumn();
+    } catch (Exception $e) {
+        // Si la BD no responde, el reloj de PHP es mejor que nada.
+        return date('Y-m-d');
     }
 }
 ?>

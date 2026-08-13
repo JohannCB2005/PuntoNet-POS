@@ -6,11 +6,9 @@ $vendorDir = dirname(__DIR__);
 $baseDir = dirname($vendorDir);
 
 return array(
-    'ZipStream\\' => array($vendorDir . '/maennchen/zipstream-php/src'),
-    'Stripe\\' => array($vendorDir . '/stripe/stripe-php/lib'),
-    'Psr\\SimpleCache\\' => array($vendorDir . '/psr/simple-cache/src'),
-    'PhpOffice\\PhpSpreadsheet\\' => array($vendorDir . '/phpoffice/phpspreadsheet/src/PhpSpreadsheet'),
-    'Matrix\\' => array($vendorDir . '/markbaker/matrix/classes/src'),
-    'Composer\\Pcre\\' => array($vendorDir . '/composer/pcre/src'),
-    'Complex\\' => array($vendorDir . '/markbaker/complex/classes/src'),
+    'Twig\\' => array($vendorDir . '/twig/twig/src'),
+    'Symfony\\Polyfill\\Mbstring\\' => array($vendorDir . '/symfony/polyfill-mbstring'),
+    'Symfony\\Polyfill\\Ctype\\' => array($vendorDir . '/symfony/polyfill-ctype'),
+    'Greenter\\XMLSecLibs\\' => array($vendorDir . '/greenter/xmldsig/src'),
+    'Greenter\\' => array($vendorDir . '/greenter/core/src/Core', $vendorDir . '/greenter/xml/src'),
 );

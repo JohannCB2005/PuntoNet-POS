@@ -10,6 +10,7 @@ require_once dirname(__DIR__) . '/models/M_Producto.php';
 require_once dirname(__DIR__) . '/models/M_Cliente.php';
 require_once dirname(__DIR__) . '/models/M_Categoria.php';
 require_once dirname(__DIR__) . '/models/M_Caja.php';
+require_once dirname(__DIR__) . '/config/sunat.php';
 
 // Listar productos activos en catálogo
 $modelProducto = M_Producto::singleton();
@@ -190,7 +191,7 @@ $cajaAbierta = $modelCaja->obtenerCajaAbierta($_SESSION['id_usuario']);
                     <i class="bi bi-lock-fill text-muted mb-3 d-block" style="font-size: 3.5rem;"></i>
                     <h3 class="fw-bold text-dark mb-2">Caja Cerrada</h3>
                     <p class="text-muted mb-4" style="font-size: 14px;">Debes aperturar tu caja para poder registrar ventas en el sistema.</p>
-                    <a href="index.php?modulo=caja" class="btn btn-primary rounded-pill px-4 py-2 fw-bold w-100 shadow-sm">
+                    <a href="/caja" class="btn btn-primary rounded-pill px-4 py-2 fw-bold w-100 shadow-sm">
                         <i class="bi bi-unlock-fill me-2"></i> Ir a Mi Caja
                     </a>
                 </div>
@@ -267,7 +268,10 @@ $cajaAbierta = $modelCaja->obtenerCajaAbierta($_SESSION['id_usuario']);
                         </div>
                         
                         <!-- Píldoras de Filtro por Categorías -->
-                        <div class="d-flex gap-2 overflow-auto pb-2 pb-md-0" style="flex: 1; white-space: nowrap; scrollbar-width: none;" id="categoryFilterPills">
+                        <!-- min-width obliga a que estas píldoras bajen a su propia línea cuando
+                             no caben junto al buscador. Con solo `flex: 1` la base es 0, así que
+                             nunca envolvían y en móvil quedaban en una franja de 43px inservible. -->
+                        <div class="d-flex gap-2 overflow-auto pb-2 pb-md-0" style="flex: 1; min-width: 240px; white-space: nowrap; scrollbar-width: none;" id="categoryFilterPills">
                             <style>#categoryFilterPills::-webkit-scrollbar { display: none; }</style>
                             <button class="btn btn-primary btn-sm rounded-pill px-3 fw-semibold cat-filter-btn active" data-cat="all">Todos</button>
                             <?php foreach ($categorias as $cat): ?>
@@ -284,13 +288,16 @@ $cajaAbierta = $modelCaja->obtenerCajaAbierta($_SESSION['id_usuario']);
                     <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 g-3">
                         <?php foreach ($productos as $ins): ?>
                             <?php if ($ins['estado'] == 1 && !$ins['id_producto_padre'] && $ins['es_agrupador'] == 0): ?>
+                                <?php $ilimitado = ($ins['stock_ilimitado'] ?? 0) == 1; ?>
                                 <!-- TARJETA SIMPLE: producto sin variantes de talla -->
                                 <div class="col product-card"
                                      data-nombre="<?php echo htmlspecialchars(strtolower($ins['nombre'])); ?>"
                                      data-categoria="<?php echo htmlspecialchars($ins['categoria']); ?>">
                                     <div class="card h-100 border border-light shadow-sm hover-shadow-md transition-all position-relative" style="border-radius: 12px; overflow: hidden;">
                                         <div class="position-absolute top-0 end-0 m-2">
-                                            <?php if ($ins['stock_piezas'] <= 0): ?>
+                                            <?php if ($ilimitado): ?>
+                                                <span class="badge bg-success rounded-pill px-2.5 py-1 fw-bold" style="font-size: 10px;"><i class="bi bi-infinity"></i> Stock ilimitado</span>
+                                            <?php elseif ($ins['stock_piezas'] <= 0): ?>
                                                 <span class="badge bg-danger rounded-pill px-2.5 py-1 fw-bold" style="font-size: 10px;">Agotado</span>
                                             <?php elseif ($ins['stock_piezas'] <= 20): ?>
                                                 <span class="badge bg-warning text-dark rounded-pill px-2.5 py-1 fw-bold" style="font-size: 10px;">Bajo Stock (<?php echo number_format($ins['stock_piezas'], 1); ?>)</span>
@@ -313,10 +320,11 @@ $cajaAbierta = $modelCaja->obtenerCajaAbierta($_SESSION['id_usuario']);
                                                         data-id="<?php echo $ins['id_producto']; ?>"
                                                         data-nombre="<?php echo htmlspecialchars($ins['nombre']); ?>"
                                                         data-precio="<?php echo $ins['precio_unitario']; ?>"
-                                                        data-stock="<?php echo $ins['stock_piezas']; ?>"
+                                                        data-stock="<?php echo $ilimitado ? 9999 : $ins['stock_piezas']; ?>"
+                                                        data-stockilimitado="<?php echo $ilimitado ? 1 : 0; ?>"
                                                         data-unidad="<?php echo htmlspecialchars($ins['abreviatura']); ?>"
                                                         style="width: 32px; height: 32px; border-radius: 8px; padding: 0; background-color: #0284c7;"
-                                                        <?php echo $ins['stock_piezas'] <= 0 ? 'disabled' : ''; ?>>
+                                                        <?php echo (!$ilimitado && $ins['stock_piezas'] <= 0) ? 'disabled' : ''; ?>>
                                                     <i class="bi bi-plus-lg"></i>
                                                 </button>
                                             </div>
@@ -408,19 +416,60 @@ $cajaAbierta = $modelCaja->obtenerCajaAbierta($_SESSION['id_usuario']);
                         </div>
                     </div>
 
+                    <div class="form-check form-switch d-flex align-items-center justify-content-between bg-light rounded-3 px-3 py-2 mb-3">
+                        <label class="form-check-label fw-semibold" for="separarPedidoSwitch" style="font-size: 12.5px; cursor: pointer;">
+                            <i class="bi bi-bookmark-star text-primary"></i> Separar pedido con anticipo
+                        </label>
+                        <input class="form-check-input" type="checkbox" role="switch" id="separarPedidoSwitch" style="cursor: pointer;">
+                    </div>
+
+                    <div id="separacionClienteWarning" class="text-danger small mb-2" style="display: none;">
+                        <i class="bi bi-exclamation-triangle-fill"></i> Elige un cliente registrado (no Público General) para separar un pedido.
+                    </div>
+
+                    <div id="boletaUmbralWarning" class="text-danger small mb-2" style="display: none;">
+                        <i class="bi bi-exclamation-triangle-fill"></i> Boletas mayores a S/ <span id="boletaUmbralMonto"></span> requieren un cliente con documento (SUNAT no admite Público General sobre ese monto).
+                    </div>
+
+                    <div id="separacionResumen" class="bg-light p-3 rounded-3 mb-3" style="font-size: 13px; display: none;">
+                        <div class="d-flex align-items-center justify-content-between mb-2">
+                            <span class="text-muted">Valor mercadería</span>
+                            <span class="fw-semibold text-dark" id="separacionMercaderia">S/ 0.00</span>
+                        </div>
+                        <div class="d-flex align-items-center justify-content-between mb-2">
+                            <span class="text-muted">Anticipo (mín. 50%)</span>
+                            <span class="fw-semibold text-dark" id="separacionAnticipoMinimo">S/ 0.00</span>
+                        </div>
+                        <div class="d-flex align-items-center justify-content-between pt-2 border-top">
+                            <span class="fw-bold text-dark" style="font-size: 14px;">Saldo pendiente</span>
+                            <span class="fw-bold text-primary" style="font-size: 16px;" id="separacionSaldo">S/ 0.00</span>
+                        </div>
+                    </div>
+
                     <div class="mb-3">
-                        <label class="form-label fw-semibold text-muted mb-1" style="font-size: 12px;">Método de Pago</label>
-                        <select id="metodoPagoSelect" class="form-select form-select-sm text-sm fw-semibold" style="height: 38px; border-color: #ced4da; box-shadow: none;">
-                            <option value="1" selected>💵 Efectivo</option>
-                            <option value="2">📱 Yape / Plin</option>
-                            <option value="3">💳 Tarjeta POS</option>
-                        </select>
-                        <div id="metodoPagoHint" class="badge bg-primary w-100 mt-2 py-2">Pago en efectivo</div>
+                        <label class="form-label fw-semibold text-muted mb-1" style="font-size: 12px;" id="pagosLabel">Forma de Pago</label>
+                        <div class="table-responsive" style="overflow: visible;">
+                            <table class="table table-sm align-middle mb-1" style="font-size: 12.5px;">
+                                <thead>
+                                    <tr class="text-muted" style="font-size: 11px;">
+                                        <th style="min-width:120px;">Método de pago</th>
+                                        <th style="min-width:110px;">Referencia</th>
+                                        <th style="min-width:90px;">Monto</th>
+                                        <th style="width:32px;"></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="pagosBody"></tbody>
+                            </table>
+                        </div>
+                        <a href="#" id="btnAgregarPago" class="d-inline-flex align-items-center gap-1 text-decoration-none" style="font-size: 12.5px;">
+                            <i class="bi bi-plus-circle-fill"></i> Agregar pago
+                        </a>
+                        <div id="pagosDiferenciaHint" class="badge w-100 mt-2 py-2"></div>
                     </div>
 
                     <!-- Confirmar Venta -->
                     <button class="gp-btn-primary w-100 border-0 py-2.5 d-flex align-items-center justify-content-center gap-2" id="submitSaleBtn" style="background-color: #0284c7;" disabled>
-                        <span>Registrar Venta</span>
+                        <span id="submitSaleBtnLabel">Registrar Venta</span>
                     </button>
                 </div>
             </div>
@@ -591,7 +640,7 @@ $cajaAbierta = $modelCaja->obtenerCajaAbierta($_SESSION['id_usuario']);
                     <i class="bi bi-printer-fill"></i> Imprimir
                 </button>
                 <div class="d-flex gap-2">
-                    <button class="btn btn-outline-secondary px-4" onclick="window.location.href='index.php?modulo=historial'">
+                    <button class="btn btn-outline-secondary px-4" onclick="window.location.href='/historial'">
                         <i class="bi bi-list-ul"></i> Ir al listado
                     </button>
                     <button class="btn btn-primary px-4" onclick="window.location.reload()" style="background-color: #0284c7; border: none;">
@@ -637,26 +686,241 @@ $cajaAbierta = $modelCaja->obtenerCajaAbierta($_SESSION['id_usuario']);
         const summaryIgv = document.getElementById('summaryIgv');
         const summaryTotal = document.getElementById('summaryTotal');
 
-        const metodoPagoSelect = document.getElementById('metodoPagoSelect');
-        const metodoPagoHint = document.getElementById('metodoPagoHint');
+        // ─────────────────────────────────────────────────────────────
+        // Pago mixto: por defecto una sola línea (Efectivo, monto = total),
+        // "+ Agregar pago" suma líneas de otro método. La suma debe calzar
+        // exactamente con el total antes de poder cobrar — así es imposible
+        // que una venta se registre con menos o más plata de la que entró.
+        // ─────────────────────────────────────────────────────────────
+        const pagosBody = document.getElementById('pagosBody');
+        const btnAgregarPago = document.getElementById('btnAgregarPago');
+        const pagosDiferenciaHint = document.getElementById('pagosDiferenciaHint');
+        const hintsPorMetodo = {
+            '1': { texto: 'Pago en efectivo', clase: 'bg-primary', bg: '' },
+            '2': { texto: 'Solicitar captura de pantalla Yape/Plin', clase: '', bg: 'purple' },
+            '3': { texto: 'Verificar voucher del POS', clase: 'bg-success', bg: '' },
+        };
+        let pagos = [{ metodo_pago: 1, referencia: '', monto: 0 }];
+        let pagosEditadosManualmente = false; // deja de auto-rellenar en cuanto el cajero toca un monto
 
-        if (metodoPagoSelect && metodoPagoHint) {
-            metodoPagoSelect.addEventListener('change', (e) => {
-                const val = e.target.value;
-                metodoPagoHint.className = 'badge w-100 mt-2 py-2';
-                metodoPagoHint.style.backgroundColor = '';
-                if (val === '1') {
-                    metodoPagoHint.classList.add('bg-primary');
-                    metodoPagoHint.innerText = 'Pago en efectivo';
-                } else if (val === '2') {
-                    metodoPagoHint.style.backgroundColor = 'purple';
-                    metodoPagoHint.innerText = 'Solicitar captura de pantalla Yape/Plin';
-                } else if (val === '3') {
-                    metodoPagoHint.classList.add('bg-success');
-                    metodoPagoHint.innerText = 'Verificar voucher del POS';
-                }
-            });
+        // ─────────────────────────────────────────────────────────────
+        // Separar pedido con anticipo: mismo carrito/cliente/tabla de pago,
+        // pero las líneas de pago cobran un ANTICIPO (mínimo 50% del total)
+        // en vez del total exacto. El saldo se cobra después en el módulo
+        // de Separaciones (abono/despacho).
+        // ─────────────────────────────────────────────────────────────
+        let modoSeparacion = false;
+        const separarPedidoSwitch = document.getElementById('separarPedidoSwitch');
+        const separacionResumen = document.getElementById('separacionResumen');
+        const separacionClienteWarning = document.getElementById('separacionClienteWarning');
+        const separacionMercaderiaEl = document.getElementById('separacionMercaderia');
+        const separacionAnticipoMinimoEl = document.getElementById('separacionAnticipoMinimo');
+        const separacionSaldoEl = document.getElementById('separacionSaldo');
+        const pagosLabel = document.getElementById('pagosLabel');
+        const submitSaleBtnLabel = document.getElementById('submitSaleBtnLabel');
+        const ANTICIPO_MINIMO_PCT = 0.50;
+
+        // Umbral SUNAT para boletas (requiere cliente identificado). Debe declararse
+        // antes de renderPagos()/validateSubmitBtn(), que lo usan desde el arranque.
+        const SUNAT_BOLETA_UMBRAL_DNI = <?php echo json_encode(SUNAT_BOLETA_UMBRAL_DNI); ?>;
+        const boletaUmbralWarning = document.getElementById('boletaUmbralWarning');
+        document.getElementById('boletaUmbralMonto').innerText = SUNAT_BOLETA_UMBRAL_DNI.toFixed(2);
+
+        function totalVentaActual() {
+            return cart.reduce((s, item) => s + item.subtotal, 0);
         }
+
+        function anticipoMinimo() {
+            return Math.round(Math.max(0, totalVentaActual()) * ANTICIPO_MINIMO_PCT * 100) / 100;
+        }
+
+        function actualizarResumenSeparacion() {
+            if (!modoSeparacion) return;
+            const total = Math.max(0, totalVentaActual());
+            const suma = pagos.reduce((s, p) => s + (parseFloat(p.monto) || 0), 0);
+            separacionMercaderiaEl.innerText = `S/ ${total.toFixed(2)}`;
+            separacionAnticipoMinimoEl.innerText = `S/ ${anticipoMinimo().toFixed(2)}`;
+            separacionSaldoEl.innerText = `S/ ${Math.max(0, total - suma).toFixed(2)}`;
+        }
+
+        function actualizarAvisoCliente() {
+            const esPublicoGeneral = !cartClientId.value || cartClientId.value === '1';
+            separacionClienteWarning.style.display = (modoSeparacion && esPublicoGeneral) ? 'block' : 'none';
+        }
+
+        separarPedidoSwitch.addEventListener('change', () => {
+            modoSeparacion = separarPedidoSwitch.checked;
+            separacionResumen.style.display = modoSeparacion ? 'block' : 'none';
+            pagosLabel.innerText = modoSeparacion ? 'Anticipo' : 'Forma de Pago';
+            submitSaleBtnLabel.innerText = modoSeparacion ? 'Separar Pedido' : 'Registrar Venta';
+            // El comprobante de un anticipo/abono siempre es Nota de Venta; solo al
+            // despachar (módulo de Separaciones) se elige Boleta/Factura/Nota de Venta.
+            if (modoSeparacion) {
+                docTypeSelect.dataset.prevValue = docTypeSelect.value;
+                docTypeSelect.value = '3';
+                docTypeSelect.disabled = true;
+            } else {
+                docTypeSelect.disabled = false;
+                if (docTypeSelect.dataset.prevValue) docTypeSelect.value = docTypeSelect.dataset.prevValue;
+            }
+            pagosEditadosManualmente = false; // vuelve a autocompletar con el nuevo objetivo (total o mínimo)
+            renderPagos();
+            actualizarAvisoCliente();
+            validateSubmitBtn();
+        });
+
+        function resetModoSeparacion() {
+            if (!modoSeparacion) return;
+            modoSeparacion = false;
+            separarPedidoSwitch.checked = false;
+            separacionResumen.style.display = 'none';
+            pagosLabel.innerText = 'Forma de Pago';
+            submitSaleBtnLabel.innerText = 'Registrar Venta';
+            docTypeSelect.disabled = false;
+            if (docTypeSelect.dataset.prevValue) docTypeSelect.value = docTypeSelect.dataset.prevValue;
+            pagosEditadosManualmente = false;
+        }
+
+        function renderPagos() {
+            const total = Math.max(0, totalVentaActual());
+            // Fuera de modo separación, la fila única se autocompleta con el total
+            // (comportamiento de siempre). En modo separación, con el anticipo mínimo.
+            const objetivoDefault = modoSeparacion ? anticipoMinimo() : total;
+
+            // Con una sola línea, seguimos el comportamiento de siempre: se
+            // autocompleta con el objetivo. Con 2+ líneas, se respeta lo que el
+            // cajero ya escribió — no le pisamos los montos mientras reparte.
+            if (pagos.length === 1 && !pagosEditadosManualmente) {
+                pagos[0].monto = objetivoDefault;
+            }
+
+            pagosBody.innerHTML = pagos.map((p, idx) => `
+                <tr>
+                    <td>
+                        <select class="form-select form-select-sm pago-metodo" data-idx="${idx}" style="font-size:12px;">
+                            <option value="1" ${p.metodo_pago === 1 ? 'selected' : ''}>💵 Efectivo</option>
+                            <option value="2" ${p.metodo_pago === 2 ? 'selected' : ''}>📱 Yape/Plin</option>
+                            <option value="3" ${p.metodo_pago === 3 ? 'selected' : ''}>💳 Tarjeta</option>
+                        </select>
+                    </td>
+                    <td>
+                        <input type="text" class="form-control form-control-sm pago-referencia" data-idx="${idx}"
+                               value="${p.referencia}" placeholder="Opcional" style="font-size:12px;">
+                    </td>
+                    <td>
+                        <input type="number" class="form-control form-control-sm pago-monto" data-idx="${idx}"
+                               value="${p.monto.toFixed(2)}" step="0.01" min="0" style="font-size:12px;">
+                    </td>
+                    <td class="text-center">
+                        ${pagos.length > 1 ? `
+                            <button type="button" class="btn btn-sm btn-danger py-0 px-2 pago-eliminar" data-idx="${idx}" style="border-radius:6px;">
+                                <i class="bi bi-trash3-fill" style="font-size:11px;"></i>
+                            </button>
+                        ` : ''}
+                    </td>
+                </tr>
+            `).join('');
+
+            actualizarDiferenciaPagos();
+            actualizarResumenSeparacion();
+        }
+
+        function actualizarDiferenciaPagos() {
+            const total = Math.max(0, totalVentaActual());
+            const suma = pagos.reduce((s, p) => s + (parseFloat(p.monto) || 0), 0);
+
+            if (modoSeparacion) {
+                const minimo = anticipoMinimo();
+                if (suma > total + 0.01) {
+                    pagosDiferenciaHint.className = 'badge w-100 mt-2 py-2 bg-danger';
+                    pagosDiferenciaHint.style.backgroundColor = '';
+                    pagosDiferenciaHint.innerText = `El anticipo no puede superar el total: S/ ${total.toFixed(2)}`;
+                } else if (suma < minimo - 0.01) {
+                    pagosDiferenciaHint.className = 'badge w-100 mt-2 py-2 bg-danger';
+                    pagosDiferenciaHint.style.backgroundColor = '';
+                    pagosDiferenciaHint.innerText = `Falta para el anticipo mínimo (50%): S/ ${(minimo - suma).toFixed(2)}`;
+                } else {
+                    pagosDiferenciaHint.className = 'badge w-100 mt-2 py-2 bg-success';
+                    pagosDiferenciaHint.style.backgroundColor = '';
+                    pagosDiferenciaHint.innerText = `Anticipo válido · Saldo pendiente: S/ ${(total - suma).toFixed(2)}`;
+                }
+                actualizarResumenSeparacion();
+                validateSubmitBtn();
+                return;
+            }
+
+            const diferencia = Math.round((total - suma) * 100) / 100;
+
+            if (Math.abs(diferencia) <= 0.01) {
+                pagosDiferenciaHint.className = 'badge w-100 mt-2 py-2 bg-success';
+                pagosDiferenciaHint.innerText = pagos.length > 1 ? 'Pago mixto: los montos cuadran ✓' : (hintsPorMetodo[String(pagos[0].metodo_pago)]?.texto || 'Listo para cobrar');
+                if (pagos.length === 1) {
+                    const hint = hintsPorMetodo[String(pagos[0].metodo_pago)];
+                    pagosDiferenciaHint.className = 'badge w-100 mt-2 py-2' + (hint.clase ? ' ' + hint.clase : '');
+                    pagosDiferenciaHint.style.backgroundColor = hint.bg;
+                    pagosDiferenciaHint.innerText = hint.texto;
+                }
+            } else if (diferencia > 0) {
+                pagosDiferenciaHint.className = 'badge w-100 mt-2 py-2 bg-danger';
+                pagosDiferenciaHint.style.backgroundColor = '';
+                pagosDiferenciaHint.innerText = `Falta: S/ ${diferencia.toFixed(2)}`;
+            } else {
+                pagosDiferenciaHint.className = 'badge w-100 mt-2 py-2 bg-danger';
+                pagosDiferenciaHint.style.backgroundColor = '';
+                pagosDiferenciaHint.innerText = `Sobra: S/ ${Math.abs(diferencia).toFixed(2)}`;
+            }
+
+            validateSubmitBtn();
+        }
+
+        function pagosCuadran() {
+            const total = Math.max(0, totalVentaActual());
+            const suma = pagos.reduce((s, p) => s + (parseFloat(p.monto) || 0), 0);
+            if (modoSeparacion) {
+                const minimo = anticipoMinimo();
+                return pagos.length > 0 && suma >= (minimo - 0.01) && suma <= (total + 0.01);
+            }
+            return pagos.length > 0 && Math.abs(total - suma) <= 0.01;
+        }
+
+        pagosBody.addEventListener('change', (e) => {
+            const idx = parseInt(e.target.dataset.idx);
+            if (isNaN(idx)) return;
+            if (e.target.classList.contains('pago-metodo')) {
+                pagos[idx].metodo_pago = parseInt(e.target.value);
+                actualizarDiferenciaPagos();
+            } else if (e.target.classList.contains('pago-referencia')) {
+                pagos[idx].referencia = e.target.value.trim();
+            } else if (e.target.classList.contains('pago-monto')) {
+                pagos[idx].monto = parseFloat(e.target.value) || 0;
+                pagosEditadosManualmente = true;
+                actualizarDiferenciaPagos();
+            }
+        });
+
+        pagosBody.addEventListener('click', (e) => {
+            const btn = e.target.closest('.pago-eliminar');
+            if (!btn) return;
+            const idx = parseInt(btn.dataset.idx);
+            pagos.splice(idx, 1);
+            if (pagos.length === 1) pagosEditadosManualmente = false; // vuelve al autocompletado simple
+            renderPagos();
+        });
+
+        btnAgregarPago.addEventListener('click', (e) => {
+            e.preventDefault();
+            const total = Math.max(0, totalVentaActual());
+            const objetivo = modoSeparacion ? anticipoMinimo() : total;
+            const sumaActual = pagos.reduce((s, p) => s + (parseFloat(p.monto) || 0), 0);
+            const restante = Math.max(0, Math.round((objetivo - sumaActual) * 100) / 100);
+            // El monto pendiente se precarga en la fila nueva — el cajero solo tiene
+            // que elegir el método de esa segunda forma de pago, no hacer la resta a mano.
+            pagos.push({ metodo_pago: 1, referencia: '', monto: restante });
+            pagosEditadosManualmente = true;
+            renderPagos();
+        });
+
+        renderPagos();
 
         // Elementos del formulario de registro rápido
         const modalTipoDoc = document.getElementById('modalTipoDoc');
@@ -1254,8 +1518,25 @@ $cajaAbierta = $modelCaja->obtenerCajaAbierta($_SESSION['id_usuario']);
         // Validar si la venta cumple las condiciones mínimas para ser cobrada
         function validateSubmitBtn() {
             const hasItems = cart.length > 0;
-            const hasClient = (cartClientId.value && cartClientId.value !== '');
-            submitSaleBtn.disabled = !(hasItems && hasClient);
+            const esPublicoGeneralActual = !cartClientId.value || cartClientId.value === '1';
+
+            // Boleta sobre el umbral SUNAT exige identificar al comprador — mismo
+            // límite que valida C_Venta.php en servidor; esto solo evita el viaje
+            // redondo de un rechazo que ya sabemos que va a pasar.
+            const esBoletaSobreUmbral = !modoSeparacion
+                && docTypeSelect.value === '1'
+                && totalVentaActual() > SUNAT_BOLETA_UMBRAL_DNI
+                && esPublicoGeneralActual;
+
+            // Separar un pedido exige un cliente registrado real: Público General
+            // (id=1) no tiene a quién avisarle que su prenda está lista.
+            const hasClient = modoSeparacion
+                ? (cartClientId.value && cartClientId.value !== '' && cartClientId.value !== '1')
+                : (cartClientId.value && cartClientId.value !== '' && !esBoletaSobreUmbral);
+
+            boletaUmbralWarning.style.display = (hasItems && esBoletaSobreUmbral) ? 'block' : 'none';
+            submitSaleBtn.disabled = !(hasItems && hasClient && pagosCuadran());
+            actualizarAvisoCliente();
         }
 
         // Dibujar el estado actual del Carrito en el HTML
@@ -1272,7 +1553,7 @@ $cajaAbierta = $modelCaja->obtenerCajaAbierta($_SESSION['id_usuario']);
                 summarySubtotal.innerText = 'S/ 0.00';
                 summaryIgv.innerText = 'S/ 0.00';
                 summaryTotal.innerText = 'S/ 0.00';
-                validateSubmitBtn();
+                renderPagos();
                 return;
             }
 
@@ -1341,7 +1622,7 @@ $cajaAbierta = $modelCaja->obtenerCajaAbierta($_SESSION['id_usuario']);
             summarySubtotal.innerText = `S/ ${subtotalVal.toFixed(2)}`;
             summaryIgv.innerText = `S/ ${igvVal.toFixed(2)}`;
             summaryTotal.innerText = `S/ ${totalFinal.toFixed(2)}`;
-            validateSubmitBtn();
+            renderPagos();
         }
 
         // Exponer funciones visuales del carrito al ámbito global
@@ -1369,49 +1650,64 @@ $cajaAbierta = $modelCaja->obtenerCajaAbierta($_SESSION['id_usuario']);
         // Enviar Transacción Final a base de datos por AJAX
         if (submitSaleBtn) {
             submitSaleBtn.addEventListener('click', async () => {
+                if (!pagosCuadran()) {
+                    actualizarDiferenciaPagos(); // refresca el aviso de "falta/sobra" por si quedó desactualizado
+                    return;
+                }
+
                 const id_cliente = parseInt(cartClientId.value) || null;
                 const tipo_comprobante = parseInt(docTypeSelect.value);
-                const metodo_pago = parseInt(document.getElementById('metodoPagoSelect').value);
-                
+
                 let totalGeneral = 0;
                 cart.forEach(item => totalGeneral += item.subtotal);
-                
-                const dataToSend = {
-                    id_cliente,
-                    id_trabajador: null,
-                    tipo_comprobante,
-                    metodo_pago,
-                    total: totalGeneral,
-                    id_vale: null,
-                    pago_vale: 0,
-                    pago_efectivo: totalGeneral,
-                    cart: cart.map(item => ({
-                        id_producto: item.id_producto,
-                        piezas: item.cantidad,
-                        peso_neto: 0,
-                        precio: item.precio,
-                        subtotal: item.subtotal
-                    }))
-                };
 
-                let docLabel = 'Boleta';
-                if (tipo_comprobante === 2) docLabel = 'Factura';
-                else if (tipo_comprobante === 3) docLabel = 'Nota de Venta';
-                
+                const pagosPayload = pagos.map(p => ({
+                    metodo_pago: p.metodo_pago,
+                    monto: parseFloat(p.monto) || 0,
+                    referencia: p.referencia || null,
+                }));
+                const cartPayload = cart.map(item => ({
+                    id_producto: item.id_producto,
+                    piezas: item.cantidad,
+                    peso_neto: 0,
+                    precio: item.precio,
+                    subtotal: item.subtotal
+                }));
+                const anticipoMonto = pagosPayload.reduce((s, p) => s + p.monto, 0);
+
+                const endpoint = modoSeparacion
+                    ? './controllers/C_Separacion.php?action=crear'
+                    : './controllers/C_Venta.php?action=crear';
+                const dataToSend = modoSeparacion
+                    ? { id_cliente, cart: cartPayload, pagos: pagosPayload }
+                    : { id_cliente, tipo_comprobante, total: totalGeneral, pagos: pagosPayload, cart: cartPayload };
+
+                let confirmTitle = '¿Confirmar venta?';
+                let confirmText;
+                if (modoSeparacion) {
+                    confirmTitle = '¿Confirmar separación?';
+                    confirmText = `Se separará mercadería por S/ ${totalGeneral.toFixed(2)} con un anticipo de S/ ${anticipoMonto.toFixed(2)}`;
+                } else {
+                    let docLabel = 'Boleta';
+                    if (tipo_comprobante === 2) docLabel = 'Factura';
+                    else if (tipo_comprobante === 3) docLabel = 'Nota de Venta';
+                    confirmText = `Se registrará una ${docLabel} por un total de S/ ${totalGeneral.toFixed(2)}`;
+                }
+
                 Swal.fire({
-                    title: '¿Confirmar venta?',
-                    text: `Se registrará una ${docLabel} por un total de S/ ${totalGeneral.toFixed(2)}`,
+                    title: confirmTitle,
+                    text: confirmText,
                     icon: 'question',
                     showCancelButton: true,
                     confirmButtonColor: '#0284c7',
                     cancelButtonColor: '#6b7280',
-                    confirmButtonText: 'Registrar',
+                    confirmButtonText: modoSeparacion ? 'Separar' : 'Registrar',
                     cancelButtonText: 'Cancelar'
                 }).then(async (res) => {
                     if (res.isConfirmed) {
                         submitSaleBtn.disabled = true;
                         try {
-                            const response = await fetch('./controllers/C_Venta.php?action=crear', {
+                            const response = await fetch(endpoint, {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify(dataToSend)
@@ -1419,18 +1715,21 @@ $cajaAbierta = $modelCaja->obtenerCajaAbierta($_SESSION['id_usuario']);
                             const result = await response.json();
 
                             if (result.success) {
+                                const eraModoSeparacion = modoSeparacion;
                                 Swal.fire({
                                     icon: 'success',
-                                    title: '¡Venta Registrada!',
+                                    title: eraModoSeparacion ? '¡Pedido separado!' : '¡Venta Registrada!',
                                     text: result.mensaje,
                                     showConfirmButton: false,
                                     timer: 1000
                                 }).then(() => {
                                     cart = [];
+                                    resetModoSeparacion();
                                     renderCart();
-                                    
+
                                     // Levantar Modal de previsualización e Impresión de Comprobante
-                                    openPrintModal(result.id_venta);
+                                    // (el ticket de una separación se imprime sobre la venta del anticipo)
+                                    openPrintModal(eraModoSeparacion ? result.id_venta_anticipo : result.id_venta);
                                 });
                             } else {
                                 Swal.fire({ icon: 'error', title: 'Error', text: result.mensaje, confirmButtonColor: '#0284c7' });

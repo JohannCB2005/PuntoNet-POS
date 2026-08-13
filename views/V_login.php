@@ -14,7 +14,9 @@ if (empty($_SESSION['csrf_token'])) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Iniciar Sesión — NISSI POS</title>
-    <link rel="icon" type="image/png" href="assets/Logo navegador PuntoNet.png">
+    <link rel="icon" type="image/png" sizes="64x64" href="assets/favicons/favicon-64.png">
+    <link rel="icon" type="image/png" sizes="128x128" href="assets/favicons/favicon-128.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="assets/favicons/apple-touch-icon.png">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -232,7 +234,7 @@ if (empty($_SESSION['csrf_token'])) {
     <!-- PANEL DERECHO: Formulario de Credenciales -->
     <div class="login-form-panel">
         <div class="brand-logo mb-4">
-            <img src="assets/Logo Login PuntoNet.png" alt="PuntoNet" style="max-height: 65px; max-width: 100%; object-fit: contain;">
+            <img src="assets/logo.svg" alt="PuntoNet" style="max-height: 65px; max-width: 100%; object-fit: contain;">
         </div>
 
         <h1 class="login-title">Iniciar Sesión 👋</h1>
@@ -336,7 +338,7 @@ if (empty($_SESSION['csrf_token'])) {
                     timer: 1200,
                     timerProgressBar: true
                 }).then(() => {
-                    window.location.href = 'index.php';
+                    window.location.href = '/';
                 });
             } else {
                 Swal.fire({

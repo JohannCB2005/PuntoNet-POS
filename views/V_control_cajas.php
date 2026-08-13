@@ -9,8 +9,11 @@ if (!isset($_SESSION['id_usuario']) || $_SESSION['rol'] !== 'Administrador') {
 require_once dirname(__DIR__) . '/models/M_Caja.php';
 $model = M_Caja::singleton();
 
-// Capturar la fecha de filtro elegida (por defecto la fecha de hoy del servidor)
-$fechaFiltro = isset($_GET['fecha']) ? $_GET['fecha'] : date('Y-m-d');
+// Fecha de filtro (por defecto hoy según MySQL, no según PHP: se compara contra
+// DATE(fecha_apertura) y ambos relojes difieren 5 horas — ver fechaHoyBD()).
+require_once dirname(__DIR__) . '/config/conexion.php';
+$hoyBD = fechaHoyBD();
+$fechaFiltro = isset($_GET['fecha']) ? $_GET['fecha'] : $hoyBD;
 $cajas = $model->listarPorFecha($fechaFiltro);
 ?>
 <div class="container-fluid px-0">
@@ -20,9 +23,9 @@ $cajas = $model->listarPorFecha($fechaFiltro);
             <h4 class="mb-1 fw-bold text-dark">Control de Cajas</h4>
             <p class="text-muted mb-0" style="font-size: 14px;">Supervisa las aperturas y cierres de todos los usuarios.</p>
         </div>
-        <form class="d-flex gap-2" method="GET" action="index.php">
+        <form class="d-flex gap-2" method="GET" action="/">
             <input type="hidden" name="modulo" value="control-cajas">
-            <input type="date" name="fecha" class="form-control" value="<?php echo htmlspecialchars($fechaFiltro); ?>" max="<?php echo date('Y-m-d'); ?>">
+            <input type="date" name="fecha" class="form-control" value="<?php echo htmlspecialchars($fechaFiltro); ?>" max="<?php echo htmlspecialchars($hoyBD); ?>">
             <button type="submit" class="btn btn-primary"><i class="bi bi-search"></i></button>
         </form>
     </div>
@@ -62,7 +65,7 @@ $cajas = $model->listarPorFecha($fechaFiltro);
                             $sum_apertura += $caja['monto_apertura'];
                             
                             // Si la caja sigue activa, calcular en vivo el total de ventas acumuladas
-                            $ventas = $caja['total_ventas'] !== null ? $caja['total_ventas'] : $model->calcularVentasAcumuladas($caja['id_usuario'], $caja['fecha_apertura']);
+                            $ventas = $caja['total_ventas'] !== null ? $caja['total_ventas'] : $model->calcularVentasAcumuladas($caja['id_caja']);
                             $sum_ventas += $ventas;
                             if ($caja['monto_cierre'] !== null) $sum_cierre += $caja['monto_cierre'];
                             if ($caja['diferencia'] !== null) $sum_dif += $caja['diferencia'];
@@ -183,7 +186,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     .then(response => response.json())
                     .then(data => {
                         if(data.success) {
-                            const resumen = data.resumen;
+                            const resumen = data.data.resumen;
                             const resumenHtml = `
                                 <div class="col-md-4 mb-3">
                                     <div class="card bg-light border-0 shadow-sm h-100">
@@ -219,14 +222,18 @@ document.addEventListener('DOMContentLoaded', function () {
                             document.getElementById('cajaResumenCards').innerHTML = resumenHtml;
                             
                             let ventasHtml = '';
-                            if(data.ventas && data.ventas.length > 0) {
-                                data.ventas.forEach(v => {
+                            if(data.data.ventas && data.data.ventas.length > 0) {
+                                data.data.ventas.forEach(v => {
                                     let icono = 'bi-cash';
                                     let textClass = 'text-success';
                                     let emoji = '💵';
-                                    if(v.metodo_pago.toLowerCase().includes('yape') || v.metodo_pago.toLowerCase().includes('plin')) {
+                                    const metodoLower = v.metodo_pago.toLowerCase();
+                                    if(metodoLower.includes('mixto')) {
+                                        // Pagada con más de un método (ver pagos_venta para el desglose real).
+                                        icono = 'bi-shuffle'; textClass = 'text-primary'; emoji = '🔀';
+                                    } else if(metodoLower.includes('yape') || metodoLower.includes('plin')) {
                                         icono = 'bi-phone'; textClass = 'text-info'; emoji = '📱';
-                                    } else if(v.metodo_pago.toLowerCase().includes('tarjeta')) {
+                                    } else if(metodoLower.includes('tarjeta')) {
                                         icono = 'bi-credit-card'; textClass = 'text-warning'; emoji = '💳';
                                     }
                                     

@@ -35,8 +35,8 @@ switch ($action) {
         $caja = $model->obtenerCajaAbierta($id_usuario);
         if ($caja) {
             // Si la caja está abierta, calcular en vivo el total de ventas acumuladas desde la hora de apertura
-            $ventas_acumuladas = $model->calcularVentasAcumuladas($id_usuario, $caja['fecha_apertura']);
-            $desglose = $model->calcularDesglosePorMetodo($id_usuario, $caja['fecha_apertura']);
+            $ventas_acumuladas = $model->calcularVentasAcumuladas($caja['id_caja']);
+            $desglose = $model->calcularDesglosePorMetodo($caja['id_caja']);
             
             echo json_encode([
                 "success" => true, 
@@ -96,8 +96,10 @@ switch ($action) {
             echo json_encode(["success" => false, "mensaje" => "No tienes permisos."]);
             exit;
         }
-        // Si no se envía fecha por GET, se asume la fecha actual del servidor
-        $fecha = isset($_GET['fecha']) ? $_GET['fecha'] : date('Y-m-d');
+        // Fecha por defecto = hoy según MySQL, no según PHP: se compara contra
+        // DATE(c.fecha_apertura) y ambos relojes difieren 5 horas (ver fechaHoyBD()).
+        require_once dirname(__DIR__) . '/config/conexion.php';
+        $fecha = isset($_GET['fecha']) ? $_GET['fecha'] : fechaHoyBD();
         echo json_encode($model->listarPorFecha($fecha));
         break;
 

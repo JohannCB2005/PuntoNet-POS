@@ -55,7 +55,7 @@ $rolUsuario = isset($_SESSION['rol']) ? $_SESSION['rol'] : 'Rol';
                     <small class="text-muted"><?php echo htmlspecialchars($rolUsuario); ?></small>
                 </li>
                 <li>
-                    <a class="dropdown-item text-danger d-flex align-items-center gap-2 py-2 rounded-2" href="./controllers/C_Logout.php">
+                    <a class="dropdown-item text-danger d-flex align-items-center gap-2 py-2 rounded-2" href="/logout">
                         <i class="bi bi-box-arrow-right"></i>
                         Cerrar sesión
                     </a>

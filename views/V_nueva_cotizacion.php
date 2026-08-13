@@ -248,7 +248,9 @@ $categorias = $modelCat->listar();
                         </div>
                         
                         <!-- Píldoras de Filtro por Categorías -->
-                        <div class="d-flex gap-2 overflow-auto pb-2 pb-md-0" style="flex: 1; white-space: nowrap; scrollbar-width: none;" id="categoryFilterPills">
+                        <!-- Ver nota en V_nueva_venta.php: sin min-width estas píldoras no
+                             envuelven y en móvil quedan en una franja inservible. -->
+                        <div class="d-flex gap-2 overflow-auto pb-2 pb-md-0" style="flex: 1; min-width: 240px; white-space: nowrap; scrollbar-width: none;" id="categoryFilterPills">
                             <style>#categoryFilterPills::-webkit-scrollbar { display: none; }</style>
                             <button class="btn btn-primary btn-sm rounded-pill px-3 fw-semibold cat-filter-btn active" data-cat="all">Todos</button>
                             <?php foreach ($categorias as $cat): ?>
@@ -265,13 +267,16 @@ $categorias = $modelCat->listar();
                     <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 g-3">
                         <?php foreach ($productos as $ins): ?>
                             <?php if ($ins['estado'] == 1 && !$ins['id_producto_padre'] && $ins['es_agrupador'] == 0): ?>
+                                <?php $ilimitado = ($ins['stock_ilimitado'] ?? 0) == 1; ?>
                                 <!-- TARJETA SIMPLE: producto sin variantes de talla -->
                                 <div class="col product-card"
                                      data-nombre="<?php echo htmlspecialchars(strtolower($ins['nombre'])); ?>"
                                      data-categoria="<?php echo htmlspecialchars($ins['categoria']); ?>">
                                     <div class="card h-100 border border-light shadow-sm hover-shadow-md transition-all position-relative" style="border-radius: 12px; overflow: hidden;">
                                         <div class="position-absolute top-0 end-0 m-2">
-                                            <?php if ($ins['stock_piezas'] <= 0): ?>
+                                            <?php if ($ilimitado): ?>
+                                                <span class="badge bg-success rounded-pill px-2.5 py-1 fw-bold" style="font-size: 10px;"><i class="bi bi-infinity"></i> Stock ilimitado</span>
+                                            <?php elseif ($ins['stock_piezas'] <= 0): ?>
                                                 <span class="badge bg-danger rounded-pill px-2.5 py-1 fw-bold" style="font-size: 10px;">Agotado</span>
                                             <?php elseif ($ins['stock_piezas'] <= 20): ?>
                                                 <span class="badge bg-warning text-dark rounded-pill px-2.5 py-1 fw-bold" style="font-size: 10px;">Bajo Stock (<?php echo number_format($ins['stock_piezas'], 1); ?>)</span>
@@ -294,10 +299,11 @@ $categorias = $modelCat->listar();
                                                         data-id="<?php echo $ins['id_producto']; ?>"
                                                         data-nombre="<?php echo htmlspecialchars($ins['nombre']); ?>"
                                                         data-precio="<?php echo $ins['precio_unitario']; ?>"
-                                                        data-stock="<?php echo $ins['stock_piezas']; ?>"
+                                                        data-stock="<?php echo $ilimitado ? 9999 : $ins['stock_piezas']; ?>"
+                                                        data-stockilimitado="<?php echo $ilimitado ? 1 : 0; ?>"
                                                         data-unidad="<?php echo htmlspecialchars($ins['abreviatura']); ?>"
                                                         style="width: 32px; height: 32px; border-radius: 8px; padding: 0; background-color: #0284c7;"
-                                                        <?php echo $ins['stock_piezas'] <= 0 ? 'disabled' : ''; ?>>
+                                                        <?php echo (!$ilimitado && $ins['stock_piezas'] <= 0) ? 'disabled' : ''; ?>>
                                                     <i class="bi bi-plus-lg"></i>
                                                 </button>
                                             </div>
@@ -567,7 +573,7 @@ $categorias = $modelCat->listar();
                     <i class="bi bi-printer-fill"></i> Imprimir
                 </button>
                 <div class="d-flex gap-2">
-                    <button class="btn btn-outline-secondary px-4" onclick="window.location.href='index.php?modulo=cotizaciones'">
+                    <button class="btn btn-outline-secondary px-4" onclick="window.location.href='/cotizaciones'">
                         <i class="bi bi-list-ul"></i> Ir al listado
                     </button>
                     <button class="btn btn-primary px-4" onclick="window.location.reload()" style="background-color: #0284c7; border: none;">

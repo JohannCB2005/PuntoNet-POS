@@ -9,31 +9,26 @@ header('Referrer-Policy: strict-origin');
 header('Content-Type: application/json');
 
 require_once '../config/conexion.php';
-require_once '../entities/Persona.php'; 
-require_once '../entities/Usuario.php'; 
+require_once '../entities/Persona.php';
+require_once '../entities/Usuario.php';
 require_once '../models/M_Usuario.php';
+require_once '../models/M_IntentosLogin.php';
 
-// Configuración de protección contra fuerza bruta
-if (!isset($_SESSION['login_intentos'])) {
-    $_SESSION['login_intentos'] = 0;
-    $_SESSION['ultimo_intento'] = time();
-}
-
-// Verificar si la cuenta está bloqueada temporalmente
-if ($_SESSION['login_intentos'] >= 5) {
-    if (time() - $_SESSION['ultimo_intento'] < 600) { // 10 minutos
-        $minutos_restantes = ceil((600 - (time() - $_SESSION['ultimo_intento'])) / 60);
-        echo json_encode(["success" => false, "mensaje" => "Cuenta bloqueada temporalmente por demasiados intentos fallidos. Intenta en $minutos_restantes minuto(s)."]);
-        exit;
-    } else {
-        // Restablecer intentos después de 10 minutos
-        $_SESSION['login_intentos'] = 0;
-    }
-}
+$modeloIntentos = M_IntentosLogin::singleton();
 
 // 1. Recibir los datos del fetch (JS)
 $json = file_get_contents('php://input');
 $datos = json_decode($json);
+
+// Protección contra fuerza bruta: el contador vive en BD indexado por el usuario
+// tecleado, NO en $_SESSION — la sesión la controla el cliente, así que bastaba con
+// descartar la cookie en cada intento para tener reintentos infinitos.
+$usernameIntento = isset($datos->username) ? trim($datos->username) : '';
+$minutosRestantes = $modeloIntentos->minutosBloqueoRestantes('staff', $usernameIntento);
+if ($minutosRestantes > 0) {
+    echo json_encode(["success" => false, "mensaje" => "Cuenta bloqueada temporalmente por demasiados intentos fallidos. Intenta en $minutosRestantes minuto(s)."]);
+    exit;
+}
 
 // 2. Comprobar que los datos vengan en el JSON
 if (isset($datos->username) && isset($datos->password) && isset($datos->csrf_token)) {
@@ -60,7 +55,7 @@ if (isset($datos->username) && isset($datos->password) && isset($datos->csrf_tok
         $_SESSION['rol'] = $usuario['rol'];
         
         // Restablecer el contador de intentos de fuerza bruta
-        $_SESSION['login_intentos'] = 0;
+        $modeloIntentos->limpiar('staff', $username);
         unset($_SESSION['csrf_token']); // Consumir el token CSRF una vez usado
 
         // Enviamos respuesta afirmativa
@@ -71,8 +66,7 @@ if (isset($datos->username) && isset($datos->password) && isset($datos->csrf_tok
 
     } else {
         // Falló el login
-        $_SESSION['login_intentos']++;
-        $_SESSION['ultimo_intento'] = time();
+        $modeloIntentos->registrarFallo('staff', $username);
         echo json_encode([
             "success" => false, 
             "mensaje" => "Usuario o contraseña incorrectos, o cuenta inactiva."

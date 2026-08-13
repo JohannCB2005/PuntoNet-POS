@@ -76,7 +76,7 @@ class M_Caja {
      */
     public function cerrarCaja($id_caja, $id_usuario, $cierre_efectivo, $cierre_yape, $cierre_tarjeta, $observaciones) {
         try {
-            // 1. Obtener la fecha de apertura para delimitar el cálculo de ventas
+            // 1. Confirmar que la caja existe, está abierta y pertenece al usuario
             $sql_caja = "SELECT fecha_apertura, monto_apertura FROM cajas WHERE id_caja = ? AND id_usuario = ? AND estado = 1";
             $stmt_caja = $this->conexion->prepare($sql_caja);
             $stmt_caja->execute([$id_caja, $id_usuario]);
@@ -84,22 +84,25 @@ class M_Caja {
 
             if (!$caja) return false;
 
-            $fecha_apertura = $caja['fecha_apertura'];
-            $fecha_cierre = date('Y-m-d H:i:s');
             $monto_apertura = floatval($caja['monto_apertura']);
 
-            // 2. Calcular desglose de ventas por método de pago
-            $desglose = $this->calcularDesglosePorMetodo($id_usuario, $fecha_apertura);
-            
+            // 2. Calcular desglose de ventas por método de pago — SIEMPRE por id_caja,
+            //    nunca por ventana de fecha: una venta solo pertenece a esta caja si el
+            //    dinero pasó físicamente por ella (M_Venta::registrar la liga al crearla).
+            $desglose = $this->calcularDesglosePorMetodo($id_caja);
+
             $ventas_efectivo = $desglose['1'];
             $ventas_yape     = $desglose['2'];
+            // $desglose ya viene sumado por línea de pago real (pagos_venta), así que
+            // una venta mixta reparte correctamente entre 1/2/3 — no hace falta fusionar
+            // nada con Tarjeta como antes de pago mixto.
             $ventas_tarjeta  = $desglose['3'];
             $total_ventas    = $ventas_efectivo + $ventas_yape + $ventas_tarjeta;
 
-            // Obtener número de ventas
-            $sql_num = "SELECT COUNT(id_venta) FROM ventas WHERE id_usuario = ? AND estado = 1 AND fecha BETWEEN ? AND ?";
+            // Obtener número de ventas de esta caja
+            $sql_num = "SELECT COUNT(id_venta) FROM ventas WHERE id_caja = ? AND estado = 1";
             $stmt_num = $this->conexion->prepare($sql_num);
-            $stmt_num->execute([$id_usuario, $fecha_apertura, $fecha_cierre]);
+            $stmt_num->execute([$id_caja]);
             $num_ventas = intval($stmt_num->fetchColumn());
 
             // 4. Calcular diferencias
@@ -111,18 +114,17 @@ class M_Caja {
             $diferencia   = $dif_efectivo + $dif_yape + $dif_tarjeta;
 
             // 5. Actualizar la fila en cajas cerrando el estado (estado = 0)
-            $sql_upd = "UPDATE cajas SET 
+            $sql_upd = "UPDATE cajas SET
                         monto_cierre = ?, cierre_efectivo = ?, cierre_yape = ?, cierre_tarjeta = ?,
-                        fecha_cierre = ?, 
-                        total_ventas = ?, num_ventas = ?, 
+                        fecha_cierre = NOW(),
+                        total_ventas = ?, num_ventas = ?,
                         diferencia = ?, dif_efectivo = ?, dif_yape = ?, dif_tarjeta = ?,
-                        observaciones = ?, estado = 0 
+                        observaciones = ?, estado = 0
                         WHERE id_caja = ?";
-            
+
             $stmt_upd = $this->conexion->prepare($sql_upd);
             return $stmt_upd->execute([
                 $monto_cierre, $cierre_efectivo, $cierre_yape, $cierre_tarjeta,
-                $fecha_cierre,
                 $total_ventas, $num_ventas,
                 $diferencia, $dif_efectivo, $dif_yape, $dif_tarjeta,
                 $observaciones, $id_caja
@@ -165,18 +167,19 @@ class M_Caja {
     }
 
     /**
-     * Calcula dinámicamente las ventas acumuladas hechas por un usuario desde su hora de apertura de caja
-     * @param int $id_usuario ID del usuario
-     * @param string $fecha_apertura Fecha y hora de apertura
+     * Calcula dinámicamente las ventas acumuladas en una caja física específica.
+     * Se filtra por `id_caja`, no por usuario+fecha: así una venta de un pedido online
+     * (que no pertenece a ninguna caja, id_caja=NULL) nunca se cuenta aquí.
+     * @param int $id_caja ID de la sesión de caja
      * @return float Sumatoria total de las ventas
      */
-    public function calcularVentasAcumuladas($id_usuario, $fecha_apertura) {
+    public function calcularVentasAcumuladas($id_caja) {
         try {
-            $sql = "SELECT SUM(total) as total_ventas 
-                    FROM ventas 
-                    WHERE id_usuario = ? AND estado = 1 AND fecha >= ?";
+            $sql = "SELECT SUM(total) as total_ventas
+                    FROM ventas
+                    WHERE id_caja = ? AND estado = 1";
             $stmt = $this->conexion->prepare($sql);
-            $stmt->execute([$id_usuario, $fecha_apertura]);
+            $stmt->execute([$id_caja]);
             $res = $stmt->fetchColumn();
             return $res ? floatval($res) : 0.00;
         } catch (PDOException $e) {
@@ -185,24 +188,31 @@ class M_Caja {
     }
 
     /**
-     * Calcula el desglose de ventas por método de pago para un usuario desde su apertura de caja
+     * Calcula el desglose de ventas por método de pago de una caja física específica.
+     *
+     * Suma por LÍNEA de pago (`pagos_venta`), no por venta: una venta pagada mitad
+     * efectivo y mitad Yape aporta su monto real a cada balde, en vez de caer entera
+     * en uno solo. Las líneas nunca llevan metodo_pago=4 (Mixto es solo la etiqueta
+     * resumen de `ventas.metodo_pago`), así que el resultado ya viene repartido entre
+     * 1/2/3 sin necesidad de fusionar nada.
      */
-    public function calcularDesglosePorMetodo($id_usuario, $fecha_apertura) {
+    public function calcularDesglosePorMetodo($id_caja) {
         try {
-            $sql = "SELECT metodo_pago, SUM(total) AS monto
-                    FROM ventas
-                    WHERE id_usuario = ? AND estado = 1 AND fecha >= ?
-                    GROUP BY metodo_pago";
+            $sql = "SELECT pv.metodo_pago, SUM(pv.monto) AS monto
+                    FROM pagos_venta pv
+                    INNER JOIN ventas v ON pv.id_venta = v.id_venta
+                    WHERE v.id_caja = ? AND v.estado = 1
+                    GROUP BY pv.metodo_pago";
             $stmt = $this->conexion->prepare($sql);
-            $stmt->execute([$id_usuario, $fecha_apertura]);
+            $stmt->execute([$id_caja]);
             $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
-            $result = ['1' => 0.0, '2' => 0.0, '3' => 0.0];
+            $result = ['1' => 0.0, '2' => 0.0, '3' => 0.0, '4' => 0.0];
             foreach ($rows as $r) {
-                $result[$r['metodo_pago']] = floatval($r['monto']);
+                $result[(string) $r['metodo_pago']] = floatval($r['monto']);
             }
             return $result;
         } catch (PDOException $e) {
-            return ['1' => 0.0, '2' => 0.0, '3' => 0.0];
+            return ['1' => 0.0, '2' => 0.0, '3' => 0.0, '4' => 0.0];
         }
     }
 
@@ -217,30 +227,54 @@ class M_Caja {
             $caja = $stmtCaja->fetch(PDO::FETCH_ASSOC);
             if (!$caja) return null;
 
-            $fecha_fin = $caja['fecha_cierre'] ?? date('Y-m-d H:i:s');
-
-            // 2. Ventas del período con desglose
+            // 2. Ventas de esta caja física (nunca incluye pedidos online: id_caja=NULL en esos casos)
+            $etiquetasMetodo = ['1' => 'Efectivo', '2' => 'Yape/Plin', '3' => 'Tarjeta', '4' => 'Mixto'];
             $stmtVentas = $this->conexion->prepare("
-                SELECT v.id_venta, v.fecha, v.total, v.metodo_pago,
+                SELECT v.id_venta, v.fecha AS fecha_venta, v.total, v.metodo_pago,
                        v.tipo_comprobante, v.estado,
-                       IFNULL(p.nombres_razon_social, 'Público General') AS cliente
+                       IFNULL(p.nombres_razon_social, 'Público General') AS nombre_cliente
                 FROM ventas v
                 LEFT JOIN clientes c ON v.id_cliente = c.id_cliente
                 LEFT JOIN personas p ON c.id_persona = p.id_persona
-                WHERE v.id_usuario = ? AND v.fecha BETWEEN ? AND ?
+                WHERE v.id_caja = ?
                 ORDER BY v.fecha ASC
             ");
-            $stmtVentas->execute([$caja['id_usuario'], $caja['fecha_apertura'], $fecha_fin]);
+            $stmtVentas->execute([$id_caja]);
             $ventas = $stmtVentas->fetchAll(PDO::FETCH_ASSOC);
-
-            // 3. Resumen por método (de las ventas recuperadas, si se desea verificar)
-            $resumen = ['1' => 0.0, '2' => 0.0, '3' => 0.0];
-            foreach ($ventas as $v) {
-                if ($v['estado'] == 1) {
-                    $m = (string)$v['metodo_pago'];
-                    if (isset($resumen[$m])) $resumen[$m] += floatval($v['total']);
-                }
+            foreach ($ventas as &$v) {
+                $v['metodo_pago'] = $etiquetasMetodo[(string) $v['metodo_pago']] ?? 'Otro';
             }
+            unset($v);
+
+            // 3. Resumen: total del sistema (ventas) vs. lo declarado por el cajero al cerrar
+            $desglose = $this->calcularDesglosePorMetodo($id_caja);
+            $sistemaEfectivo = $desglose['1'];
+            $sistemaYape     = $desglose['2'];
+            // $desglose ya viene sumado por línea de pago real (pagos_venta): una venta
+            // mixta reparte correctamente entre 1/2/3, sin fusionar nada con Tarjeta.
+            $sistemaTarjeta  = $desglose['3'];
+
+            $declaradoEfectivo = $caja['cierre_efectivo'] !== null ? (float) $caja['cierre_efectivo'] : $sistemaEfectivo;
+            $declaradoYape     = $caja['cierre_yape'] !== null ? (float) $caja['cierre_yape'] : $sistemaYape;
+            $declaradoTarjeta  = $caja['cierre_tarjeta'] !== null ? (float) $caja['cierre_tarjeta'] : $sistemaTarjeta;
+
+            $resumen = [
+                'efectivo' => [
+                    'sistema'    => $sistemaEfectivo,
+                    'declarado'  => $declaradoEfectivo,
+                    'diferencia' => $caja['dif_efectivo'] !== null ? (float) $caja['dif_efectivo'] : ($declaradoEfectivo - $sistemaEfectivo),
+                ],
+                'yape' => [
+                    'sistema'    => $sistemaYape,
+                    'declarado'  => $declaradoYape,
+                    'diferencia' => $caja['dif_yape'] !== null ? (float) $caja['dif_yape'] : ($declaradoYape - $sistemaYape),
+                ],
+                'tarjeta' => [
+                    'sistema'    => $sistemaTarjeta,
+                    'declarado'  => $declaradoTarjeta,
+                    'diferencia' => $caja['dif_tarjeta'] !== null ? (float) $caja['dif_tarjeta'] : ($declaradoTarjeta - $sistemaTarjeta),
+                ],
+            ];
 
             return ['caja' => $caja, 'ventas' => $ventas, 'resumen' => $resumen];
         } catch (PDOException $e) {

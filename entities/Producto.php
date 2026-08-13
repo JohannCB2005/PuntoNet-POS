@@ -11,7 +11,9 @@ class Producto {
     public $nombre;
     public $precio_unitario;
     public $costo_produccion;
+    public $comision;
     public $stock_piezas;
+    public $stock_ilimitado;  // 1 = Servicio con stock ilimitado (no valida ni descuenta stock)
     public $estado;
     public $imagen;
 
@@ -43,7 +45,9 @@ class Producto {
         $id_area = null,
         $id_bimestre = null,
         $es_agrupador = 0,
-        $id_producto_padre = null
+        $id_producto_padre = null,
+        $comision = 0.0,
+        $stock_ilimitado = 0
     ) {
         $this->id_producto          = $id_producto;
         $this->id_categoria       = $id_categoria;
@@ -51,7 +55,9 @@ class Producto {
         $this->nombre             = $nombre;
         $this->precio_unitario    = $precio_unitario;
         $this->costo_produccion   = $costo_produccion;
+        $this->comision           = $comision;
         $this->stock_piezas       = $stock_piezas;
+        $this->stock_ilimitado    = $stock_ilimitado ? 1 : 0;
         $this->estado             = 1;
         $this->imagen             = $imagen;
         $this->id_talla           = $id_talla;

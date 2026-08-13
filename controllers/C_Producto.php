@@ -27,6 +27,54 @@ if (!$input) {
 // Instanciar el modelo de productos bajo Singleton
 $model = M_Producto::singleton();
 
+/**
+ * Valida y guarda la imagen subida en assets/productos/, devolviendo el nombre de
+ * archivo generado (o null si no vino imagen o no pasó la validación).
+ *
+ * Tres controles, los tres necesarios:
+ *   - Extensión en whitelist Y nombre de archivo regenerado. Es lo que impide que
+ *     se escriba un .php en un directorio servido por el navegador; el nombre que
+ *     manda el cliente nunca se reutiliza.
+ *   - getimagesize(): confirma que el contenido es realmente una imagen. Sin esto
+ *     se podía subir cualquier cosa con tal de llamarla .jpg.
+ *   - Límite de tamaño: sin él, subidas grandes repetidas llenan el disco del
+ *     hosting compartido, que es poco y no avisa.
+ *
+ * Estaba duplicado en las 4 acciones que guardan producto (crear, crear con
+ * variantes, actualizar con variantes, actualizar), cada copia ligeramente distinta.
+ */
+function guardarImagenProducto(string $campo = 'imagen'): ?string {
+    $MAX_BYTES = 5 * 1024 * 1024; // 5 MB
+    $EXTENSIONES = ['jpg', 'jpeg', 'png', 'webp', 'gif'];
+    $TIPOS_IMAGEN = [IMAGETYPE_JPEG, IMAGETYPE_PNG, IMAGETYPE_WEBP, IMAGETYPE_GIF];
+
+    if (!isset($_FILES[$campo]) || $_FILES[$campo]['error'] !== UPLOAD_ERR_OK) {
+        return null;
+    }
+    $tmp = $_FILES[$campo]['tmp_name'];
+    if (!is_uploaded_file($tmp) || $_FILES[$campo]['size'] > $MAX_BYTES) {
+        return null;
+    }
+
+    $extension = strtolower(pathinfo($_FILES[$campo]['name'], PATHINFO_EXTENSION));
+    if (!in_array($extension, $EXTENSIONES, true)) {
+        return null;
+    }
+
+    // El contenido tiene que ser una imagen de verdad, no solo llamarse .jpg.
+    $info = @getimagesize($tmp);
+    if ($info === false || !in_array($info[2], $TIPOS_IMAGEN, true)) {
+        return null;
+    }
+
+    $uploadDir = dirname(__DIR__) . '/assets/productos/';
+    if (!is_dir($uploadDir)) {
+        mkdir($uploadDir, 0755, true);
+    }
+    $nombreArchivo = 'producto_' . time() . '_' . uniqid() . '.' . $extension;
+    return move_uploaded_file($tmp, $uploadDir . $nombreArchivo) ? $nombreArchivo : null;
+}
+
 // Enrutar según la acción
 switch ($action) {
     
@@ -46,7 +94,9 @@ switch ($action) {
         $nombre             = isset($input['nombre'])             ? trim($input['nombre'])               : '';
         $precio_unitario    = isset($input['precio_unitario'])    ? floatval($input['precio_unitario'])  : 0.0;
         $costo_produccion   = isset($input['costo_produccion'])   ? floatval($input['costo_produccion']) : 0.0;
+        $comision           = isset($input['comision'])           ? floatval($input['comision'])         : 0.0;
         $stock_piezas       = isset($input['stock'])              ? floatval($input['stock'])            : 0.0;
+        $stock_ilimitado    = isset($input['stock_ilimitado'])     ? intval($input['stock_ilimitado'])   : 0;
         $id_talla           = isset($input['id_talla']) && $input['id_talla'] !== '' ? intval($input['id_talla']) : null;
         $id_tipo_corbata    = isset($input['id_tipo_corbata']) && $input['id_tipo_corbata'] !== '' ? intval($input['id_tipo_corbata']) : null;
         $id_nivel           = isset($input['id_nivel']) && $input['id_nivel'] !== '' ? intval($input['id_nivel']) : null;
@@ -61,27 +111,10 @@ switch ($action) {
         }
 
         // Procesar subida de imagen si existe
-        $imagen_db = null;
-        if (isset($_FILES['imagen']) && $_FILES['imagen']['error'] === UPLOAD_ERR_OK) {
-            $fileTmpPath = $_FILES['imagen']['tmp_name'];
-            $fileName = $_FILES['imagen']['name'];
-            $fileExtension = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
-            $allowedExtensions = ['jpg', 'jpeg', 'png', 'webp', 'gif'];
-            if (in_array($fileExtension, $allowedExtensions)) {
-                $uploadDir = dirname(__DIR__) . '/assets/productos/';
-                if (!is_dir($uploadDir)) {
-                    mkdir($uploadDir, 0777, true);
-                }
-                $newFileName = 'producto_' . time() . '_' . uniqid() . '.' . $fileExtension;
-                $dest_path = $uploadDir . $newFileName;
-                if (move_uploaded_file($fileTmpPath, $dest_path)) {
-                    $imagen_db = $newFileName;
-                }
-            }
-        }
+        $imagen_db = guardarImagenProducto();
 
         // Crear entidad producto y guardar en DB
-        $producto = new Producto($id_categoria, $id_unidad, $nombre, $precio_unitario, $costo_produccion, $stock_piezas, null, $imagen_db, $id_talla, $id_tipo_corbata, $id_nivel, $id_grado, $id_area, $id_bimestre);
+        $producto = new Producto($id_categoria, $id_unidad, $nombre, $precio_unitario, $costo_produccion, $stock_piezas, null, $imagen_db, $id_talla, $id_tipo_corbata, $id_nivel, $id_grado, $id_area, $id_bimestre, 0, null, $comision, $stock_ilimitado);
         if ($model->registrar($producto)) {
             echo json_encode(["success" => true, "mensaje" => "Producto registrado con éxito."]);
         } else {
@@ -107,21 +140,7 @@ switch ($action) {
         }
 
         // Procesar subida de imagen compartida por todas las variantes
-        $imagen_db = null;
-        if (isset($_FILES['imagen']) && $_FILES['imagen']['error'] === UPLOAD_ERR_OK) {
-            $fileTmpPath = $_FILES['imagen']['tmp_name'];
-            $fileName = $_FILES['imagen']['name'];
-            $fileExtension = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
-            $allowedExtensions = ['jpg', 'jpeg', 'png', 'webp', 'gif'];
-            if (in_array($fileExtension, $allowedExtensions)) {
-                $uploadDir = dirname(__DIR__) . '/assets/productos/';
-                if (!is_dir($uploadDir)) mkdir($uploadDir, 0777, true);
-                $newFileName = 'producto_' . time() . '_' . uniqid() . '.' . $fileExtension;
-                if (move_uploaded_file($fileTmpPath, $uploadDir . $newFileName)) {
-                    $imagen_db = $newFileName;
-                }
-            }
-        }
+        $imagen_db = guardarImagenProducto();
 
         $datosPadre = [
             'id_categoria' => $id_categoria,
@@ -157,21 +176,7 @@ switch ($action) {
         }
 
         // Procesar subida de imagen compartida por todas las variantes
-        $imagen_db = null;
-        if (isset($_FILES['imagen']) && $_FILES['imagen']['error'] === UPLOAD_ERR_OK) {
-            $fileTmpPath = $_FILES['imagen']['tmp_name'];
-            $fileName = $_FILES['imagen']['name'];
-            $fileExtension = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
-            $allowedExtensions = ['jpg', 'jpeg', 'png', 'webp', 'gif'];
-            if (in_array($fileExtension, $allowedExtensions)) {
-                $uploadDir = dirname(__DIR__) . '/assets/productos/';
-                if (!is_dir($uploadDir)) mkdir($uploadDir, 0777, true);
-                $newFileName = 'producto_' . time() . '_' . uniqid() . '.' . $fileExtension;
-                if (move_uploaded_file($fileTmpPath, $uploadDir . $newFileName)) {
-                    $imagen_db = $newFileName;
-                }
-            }
-        }
+        $imagen_db = guardarImagenProducto();
 
         $datosPadre = [
             'id_categoria' => $id_categoria,
@@ -199,7 +204,9 @@ switch ($action) {
         $nombre             = isset($input['nombre'])             ? trim($input['nombre'])               : '';
         $precio_unitario    = isset($input['precio_unitario'])    ? floatval($input['precio_unitario'])  : 0.0;
         $costo_produccion   = isset($input['costo_produccion'])   ? floatval($input['costo_produccion']) : 0.0;
+        $comision           = isset($input['comision'])           ? floatval($input['comision'])         : 0.0;
         $stock_piezas       = isset($input['stock'])              ? floatval($input['stock'])            : 0.0;
+        $stock_ilimitado    = isset($input['stock_ilimitado'])     ? intval($input['stock_ilimitado'])   : 0;
         $id_talla           = isset($input['id_talla']) && $input['id_talla'] !== '' ? intval($input['id_talla']) : null;
         $id_tipo_corbata    = isset($input['id_tipo_corbata']) && $input['id_tipo_corbata'] !== '' ? intval($input['id_tipo_corbata']) : null;
         $id_nivel           = isset($input['id_nivel']) && $input['id_nivel'] !== '' ? intval($input['id_nivel']) : null;
@@ -214,37 +221,23 @@ switch ($action) {
         }
 
         // Procesar subida de imagen si existe
-        $imagen_db = null;
-        if (isset($_FILES['imagen']) && $_FILES['imagen']['error'] === UPLOAD_ERR_OK) {
-            $fileTmpPath = $_FILES['imagen']['tmp_name'];
-            $fileName = $_FILES['imagen']['name'];
-            $fileExtension = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
-            $allowedExtensions = ['jpg', 'jpeg', 'png', 'webp', 'gif'];
-            if (in_array($fileExtension, $allowedExtensions)) {
-                $uploadDir = dirname(__DIR__) . '/assets/productos/';
-                if (!is_dir($uploadDir)) {
-                    mkdir($uploadDir, 0777, true);
-                }
-                
-                // Borrar imagen vieja si existe
-                $productoViejo = $model->obtenerPorId($id_producto);
-                if ($productoViejo && !empty($productoViejo['imagen'])) {
-                    $oldFilePath = $uploadDir . $productoViejo['imagen'];
-                    if (file_exists($oldFilePath)) {
-                        unlink($oldFilePath);
-                    }
-                }
+        $imagen_db = guardarImagenProducto();
 
-                $newFileName = 'producto_' . time() . '_' . uniqid() . '.' . $fileExtension;
-                $dest_path = $uploadDir . $newFileName;
-                if (move_uploaded_file($fileTmpPath, $dest_path)) {
-                    $imagen_db = $newFileName;
+        // La imagen anterior se borra SOLO si la nueva se guardó bien. Antes se
+        // borraba primero y, si la subida fallaba después, el producto se quedaba
+        // sin ninguna imagen. basename() por si el nombre guardado trajera rutas.
+        if ($imagen_db !== null) {
+            $productoViejo = $model->obtenerPorId($id_producto);
+            if ($productoViejo && !empty($productoViejo['imagen'])) {
+                $rutaVieja = dirname(__DIR__) . '/assets/productos/' . basename($productoViejo['imagen']);
+                if (is_file($rutaVieja)) {
+                    unlink($rutaVieja);
                 }
             }
         }
 
         // Actualizar datos del producto
-        $producto = new Producto($id_categoria, $id_unidad, $nombre, $precio_unitario, $costo_produccion, $stock_piezas, $id_producto, $imagen_db, $id_talla, $id_tipo_corbata, $id_nivel, $id_grado, $id_area, $id_bimestre);
+        $producto = new Producto($id_categoria, $id_unidad, $nombre, $precio_unitario, $costo_produccion, $stock_piezas, $id_producto, $imagen_db, $id_talla, $id_tipo_corbata, $id_nivel, $id_grado, $id_area, $id_bimestre, 0, null, $comision, $stock_ilimitado);
 
         if ($model->actualizar($producto)) {
             echo json_encode(["success" => true, "mensaje" => "Producto actualizado con éxito."]);
@@ -263,6 +256,13 @@ switch ($action) {
 
         $id = $data['id_producto'];
         $variacion = floatval($data['variacion']);
+
+        // Un producto de stock ilimitado (servicio) no administra stock.
+        $ins = $model->obtenerPorId($id);
+        if ($ins && (int) ($ins['stock_ilimitado'] ?? 0) === 1) {
+            echo json_encode(['success' => false, 'mensaje' => 'Este producto tiene stock ilimitado y no requiere gestión de stock.']);
+            exit;
+        }
 
         if (M_Producto::singleton()->actualizarStockRapido($id, $variacion)) {
             echo json_encode(['success' => true, 'mensaje' => 'Stock actualizado exitosamente.']);
