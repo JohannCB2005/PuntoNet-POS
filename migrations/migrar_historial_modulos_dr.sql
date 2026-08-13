@@ -1,0 +1,33 @@
+-- ============================================================================
+-- Fase 4: Migración del historial desde la BD del sistema hermano "Modulos DR"
+--          (colegio_modulos) hacia NISSI POS (puntonet_pos).
+--
+-- Contexto: NISSI incorporó el back-office de módulos escolares (padrón,
+-- pagos, conciliación, promociones, entregas). El colegio Divino Redentor ya
+-- usaba esos módulos en el prototipo Modulos DR con datos reales de 2023-2026.
+-- Para que NISSI herede ese historial (y el dominio modulos-dr.likadev.com se
+-- pueda retirar), se copian los datos 1:1 entre las dos bases del mismo MySQL.
+--
+-- CÓMO se ejecutó (los permisos de la app no alcanzan para leer la otra BD):
+--   mysqldump -ucolegio_user -p --no-create-info --skip-extended-insert \
+--       --complete-insert colegio_modulos importaciones alumnos pagos > dump.sql
+--   mysql -upuntonet_user -p puntonet_pos < dump.sql
+--
+-- Supuestos validados ANTES de ejecutar:
+--   * niveles_educativos/grados de NISSI y niveles/grados de Modulos DR usan
+--     EXACTAMENTE los mismos IDs (1..3 y 1..14). Solo difieren los nombres.
+--   * Los IDs de alumnos (1..498), pagos (1..1996) e importaciones (1..2) de
+--     Modulos DR son contiguos y las tablas destino de NISSI están vacías:
+--     se preservaron los IDs originales tal cual (referencias internas).
+--   * No hay duplicados que rompan las UNIQUE keys de NISSI
+--     (uk_alumno_codigo, uk_pago_comprobante).
+--   * importaciones.id_usuario = 1 → en NISSI también es el admin (id 1).
+--   * La tabla importaciones de Modulos DR también tiene la columna `estado`
+--     (default 1), igual que la de NISSI: el dump vertical cuadró sin cambios.
+--
+-- Verificación post-carga (conteos idénticos al origen):
+--   importaciones=2, alumnos=498, pagos=1996 (113 sin cruce / 1883 con cruce).
+-- ----------------------------------------------------------------------------
+-- El INSERT directo cross-DB no funciona: al usuario de la app (puntonet_user)
+-- MySQL le niega SELECT sobre colegio_modulos (ERROR 1142). Por eso el dump.
+-- ============================================================================
