@@ -105,6 +105,48 @@ $rol = $_SESSION['rol'];
             </div>
         </div>
 
+        <!-- Grupo de Colegio (Módulos) — Admin ve todo; Vendedor solo Entregas -->
+        <?php $grupoColegioActivo = in_array($moduloActual, ['carga', 'alumnos', 'pagos', 'conciliacion', 'promociones', 'entregas']); ?>
+        <div class="sidebar-group<?php echo $grupoColegioActivo ? ' open has-active' : ''; ?>" data-group="colegio">
+            <button class="menu-header" type="button" aria-expanded="true" aria-controls="grupo-colegio">
+                <span>Módulos Escolares</span>
+                <i class="bi bi-chevron-down menu-header-arrow"></i>
+            </button>
+            <div class="menu-group-items" id="grupo-colegio">
+                <?php if ($rol === 'Administrador'): ?>
+                    <a href="/carga" class="menu-item <?php echo $moduloActual === 'carga' ? 'active' : ''; ?>">
+                        <i class="bi bi-file-earmark-arrow-up-fill"></i>
+                        <span>Carga de Datos</span>
+                    </a>
+                    <a href="/alumnos" class="menu-item <?php echo $moduloActual === 'alumnos' ? 'active' : ''; ?>">
+                        <i class="bi bi-mortarboard-fill"></i>
+                        <span>Padrón de Alumnos</span>
+                    </a>
+                    <a href="/pagos" class="menu-item <?php echo $moduloActual === 'pagos' ? 'active' : ''; ?>">
+                        <i class="bi bi-cash-stack"></i>
+                        <span>Pagos y Pensiones</span>
+                    </a>
+                    <a href="/conciliacion" class="menu-item <?php echo $moduloActual === 'conciliacion' ? 'active' : ''; ?>">
+                        <i class="bi bi-diagram-3-fill"></i>
+                        <span>Conciliación</span>
+                    </a>
+                    <a href="/promociones" class="menu-item <?php echo $moduloActual === 'promociones' ? 'active' : ''; ?>">
+                        <i class="bi bi-gift-fill"></i>
+                        <span>Promociones</span>
+                    </a>
+                    <a href="/entregas" class="menu-item <?php echo $moduloActual === 'entregas' ? 'active' : ''; ?>">
+                        <i class="bi bi-box2-fill"></i>
+                        <span>Entregas de Módulos</span>
+                    </a>
+                <?php else: ?>
+                    <a href="/entregas" class="menu-item <?php echo $moduloActual === 'entregas' ? 'active' : ''; ?>">
+                        <i class="bi bi-box2-fill"></i>
+                        <span>Entregas de Módulos</span>
+                    </a>
+                <?php endif; ?>
+            </div>
+        </div>
+
         <!-- Grupo de Análisis y Control Administrativo (Solo Administrador) -->
         <?php if ($rol === 'Administrador'): ?>
             <?php $grupoControlActivo = in_array($moduloActual, ['control-cajas', 'reportes', 'comisiones', 'sunat-series']); ?>

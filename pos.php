@@ -36,7 +36,13 @@ $routes = [
     'caja'           => ['Administrador', 'Vendedor'],
     'control-cajas'  => ['Administrador'],
     'comisiones'     => ['Administrador'],
-    'sunat-series'   => ['Administrador']
+    'sunat-series'   => ['Administrador'],
+    'carga'          => ['Administrador'],
+    'alumnos'        => ['Administrador'],
+    'pagos'          => ['Administrador'],
+    'conciliacion'   => ['Administrador'],
+    'promociones'    => ['Administrador'],
+    'entregas'       => ['Administrador', 'Vendedor']
 ];
 
 // 4. Validate route exists and is allowed for the user's role
@@ -68,7 +74,13 @@ $titles = [
     'caja'           => 'Mi Caja - NISSI POS',
     'control-cajas'  => 'Control de Cajas - NISSI POS',
     'comisiones'     => 'Comisiones - NISSI POS',
-    'sunat-series'   => 'Series SUNAT - NISSI POS'
+    'sunat-series'   => 'Series SUNAT - NISSI POS',
+    'carga'          => 'Carga de Datos - NISSI POS',
+    'alumnos'        => 'Padrón de Alumnos - NISSI POS',
+    'pagos'          => 'Pagos y Pensiones - NISSI POS',
+    'conciliacion'   => 'Conciliación - NISSI POS',
+    'promociones'    => 'Promociones - NISSI POS',
+    'entregas'       => 'Entregas de Módulos - NISSI POS'
 ];
 $title = isset($titles[$modulo]) ? $titles[$modulo] : 'NISSI POS';
 
@@ -129,6 +141,24 @@ switch ($modulo) {
         break;
     case 'sunat-series':
         require_once 'views/V_sunat_series.php';
+        break;
+    case 'carga':
+        require_once 'views/V_carga.php';
+        break;
+    case 'alumnos':
+        require_once 'views/V_alumnos.php';
+        break;
+    case 'pagos':
+        require_once 'views/V_pagos.php';
+        break;
+    case 'conciliacion':
+        require_once 'views/V_conciliacion.php';
+        break;
+    case 'promociones':
+        require_once 'views/V_promociones.php';
+        break;
+    case 'entregas':
+        require_once 'views/V_entregas.php';
         break;
 }
 echo '</main>';

@@ -20,7 +20,8 @@ $modulos = [
     'dashboard', 'categorias', 'productos', 'kardex', 'usuarios', 'clientes',
     'nueva-venta', 'historial', 'reportes', 'pedidos-online', 'cotizaciones',
     'nueva-cotizacion', 'separaciones', 'caja', 'control-cajas', 'comisiones',
-    'sunat-series',
+    'sunat-series', 'carga', 'alumnos', 'pagos', 'conciliacion', 'promociones',
+    'entregas',
 ];
 
 $path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
