@@ -19,12 +19,12 @@ class M_Ecommerce {
 
     public function getCatalogo() {
         try {
-            $sql = "SELECT i.id_producto, i.nombre, i.precio_unitario, i.stock_piezas, i.contenido_estandar, i.imagen,
+            $sql = "SELECT i.id_producto, i.nombre, i.precio_unitario, i.stock_piezas, i.imagen,
                            um.abreviatura AS unidad, c.nombre AS categoria
                     FROM productos i
                     INNER JOIN unidades_medida um ON i.id_unidad = um.id_unidad
                     INNER JOIN categorias c ON i.id_categoria = c.id_categoria
-                    WHERE i.estado = 1 AND (i.stock_piezas > 0 OR i.stock_ilimitado = 1)
+                    WHERE i.estado = 1 AND i.stock_ilimitado = 0 AND i.stock_piezas > 0
                       AND i.es_agrupador = 0
                     ORDER BY c.nombre, i.nombre";
             $stmt = $this->conexion->prepare($sql);
@@ -57,7 +57,7 @@ class M_Ecommerce {
                           FROM productos p
                           INNER JOIN categorias c ON p.id_categoria = c.id_categoria
                           INNER JOIN productos h ON h.id_producto_padre = p.id_producto
-                                               AND h.estado = 1
+                                               AND h.estado = 1 AND h.stock_ilimitado = 0
                           LEFT JOIN tallas t ON h.id_talla = t.id_talla
                           WHERE p.es_agrupador = 1 AND p.estado = 1
                           ORDER BY c.nombre ASC, p.nombre ASC, t.orden ASC, t.nombre ASC";
@@ -75,25 +75,29 @@ class M_Ecommerce {
                         'categoria'   => $row['categoria'],
                         'id_categoria'=> $row['id_categoria'],
                         'tiene_tallas'=> true,
+                        'disponible'  => false,
                         'precio_desde'=> null,
                         'stock_total' => 0,
                         'variantes'   => [],
                     ];
                 }
-                // Solo agregar variantes con stock disponible
-                if ($row['var_stock'] > 0) {
-                    $precio = floatval($row['var_precio']);
-                    $grupos[$key]['variantes'][] = [
-                        'id_producto' => (int) $row['var_id'],
-                        'talla'     => $row['var_talla'],
-                        'id_talla'  => $row['id_talla'],
-                        'precio'    => $precio,
-                        'stock'     => (int) $row['var_stock'],
-                    ];
-                    $grupos[$key]['stock_total'] += (int) $row['var_stock'];
-                    if ($grupos[$key]['precio_desde'] === null || $precio < $grupos[$key]['precio_desde']) {
-                        $grupos[$key]['precio_desde'] = $precio;
-                    }
+                // Se listan TODAS las variantes (incluidas las de stock 0) para que el
+                // producto aparezca como "Agotado" en la tienda en vez de desaparecer.
+                $precio = floatval($row['var_precio']);
+                $stock  = (int) $row['var_stock'];
+                $grupos[$key]['variantes'][] = [
+                    'id_producto' => (int) $row['var_id'],
+                    'talla'     => $row['var_talla'],
+                    'id_talla'  => $row['id_talla'],
+                    'precio'    => $precio,
+                    'stock'     => $stock,
+                ];
+                if ($stock > 0) {
+                    $grupos[$key]['disponible'] = true;
+                    $grupos[$key]['stock_total'] += $stock;
+                }
+                if ($grupos[$key]['precio_desde'] === null || $precio < $grupos[$key]['precio_desde']) {
+                    $grupos[$key]['precio_desde'] = $precio;
                 }
             }
 
@@ -104,8 +108,8 @@ class M_Ecommerce {
                            FROM productos i
                            INNER JOIN categorias c ON i.id_categoria = c.id_categoria
                            INNER JOIN unidades_medida um ON i.id_unidad = um.id_unidad
-                           WHERE i.estado = 1 AND (i.stock_piezas > 0 OR i.stock_ilimitado = 1)
-                             AND i.es_agrupador = 0 AND i.id_producto_padre IS NULL
+                    WHERE i.estado = 1 AND i.stock_ilimitado = 0
+                      AND i.es_agrupador = 0 AND i.id_producto_padre IS NULL
                            ORDER BY c.nombre ASC, i.nombre ASC";
             $stmtS = $this->conexion->prepare($sqlSimples);
             $stmtS->execute();
@@ -121,6 +125,7 @@ class M_Ecommerce {
                     'categoria'   => $s['categoria'],
                     'id_categoria'=> $s['id_categoria'],
                     'tiene_tallas'=> false,
+                    'disponible'  => $stockMostrar > 0,
                     'precio_desde'=> floatval($s['precio_unitario']),
                     'stock_total' => $stockMostrar,
                     'stock_ilimitado' => $ilimitado,
@@ -135,8 +140,20 @@ class M_Ecommerce {
                 ];
             }
 
-            // Excluir grupos padre que quedaron sin variantes con stock
-            return array_values(array_filter($grupos, fn($g) => !empty($g['variantes'])));
+            // Excluir grupos padre que quedaron sin variantes
+            $grupos = array_values(array_filter($grupos, fn($g) => !empty($g['variantes'])));
+
+            // Siempre primero los productos con stock disponible; después por categoría y nombre.
+            usort($grupos, function ($a, $b) {
+                if (($a['disponible'] ?? false) !== ($b['disponible'] ?? false)) {
+                    return ($b['disponible'] ?? false) ? 1 : -1;
+                }
+                $cmp = strcasecmp($a['categoria'], $b['categoria']);
+                if ($cmp !== 0) return $cmp;
+                return strcasecmp($a['nombre'], $b['nombre']);
+            });
+
+            return $grupos;
 
         } catch (PDOException $e) {
             return [];
@@ -190,7 +207,10 @@ class M_Ecommerce {
             if ((int) $p['es_agrupador'] === 1) {
                 return ['ok' => false, 'mensaje' => "\"{$p['nombre']}\" requiere elegir una talla/variante."];
             }
-            if ((int) $p['stock_ilimitado'] !== 1 && (float) $p['stock_piezas'] < $cantidad) {
+            if ((int) $p['stock_ilimitado'] === 1) {
+                return ['ok' => false, 'mensaje' => "\"{$p['nombre']}\" no está disponible para compra online."];
+            }
+            if ((float) $p['stock_piezas'] < $cantidad) {
                 return ['ok' => false, 'mensaje' => "Stock insuficiente para \"{$p['nombre']}\"."];
             }
             $precio = round((float) $p['precio_unitario'], 2);
@@ -234,16 +254,16 @@ class M_Ecommerce {
      * (`PN-{id_pedido}`) que después se envía a Izipay al pedir el FormToken. Por eso
      * tampoco hay chequeo anti-duplicado: la unicidad la da el id del pedido.
      *
-     * @param int   $id_cliente     $_SESSION['id_cliente'] del comprador autenticado
+     * @param int   $id_cliente_web  id_cliente_web de la cuenta del comprador (clientes_web)
      * @param array $carritoCliente [['id_producto'=>int,'cantidad'=>int], ...]
-     * @param array $entrega ['tipo_entrega'=>int, 'estudiante_nombre'=>?string, 'id_nivel'=>?int, 'id_grado'=>?int, 'observaciones'=>?string]
+     * @param array $entrega ['tipo_entrega'=>int, 'estudiante_nombre'=>?string, 'id_nivel'=>?int, 'id_grado'=>?int, 'observaciones'=>?string, 'quien_recoge'=>?string, 'recoge_dni'=>?string, 'recoge_nombre'=>?string]
      * @param int   $tipoComprobante        1=Boleta, 2=Factura
      * @param ?int  $idClienteFacturacion   Entidad a facturar (empresa con RUC) si $tipoComprobante=2.
      *              Ya viene resuelto por C_Ecommerce.php contra el RUC — nunca confiar en un id
      *              recibido tal cual del navegador en niveles superiores a este.
      */
     public function crearPedidoPendiente(
-        int $id_cliente,
+        int $id_cliente_web,
         array $carritoCliente,
         array $entrega,
         int $tipoComprobante = 1,
@@ -263,13 +283,14 @@ class M_Ecommerce {
             $tipoEntrega = (int) ($entrega['tipo_entrega'] ?? 1);
             $stmtPedido = $this->conexion->prepare(
                 "INSERT INTO pedidos_online
-                    (id_cliente, id_cliente_facturacion, total, tipo_comprobante, tipo_entrega,
+                    (id_cliente_web, id_cliente_facturacion, total, tipo_comprobante, tipo_entrega,
                      estudiante_nombre, id_nivel, id_grado, observaciones,
+                     quien_recoge, recoge_dni, recoge_nombre,
                      fecha_expira, token_publico, estado)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, DATE_ADD(NOW(), INTERVAL 10 MINUTE), ?, 3)"
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, DATE_ADD(NOW(), INTERVAL 10 MINUTE), ?, 3)"
             );
             $stmtPedido->execute([
-                $id_cliente,
+                $id_cliente_web,
                 $idClienteFacturacion,
                 $calc['total'],
                 $tipoComprobante,
@@ -278,6 +299,9 @@ class M_Ecommerce {
                 $entrega['id_nivel'] ?? null,
                 $entrega['id_grado'] ?? null,
                 $entrega['observaciones'] ?? null,
+                $entrega['quien_recoge'] ?? null,
+                $entrega['recoge_dni'] ?? null,
+                $entrega['recoge_nombre'] ?? null,
                 $token,
             ]);
             $id_pedido = (int) $this->conexion->lastInsertId();
@@ -311,19 +335,20 @@ class M_Ecommerce {
     }
 
     /** Pedidos del cliente autenticado, para "Mis Pedidos". */
-    public function listarPedidosCliente(int $id_cliente): array {
+    public function listarPedidosCliente(int $id_cliente_web): array {
         try {
             $sql = "SELECT p.id_pedido, p.fecha_pedido, p.total, p.estado, p.tipo_entrega,
                            p.estudiante_nombre, p.observaciones, p.motivo_rechazo,
+                           p.quien_recoge, p.recoge_dni, p.recoge_nombre,
                            p.fecha_preparado, p.fecha_entregado,
                            n.nombre AS nivel_nombre, g.nombre AS grado_nombre
                     FROM pedidos_online p
                     LEFT JOIN niveles_educativos n ON p.id_nivel = n.id_nivel
                     LEFT JOIN grados g ON p.id_grado = g.id_grado
-                    WHERE p.id_cliente = ?
+                    WHERE p.id_cliente_web = ?
                     ORDER BY p.fecha_pedido DESC";
             $stmt = $this->conexion->prepare($sql);
-            $stmt->execute([$id_cliente]);
+            $stmt->execute([$id_cliente_web]);
             $pedidos = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
             foreach ($pedidos as &$pedido) {
@@ -414,6 +439,154 @@ class M_Ecommerce {
             $this->enviarCorreoConfirmacion($id_pedido);
 
             return ['ok' => true, 'ya_confirmado' => false, 'uuid' => $uuid];
+        } catch (Exception $e) {
+            if ($this->conexion->inTransaction()) {
+                $this->conexion->rollBack();
+            }
+            return ['ok' => false, 'mensaje' => $e->getMessage()];
+        }
+    }
+
+    /**
+     * Promueve un pedido de estado 3 (pendiente de pago) a 1 (pagado) tras un webhook
+     * de TAYPI. Idempotente: si ya estaba confirmado, no vuelve a mutar nada.
+     *
+     * A diferencia de confirmarPagoPedido() (Izipay), aquí NO se reconsulta a la
+     * pasarela por HTTP: la firma HMAC del webhook ya se validó en C_TaypiWebhook.php
+     * y el body viene firmado por TAYPI. Lo que sí se revalida es el MONTO contra la
+     * BD, para no confirmar un pago de importe distinto al del pedido.
+     *
+     * @param string $paymentId ID del pago en TAYPI (se guarda como transaccion_uuid).
+     * @param string $montoWebhook Monto que TAYPI reporta como pagado ("50.00").
+     */
+    /**
+     * Guarda el payment_id que TAYPI asigna al crear un pago. Sirve para poder
+     * verificar_pago (confirmar sin esperar el webhook) y para correlacionar.
+     */
+    public function guardarPaymentIdTaypi(int $id_pedido, string $paymentId): bool {
+        try {
+            $stmt = $this->conexion->prepare(
+                "UPDATE pedidos_online SET payment_id_taypi = ? WHERE id_pedido = ?"
+            );
+            return $stmt->execute([$paymentId, $id_pedido]);
+        } catch (Exception $e) {
+            error_log('TAYPI guardarPaymentIdTaypi pedido ' . $id_pedido . ': ' . $e->getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Cancelación por abandono del checkout (el cliente cierra la pestaña/ventana
+     * mientras su pedido está pendiente de pago).
+     *
+     * Red de seguridad ANTES de liberar stock: consulta la pasarela que se usó. Si
+     * el cobro realmente se completó (el cliente cerró justo después de pagar), se
+     * confirma el pedido en vez de liberarlo. Si la pasarela no responde, NO se
+     * libera nada (se deja que la reserva siga y expire sola con barrerPedidosVencidos).
+     *
+     * @return array{ok:bool, accion:'confirmado'|'liberado'|'indeterminado', mensaje:string}
+     */
+    public function cancelarPedidoPendiente(int $id_pedido, string $token): array {
+        $pedido = $this->getPedidoPublico($id_pedido, $token);
+        if (!$pedido) {
+            return ['ok' => false, 'accion' => '', 'mensaje' => 'Pedido no encontrado.'];
+        }
+
+        $estado = (int) $pedido['estado'];
+        // Ya confirmado o en progreso: nada que liberar.
+        if (in_array($estado, [1, 2, 5], true)) {
+            return ['ok' => true, 'accion' => 'confirmado', 'mensaje' => 'El pedido ya está pagado.'];
+        }
+        // Rechazado/expirado: el stock ya se liberó antes.
+        if ($estado !== 3) {
+            return ['ok' => true, 'accion' => 'liberado', 'mensaje' => 'El pedido ya no está pendiente.'];
+        }
+
+        $id = (int) $pedido['id_pedido'];
+
+        // ¿El pago fue por TAYPI (QR)? Verificar contra su API.
+        $paymentIdTaypi = (string) ($pedido['payment_id_taypi'] ?? '');
+        if ($paymentIdTaypi !== '') {
+            require_once dirname(__DIR__) . '/models/M_Taypi.php';
+            $v = M_Taypi::singleton()->verificarPago($paymentIdTaypi);
+            if (!$v['ok']) {
+                return ['ok' => false, 'accion' => 'indeterminado', 'mensaje' => 'No pudimos verificar el pago con la pasarela.'];
+            }
+            if ($v['pagado']) {
+                $this->confirmarPagoTaypi($id, $paymentIdTaypi, (string) ($v['data']['amount'] ?? 0));
+                return ['ok' => true, 'accion' => 'confirmado', 'mensaje' => 'El pago ya se había completado.'];
+            }
+            $this->expirarPedido($id);
+            return ['ok' => true, 'accion' => 'liberado', 'mensaje' => 'Pedido cancelado y stock liberado.'];
+        }
+
+        // Flujo Izipay (tarjeta): consultar la orden por su referencia.
+        require_once dirname(__DIR__) . '/models/M_Izipay.php';
+        $referencia = (string) ($pedido['referencia_pago'] ?: self::referenciaPago($id));
+        $verif = M_Izipay::singleton()->ordenEstaPagada($referencia);
+        if (!$verif['ok']) {
+            return ['ok' => false, 'accion' => 'indeterminado', 'mensaje' => 'No pudimos verificar el pago con la pasarela.'];
+        }
+        if ($verif['pagada']) {
+            $this->confirmarPagoPedido($id, $referencia);
+            return ['ok' => true, 'accion' => 'confirmado', 'mensaje' => 'El pago ya se había completado.'];
+        }
+        $this->expirarPedido($id);
+        return ['ok' => true, 'accion' => 'liberado', 'mensaje' => 'Pedido cancelado y stock liberado.'];
+    }
+
+    public function confirmarPagoTaypi(int $id_pedido, string $paymentId, string $montoWebhook): array {        try {
+            // 1. Lectura rápida SIN bloqueo.
+            $stmt = $this->conexion->prepare("SELECT estado, total FROM pedidos_online WHERE id_pedido = ?");
+            $stmt->execute([$id_pedido]);
+            $pedido = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            if (!$pedido) {
+                return ['ok' => false, 'mensaje' => 'Pedido no encontrado.'];
+            }
+            if (in_array((int) $pedido['estado'], [1, 2, 5], true)) {
+                return ['ok' => true, 'ya_confirmado' => true];
+            }
+            if ((int) $pedido['estado'] !== 3) {
+                return ['ok' => false, 'mensaje' => 'El pedido no está pendiente de pago.'];
+            }
+
+            // 2. Monto: el webhook ya viene firmado por TAYPI, pero por defensa en
+            //    profundidad se exige que coincida con el total del pedido.
+            $totalBD = round((float) $pedido['total'], 2);
+            $cobrado = round((float) $montoWebhook, 2);
+            if (abs($totalBD - $cobrado) > 0.01) {
+                error_log('TAYPI webhook: monto no coincide para pedido ' . $id_pedido . ' (BD ' . $totalBD . ' vs webhook ' . $cobrado . ')');
+                return ['ok' => false, 'mensaje' => 'El monto del pago no coincide con el pedido.'];
+            }
+
+            // 3. Transacción corta para mutar, revalidando bajo bloqueo.
+            $this->conexion->beginTransaction();
+
+            $stmtLock = $this->conexion->prepare("SELECT estado FROM pedidos_online WHERE id_pedido = ? FOR UPDATE");
+            $stmtLock->execute([$id_pedido]);
+            $estadoActual = (int) $stmtLock->fetchColumn();
+
+            if (in_array($estadoActual, [1, 2, 5], true)) {
+                $this->conexion->commit();
+                return ['ok' => true, 'ya_confirmado' => true];
+            }
+            if ($estadoActual !== 3) {
+                $this->conexion->rollBack();
+                return ['ok' => false, 'mensaje' => 'El pedido no está pendiente de pago.'];
+            }
+
+            $upd = $this->conexion->prepare(
+                "UPDATE pedidos_online SET estado = 1, fecha_pago = NOW(), transaccion_uuid = ?
+                 WHERE id_pedido = ? AND estado = 3"
+            );
+            $upd->execute([$paymentId, $id_pedido]);
+
+            $this->conexion->commit();
+
+            $this->enviarCorreoConfirmacion($id_pedido);
+
+            return ['ok' => true, 'ya_confirmado' => false, 'uuid' => $paymentId];
         } catch (Exception $e) {
             if ($this->conexion->inTransaction()) {
                 $this->conexion->rollBack();
@@ -570,13 +743,13 @@ class M_Ecommerce {
     public function getPedidoPublico($id_pedido, $token) {
         try {
             $sql = "SELECT p.id_pedido, p.fecha_pedido, p.total, p.estado, p.token_publico,
-                           p.fecha_expira, p.referencia_pago,
+                           p.fecha_expira, p.referencia_pago, p.payment_id_taypi,
                            p.tipo_entrega, p.estudiante_nombre, p.observaciones, p.motivo_rechazo,
+                           p.quien_recoge, p.recoge_dni, p.recoge_nombre,
                            n.nombre AS nivel_nombre, g.nombre AS grado_nombre,
-                           per.numero_documento, per.nombres_razon_social, per.apellidos, per.telefono
+                           cw.numero_documento, cw.nombres_razon_social, cw.apellidos, cw.telefono
                     FROM pedidos_online p
-                    INNER JOIN clientes c ON p.id_cliente = c.id_cliente
-                    INNER JOIN personas per ON c.id_persona = per.id_persona
+                    INNER JOIN clientes_web cw ON p.id_cliente_web = cw.id_cliente_web
                     LEFT JOIN niveles_educativos n ON p.id_nivel = n.id_nivel
                     LEFT JOIN grados g ON p.id_grado = g.id_grado
                     WHERE p.id_pedido = ?";
@@ -607,14 +780,14 @@ class M_Ecommerce {
                            p.referencia_pago, p.transaccion_uuid,
                            p.fecha_pago, p.fecha_preparado, p.fecha_entregado, p.motivo_rechazo, p.estado,
                            p.tipo_entrega, p.estudiante_nombre, p.observaciones,
+                           p.quien_recoge, p.recoge_dni, p.recoge_nombre,
                            p.tipo_comprobante,
                            perFact.numero_documento AS ruc_facturacion, perFact.nombres_razon_social AS razon_social_facturacion,
                            n.nombre AS nivel_nombre, g.nombre AS grado_nombre,
-                           per.numero_documento, per.nombres_razon_social, per.apellidos, per.telefono,
+                           cw.numero_documento, cw.nombres_razon_social, cw.apellidos, cw.telefono,
                            v.id_venta
                     FROM pedidos_online p
-                    INNER JOIN clientes c ON p.id_cliente = c.id_cliente
-                    INNER JOIN personas per ON c.id_persona = per.id_persona
+                    INNER JOIN clientes_web cw ON p.id_cliente_web = cw.id_cliente_web
                     LEFT JOIN clientes cFact ON p.id_cliente_facturacion = cFact.id_cliente
                     LEFT JOIN personas perFact ON cFact.id_persona = perFact.id_persona
                     LEFT JOIN ventas v ON p.id_venta = v.id_venta
@@ -723,10 +896,13 @@ class M_Ecommerce {
                 // El cliente de la venta depende del tipo de comprobante: con Factura, se factura
                 // a la entidad con RUC resuelta en el checkout (id_cliente_facturacion), no a la
                 // cuenta logueada — así el comprobante impreso trae el RUC/razón social correctos.
+                // Con Boleta, la cuenta web (clientes_web) se materializa como cliente POS
+                // (personas+clientes) en el momento de la entrega: se reutiliza si el DNI ya
+                // existe, si no se crea con los datos web — NUNCA se sobrescriben datos del POS.
                 $tipoComprobante = (int) $pedido['tipo_comprobante'];
                 $idClienteVenta = ($tipoComprobante === 2 && $pedido['id_cliente_facturacion'])
                     ? (int) $pedido['id_cliente_facturacion']
-                    : (int) $pedido['id_cliente'];
+                    : $this->resolverClientePosEntrega((int) $pedido['id_cliente_web']);
 
                 // Desglose fiscal: se deriva de total (aquí total SÍ es el valor íntegro de
                 // la mercadería, a diferencia del anticipo de una separación), igual criterio
@@ -801,10 +977,10 @@ class M_Ecommerce {
 
     private function obtenerDatosCorreoPedido(int $id_pedido): ?array {
         $sql = "SELECT p.id_pedido, p.total, p.tipo_entrega, p.estudiante_nombre,
-                       per.nombres_razon_social, c.email
+                       p.quien_recoge, p.recoge_dni, p.recoge_nombre,
+                       cw.nombres_razon_social, cw.email
                 FROM pedidos_online p
-                INNER JOIN clientes c ON p.id_cliente = c.id_cliente
-                INNER JOIN personas per ON c.id_persona = per.id_persona
+                INNER JOIN clientes_web cw ON p.id_cliente_web = cw.id_cliente_web
                 WHERE p.id_pedido = ?";
         $stmt = $this->conexion->prepare($sql);
         $stmt->execute([$id_pedido]);
@@ -813,6 +989,54 @@ class M_Ecommerce {
 
         $pedido['detalles'] = $this->getDetallesPedido($id_pedido);
         return $pedido;
+    }
+
+    /**
+     * Materializa la cuenta web del comprador como cliente POS (personas + clientes)
+     * al ENTREGAR un pedido con Boleta. Reglas (Parte A, sin API RENIEC):
+     *   - Si el DNI ya existe en personas → se reutiliza TAL CUAL (nunca se sobrescriben
+     *     nombres/apellidos del POS con los de la web).
+     *   - Si no existe → se crea con los datos de la cuenta web.
+     *   - Si la cuenta no tiene DNI (legado) → cae a "Público General" (id_cliente 1).
+     *
+     * @return int id_cliente (tabla clientes) a usar en ventas.id_cliente
+     */
+    private function resolverClientePosEntrega(int $id_cliente_web): int {
+        try {
+            $stmt = $this->conexion->prepare("SELECT numero_documento, nombres_razon_social, apellidos, telefono, direccion FROM clientes_web WHERE id_cliente_web = ?");
+            $stmt->execute([$id_cliente_web]);
+            $cuenta = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            if (!$cuenta || empty($cuenta['numero_documento'])) {
+                return 1; // Público General
+            }
+
+            // Reutilizar si el DNI ya está en el POS (sin sobrescribir nada).
+            $stmtPos = $this->conexion->prepare(
+                "SELECT c.id_cliente FROM clientes c
+                 INNER JOIN personas p ON c.id_persona = p.id_persona
+                 WHERE p.numero_documento = ? AND p.estado = 1 LIMIT 1"
+            );
+            $stmtPos->execute([$cuenta['numero_documento']]);
+            $pos = $stmtPos->fetch(PDO::FETCH_ASSOC);
+            if ($pos) {
+                return (int) $pos['id_cliente'];
+            }
+
+            // Crear persona + cliente con los datos de la cuenta web.
+            $stmtPer = $this->conexion->prepare(
+                "INSERT INTO personas (tipo_documento, numero_documento, nombres_razon_social, apellidos, telefono, direccion, estado)
+                 VALUES (1, ?, ?, ?, ?, ?, 1)"
+            );
+            $stmtPer->execute([$cuenta['numero_documento'], $cuenta['nombres_razon_social'] ?? '', $cuenta['apellidos'] ?? null, $cuenta['telefono'] ?? null, $cuenta['direccion'] ?? null]);
+            $id_persona = (int) $this->conexion->lastInsertId();
+
+            $stmtCli = $this->conexion->prepare("INSERT INTO clientes (id_persona, tipo_cliente) VALUES (?, 1)");
+            $stmtCli->execute([$id_persona]);
+            return (int) $this->conexion->lastInsertId();
+        } catch (Exception $e) {
+            return 1; // Público General si algo falla: la venta no puede quedar sin cliente.
+        }
     }
 }
 ?>

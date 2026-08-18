@@ -1,15 +1,16 @@
 <?php
+require_once dirname(__DIR__, 2) . '/config/sesion_segura.php';
 session_start();
-require_once dirname(dirname(__DIR__)) . '/models/M_Cliente.php';
+require_once dirname(dirname(__DIR__)) . '/models/M_ClienteWeb.php';
 require_once dirname(dirname(__DIR__)) . '/models/M_Producto.php';
 
 // La compra requiere cuenta — ya no existe checkout como invitado.
 if (!isset($_SESSION['id_cliente'])) {
-    header('Location: V_cuenta.php?volver=checkout');
+    header('Location: /cuenta?volver=checkout');
     exit;
 }
 
-$clienteCuenta = M_Cliente::singleton()->obtenerClientePorId((int) $_SESSION['id_cliente']);
+$clienteCuenta = M_ClienteWeb::singleton()->obtenerPorId((int) $_SESSION['id_cliente']);
 $niveles = M_Producto::singleton()->obtenerNiveles();
 $grados = M_Producto::singleton()->obtenerGrados();
 ?>
@@ -19,13 +20,13 @@ $grados = M_Producto::singleton()->obtenerGrados();
     <meta charset="UTF-8">
     <!-- Krypton exige este viewport exacto; sin maximum-scale/user-scalable avisa CLIENT_705. -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Checkout Seguro — NISSI STORE</title>
+    <title>Checkout Seguro — NISSI</title>
     <!-- Favicon -->
-    <link rel="icon" type="image/svg+xml" href="../../assets/logo.svg">
+    <link rel="icon" type="image/svg+xml" href="../../assets/favicon-nissi.svg?v=3">
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700;9..144,800&display=swap" rel="stylesheet">
     <!-- Bootstrap + Icons -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
@@ -33,34 +34,25 @@ $grados = M_Producto::singleton()->obtenerGrados();
          dinámicamente al generar el FormToken (ver initIzipay más abajo), porque
          kr-public-key debe ir en la etiqueta y el token no existe hasta entonces. -->
     <link rel="stylesheet" href="https://static.micuentaweb.pe/static/js/krypton-client/V4.0/ext/classic.css">
+    <!-- Tema NISSI -->
+    <link rel="stylesheet" href="../../assets/css/tienda.css?v=4">
+    <?php require_once dirname(__DIR__, 2) . '/config/marca.php'; echo marcaCss(); ?>
 
     <style>
-        :root {
-            --primary:       #0284c7;
-            --primary-dark:  #0369a1;
-            --primary-light: #f0f9ff;
-            --surface:       #ffffff;
-            --bg:            #f1f5f9;
-            --border:        #e2e8f0;
-            --text:          #0f172a;
-            --muted:         #64748b;
-            --success:       #0284c7;
-            --danger:        #dc2626;
-        }
-
         * { box-sizing: border-box; }
 
         body {
-            font-family: 'Inter', sans-serif;
-            background: var(--bg);
-            color: var(--text);
+            background: var(--paper);
+            color: var(--ink);
             min-height: 100vh;
         }
 
         /* ─── Navbar ─────────────────────────────────── */
         .co-nav {
-            background: var(--surface);
-            border-bottom: 1px solid var(--border);
+            background: rgba(255,255,255,.9);
+            -webkit-backdrop-filter: blur(14px);
+            backdrop-filter: blur(14px);
+            border-bottom: 1px solid var(--line);
             padding: 14px 24px;
             display: flex;
             align-items: center;
@@ -68,27 +60,39 @@ $grados = M_Producto::singleton()->obtenerGrados();
             position: sticky;
             top: 0;
             z-index: 100;
-            box-shadow: 0 1px 4px rgba(0,0,0,.06);
         }
+        .co-nav-inner { display: flex; align-items: center; justify-content: space-between; width: 100%; max-width: 1100px; gap: 16px; }
         .co-nav-brand {
             display: flex;
             align-items: center;
-            gap: 10px;
-            font-size: 1.15rem;
-            font-weight: 700;
-            color: var(--text);
+            gap: 12px;
             text-decoration: none;
         }
-        .co-nav-brand .brand-accent { color: var(--primary); }
+        .co-nav-brand img { height: 32px; width: auto; }
+        .co-nav-brand .brand-name {
+            font-family: var(--font-display);
+            font-weight: 800;
+            font-size: 1.25rem;
+            letter-spacing: .02em;
+            color: var(--navy);
+            line-height: 1;
+        }
+        .co-nav-brand .brand-name em { font-style: normal; color: var(--accent); }
+        .co-nav-brand .brand-ctx {
+            display: block; font-family: var(--font-body);
+            font-size: .6rem; font-weight: 700; letter-spacing: .28em;
+            text-transform: uppercase; color: var(--muted); margin-top: 3px;
+        }
         .co-nav-secure {
             display: flex;
             align-items: center;
-            gap: 5px;
-            font-size: 0.78rem;
-            color: var(--muted);
-            margin-left: 18px;
-            padding-left: 18px;
-            border-left: 1px solid var(--border);
+            gap: 7px;
+            font-size: .78rem;
+            font-weight: 600;
+            color: var(--sage-700);
+            background: var(--sage-100);
+            padding: 7px 14px;
+            border-radius: 999px;
         }
 
         /* ─── Main Layout ────────────────────────────── */
@@ -103,69 +107,78 @@ $grados = M_Producto::singleton()->obtenerGrados();
         }
         @media (max-width: 900px) {
             .co-wrapper { grid-template-columns: 1fr; }
-            .co-summary-col { order: -1; }
+            .co-summary-col { order: -1; position: static; }
+        }
+        @media (max-width: 575.98px) {
+            .co-wrapper { gap: 18px; }
+            .co-card { padding: 22px 18px; }
+            .co-card .row.g-3 > .col-6 { flex: 0 0 100%; max-width: 100%; }
         }
 
         /* ─── Cards ──────────────────────────────────── */
         .co-card {
-            background: var(--surface);
-            border: 1px solid var(--border);
-            border-radius: 18px;
-            padding: 28px 32px;
-            box-shadow: 0 2px 10px rgba(0,0,0,.04);
+            background: var(--card);
+            border: 1px solid var(--line);
+            border-radius: var(--radius);
+            padding: 28px 30px;
+            box-shadow: var(--shadow);
         }
         .co-card + .co-card { margin-top: 20px; }
 
         .co-card-title {
-            font-size: 1rem;
+            font-family: var(--font-display);
+            font-size: 1.12rem;
             font-weight: 700;
-            color: var(--text);
+            color: var(--ink);
             margin-bottom: 22px;
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 12px;
         }
         .co-card-title .step-badge {
-            width: 28px;
-            height: 28px;
+            width: 30px; height: 30px;
             border-radius: 50%;
-            background: var(--primary);
+            background: var(--navy);
             color: #fff;
-            font-size: 0.8rem;
+            font-family: var(--font-body);
+            font-size: .82rem;
             font-weight: 700;
             display: flex;
             align-items: center;
             justify-content: center;
             flex-shrink: 0;
+            box-shadow: 0 4px 10px rgba(var(--navy-rgb),.3);
         }
 
         /* ─── Form Fields ────────────────────────────── */
         .co-label {
-            font-size: 0.8rem;
-            font-weight: 600;
-            color: var(--muted);
-            margin-bottom: 6px;
+            font-size: .72rem;
+            font-weight: 700;
+            color: var(--ink-soft);
+            margin-bottom: 7px;
             text-transform: uppercase;
-            letter-spacing: .4px;
+            letter-spacing: .08em;
+            display: block;
         }
         .co-input {
             width: 100%;
-            padding: 11px 14px;
-            border: 1.5px solid var(--border);
-            border-radius: 10px;
-            font-family: 'Inter', sans-serif;
-            font-size: 0.95rem;
-            color: var(--text);
-            background: #f8fafc;
+            padding: 12px 15px;
+            border: 1.5px solid var(--line-strong);
+            border-radius: var(--radius-sm);
+            font-family: var(--font-body);
+            font-size: .95rem;
+            color: var(--ink);
+            background: #fff;
             transition: border-color .2s, box-shadow .2s;
             outline: none;
         }
         .co-input:focus {
-            border-color: var(--primary);
-            box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.12);
-            background: #fff;
+            border-color: var(--navy);
+            box-shadow: 0 0 0 3px rgba(var(--navy-rgb),.12);
         }
-        .co-input.is-invalid { border-color: var(--danger); }
+        .co-input.is-invalid { border-color: var(--danger); box-shadow: 0 0 0 3px rgba(var(--accent-rgb),.12); }
+        .co-input:disabled { background: var(--paper-2); color: var(--muted); cursor: not-allowed; }
+        select.co-input { appearance: auto; }
         .co-field-group {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -174,40 +187,39 @@ $grados = M_Producto::singleton()->obtenerGrados();
         @media (max-width: 500px) { .co-field-group { grid-template-columns: 1fr; } }
 
         /* ─── Divider ─────────────────────────────────── */
-        .co-divider {
-            border: none;
-            border-top: 1px solid var(--border);
-            margin: 24px 0;
-        }
+        .co-divider { border: none; border-top: 1px solid var(--line); margin: 24px 0; }
 
         /* ─── Contenedor del formulario de Izipay ─────── */
         #izipay-form-container {
-            background: #f8fafc;
-            border: 1.5px solid var(--border);
-            border-radius: 12px;
+            background: var(--paper);
+            border: 1.5px solid var(--line);
+            border-radius: var(--radius-sm);
             padding: 16px;
             min-height: 52px;
         }
         .pasarela-nota {
             display: flex;
-            align-items: center;
+            align-items: flex-start;
             gap: 8px;
-            margin-bottom: 14px;
-            font-size: 0.78rem;
+            margin-bottom: 16px;
+            font-size: .78rem;
             color: var(--muted);
+            background: var(--paper-2);
+            border-radius: var(--radius-sm);
+            padding: 11px 14px;
         }
-        /* El botón de pago lo pinta Krypton dentro de su propio formulario. */
+        .pasarela-nota i { color: var(--sage); margin-top: 1px; }
         .kr-embedded { width: 100%; }
 
         /* ─── Pay Button ──────────────────────────────── */
         .btn-pay {
             width: 100%;
-            padding: 15px;
-            background: var(--primary);
+            padding: 16px;
+            background: var(--navy);
             color: #fff;
             border: none;
-            border-radius: 12px;
-            font-family: 'Inter', sans-serif;
+            border-radius: 999px;
+            font-family: var(--font-body);
             font-size: 1rem;
             font-weight: 700;
             cursor: pointer;
@@ -215,14 +227,14 @@ $grados = M_Producto::singleton()->obtenerGrados();
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 8px;
-            margin-top: 24px;
-            box-shadow: 0 4px 14px rgba(2, 132, 199, 0.3);
+            gap: 9px;
+            margin-top: 22px;
+            box-shadow: 0 8px 22px rgba(var(--navy-rgb),.3);
         }
         .btn-pay:hover:not(:disabled) {
-            background: var(--primary-dark);
+            background: var(--navy-700);
             transform: translateY(-1px);
-            box-shadow: 0 6px 18px rgba(2, 132, 199, 0.38);
+            box-shadow: 0 10px 26px rgba(var(--navy-rgb),.38);
         }
         .btn-pay:active:not(:disabled) { transform: translateY(0); }
         .btn-pay:disabled { opacity: .6; cursor: not-allowed; }
@@ -231,7 +243,7 @@ $grados = M_Producto::singleton()->obtenerGrados();
             display: inline-flex;
             align-items: center;
             gap: 6px;
-            font-size: 0.88rem;
+            font-size: .88rem;
             font-weight: 600;
             color: var(--muted);
             background: none;
@@ -242,15 +254,15 @@ $grados = M_Producto::singleton()->obtenerGrados();
             transition: color .2s;
             margin-top: 12px;
         }
-        .btn-back:hover { color: var(--text); }
+        .btn-back:hover { color: var(--navy); }
 
         /* ─── Error Message ───────────────────────────── */
         #payment-error {
-            background: #fef2f2;
-            border: 1px solid #fecaca;
-            border-radius: 10px;
+            background: var(--danger-100);
+            border: 1px solid #f5d6d9;
+            border-radius: var(--radius-sm);
             padding: 12px 16px;
-            font-size: 0.88rem;
+            font-size: .88rem;
             color: var(--danger);
             margin-top: 14px;
             display: none;
@@ -260,15 +272,19 @@ $grados = M_Producto::singleton()->obtenerGrados();
         #payment-error.show { display: flex; }
 
         /* ─── Order Summary ───────────────────────────── */
-        .co-summary-col { position: sticky; top: 90px; }
+        @media (min-width: 900.01px) {
+            .co-summary-col { position: sticky; top: 90px; }
+        }
 
         .summary-title {
-            font-size: 0.9rem;
+            font-family: var(--font-display);
+            font-size: 1.05rem;
             font-weight: 700;
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 9px;
             margin-bottom: 18px;
+            color: var(--navy);
         }
         .summary-items { list-style: none; padding: 0; margin: 0; }
         .summary-item {
@@ -276,61 +292,39 @@ $grados = M_Producto::singleton()->obtenerGrados();
             justify-content: space-between;
             align-items: flex-start;
             padding: 10px 0;
-            border-bottom: 1px dashed var(--border);
+            border-bottom: 1px dashed var(--line-strong);
             gap: 10px;
         }
         .summary-item:last-child { border-bottom: none; }
-        .summary-item-name {
-            font-size: 0.88rem;
-            font-weight: 600;
-            color: var(--text);
-        }
-        .summary-item-sub {
-            font-size: 0.78rem;
-            color: var(--muted);
-            margin-top: 2px;
-        }
-        .summary-item-price {
-            font-size: 0.9rem;
-            font-weight: 700;
-            color: var(--text);
-            white-space: nowrap;
-        }
+        .summary-item-name { font-size: .88rem; font-weight: 600; color: var(--ink); }
+        .summary-item-sub { font-size: .78rem; color: var(--muted); margin-top: 2px; }
+        .summary-item-price { font-size: .9rem; font-weight: 700; color: var(--ink); white-space: nowrap; }
         .summary-totals { margin-top: 16px; }
-        .summary-row {
-            display: flex;
-            justify-content: space-between;
-            font-size: 0.88rem;
-            color: var(--muted);
-            margin-bottom: 8px;
-        }
+        .summary-row { display: flex; justify-content: space-between; font-size: .88rem; color: var(--muted); margin-bottom: 8px; }
         .summary-total-row {
             display: flex;
             justify-content: space-between;
-            font-size: 1.05rem;
-            font-weight: 800;
-            color: var(--text);
-            border-top: 2px solid var(--border);
+            font-family: var(--font-display);
+            font-size: 1.15rem;
+            font-weight: 700;
+            color: var(--ink);
+            border-top: 2px solid var(--line-strong);
             padding-top: 14px;
             margin-top: 6px;
         }
-        .summary-total-row .total-amount { color: var(--primary); }
+        .summary-total-row .total-amount { color: var(--accent); }
         .badge-free {
-            background: var(--primary-light);
-            color: var(--primary);
-            font-size: 0.75rem;
+            background: var(--sage-100);
+            color: var(--sage-700);
+            font-size: .72rem;
             font-weight: 700;
-            padding: 2px 8px;
-            border-radius: 20px;
+            padding: 3px 10px;
+            border-radius: 999px;
         }
 
         /* ─── Empty cart warning ─────────────────────── */
-        #empty-cart-msg {
-            text-align: center;
-            padding: 40px 20px;
-            color: var(--muted);
-        }
-        #empty-cart-msg i { font-size: 3rem; margin-bottom: 12px; display: block; }
+        #empty-cart-msg { text-align: center; padding: 40px 20px; color: var(--muted); }
+        #empty-cart-msg i { font-size: 3rem; margin-bottom: 12px; display: block; color: var(--line-strong); }
 
         /* ─── Spinner ─────────────────────────────────── */
         .spinner-sm {
@@ -345,7 +339,7 @@ $grados = M_Producto::singleton()->obtenerGrados();
 
         /* ─── Security note ───────────────────────────── */
         .security-note {
-            font-size: 0.75rem;
+            font-size: .75rem;
             color: var(--muted);
             text-align: center;
             margin-top: 14px;
@@ -354,20 +348,25 @@ $grados = M_Producto::singleton()->obtenerGrados();
             justify-content: center;
             gap: 5px;
         }
+        /* Radio-tarjeta de selección del checkout */
+        .btn-check + .btn { border-radius: var(--radius-sm); }
     </style>
 </head>
 <body>
 
     <!-- Navbar -->
     <nav class="co-nav">
-        <a href="../../store.php" class="co-nav-brand">
-            <img src="../../assets/logo.svg" alt="Logo" height="28"
-                 onerror="this.onerror=null; this.style.display='none'; this.nextElementSibling.insertAdjacentHTML('beforebegin','<span style=\'font-size:1.4rem;\'>🌿</span> ');">
-            <span><span class="brand-accent">NISSI STORE</span> Checkout</span>
-        </a>
-        <div class="co-nav-secure">
-            <i class="bi bi-lock-fill text-success"></i>
-            Pago 100% seguro
+        <div class="co-nav-inner">
+            <a href="/tienda" class="co-nav-brand">
+                <span>
+                    <span class="brand-name">NISSI<em>.</em></span>
+                    <span class="brand-ctx">Checkout seguro</span>
+                </span>
+            </a>
+            <div class="co-nav-secure">
+                <i class="bi bi-lock-fill"></i>
+                Pago 100% seguro
+            </div>
         </div>
     </nav>
 
@@ -381,7 +380,7 @@ $grados = M_Producto::singleton()->obtenerGrados();
             <div id="empty-cart-msg" class="co-card" style="display:none;">
                 <i class="bi bi-basket2"></i>
                 <p class="fw-semibold mb-3">Tu cesta está vacía.</p>
-                <a href="../../store.php" class="btn btn-primary rounded-pill px-4">Volver a la tienda</a>
+                <a href="/tienda" class="btn btn-primary rounded-pill px-4">Volver a la tienda</a>
             </div>
 
             <!-- ══ SECCIÓN 1: Datos del Cliente (de la cuenta) ══ -->
@@ -476,6 +475,38 @@ $grados = M_Producto::singleton()->obtenerGrados();
                     </div>
                 </div>
 
+                <div id="bloqueRecogida" class="mb-3">
+                    <div class="row g-2">
+                        <div class="col-6">
+                            <input type="radio" class="btn-check" name="quienRecoge" id="recogeYo" value="yo" checked>
+                            <label class="btn btn-outline-primary w-100 py-2" for="recogeYo">
+                                <i class="bi bi-person-check me-1"></i> Lo recogeré yo
+                            </label>
+                        </div>
+                        <div class="col-6">
+                            <input type="radio" class="btn-check" name="quienRecoge" id="recogeOtra" value="otra">
+                            <label class="btn btn-outline-accent w-100 py-2" for="recogeOtra">
+                                <i class="bi bi-person-plus me-1"></i> Lo recogerá otra persona
+                            </label>
+                        </div>
+                    </div>
+                    <p id="recogeYoMsg" class="text-muted mb-0 mt-2" style="font-size:0.85rem;">
+                        <i class="bi bi-info-circle"></i> Recogerá
+                        <strong><?php echo htmlspecialchars(trim(($clienteCuenta['nombres_razon_social'] ?? '') . ' ' . ($clienteCuenta['apellidos'] ?? '')) ?: 'el titular de la cuenta'); ?></strong>
+                        (DNI <?php echo htmlspecialchars($clienteCuenta['numero_documento'] ?? '—'); ?>).
+                    </p>
+                    <div id="camposRecogeOtra" class="row g-3 mt-1" style="display:none;">
+                        <div class="col-6">
+                            <label class="co-label">DNI de quien recogerá</label>
+                            <input type="text" id="coRecogeDni" class="co-input" maxlength="8" inputmode="numeric" placeholder="8 dígitos">
+                        </div>
+                        <div class="col-6">
+                            <label class="co-label">Nombres y apellidos</label>
+                            <input type="text" id="coRecogeNombre" class="co-input" placeholder="Nombre y apellidos completos">
+                        </div>
+                    </div>
+                </div>
+
                 <div id="camposEntregaColegio" style="display:none;">
                     <div class="row g-3">
                         <div class="col-12">
@@ -517,8 +548,27 @@ $grados = M_Producto::singleton()->obtenerGrados();
 
                 <div class="pasarela-nota">
                     <i class="bi bi-shield-lock-fill"></i>
-                    <span>Pago procesado por Izipay · Encriptación SSL · No almacenamos datos de tu tarjeta</span>
+                    <span id="pasarelaNotaText">Pago procesado por Izipay (tarjeta) o TAYPI (QR Yape/Plin) · Encriptación SSL · No almacenamos datos de tu tarjeta</span>
                 </div>
+
+                <!-- Método de pago -->
+                <div class="row g-2 mb-3">
+                    <div class="col">
+                        <input type="radio" class="btn-check" name="metodoPago" id="metodoTarjeta" value="tarjeta" checked>
+                        <label class="btn btn-outline-primary w-100 py-2" for="metodoTarjeta">
+                            <i class="bi bi-credit-card me-1"></i> Tarjeta
+                        </label>
+                    </div>
+                    <div class="col">
+                        <input type="radio" class="btn-check" name="metodoPago" id="metodoQr" value="qr">
+                        <label class="btn btn-outline-primary w-100 py-2" for="metodoQr">
+                            <i class="bi bi-qr-code me-1"></i> Yape / Plin
+                        </label>
+                    </div>
+                </div>
+                <p class="text-muted mb-0" style="font-size:0.8rem;" id="metodoPagoNota">
+                    <i class="bi bi-info-circle"></i> Paga con tu tarjeta de débito o crédito.
+                </p>
 
                 <!-- Error de pago -->
                 <div id="payment-error">
@@ -548,7 +598,7 @@ $grados = M_Producto::singleton()->obtenerGrados();
                 </p>
 
                 <div class="text-center mt-3">
-                    <a href="../../store.php" class="btn-back">
+                    <a href="/tienda" class="btn-back">
                         <i class="bi bi-arrow-left"></i> Volver a la tienda
                     </a>
                 </div>
@@ -592,8 +642,52 @@ $grados = M_Producto::singleton()->obtenerGrados();
     // 1. Load cart from sessionStorage (solo para el render inicial;
     //    el precio y el total definitivos siempre vienen del servidor).
     // ─────────────────────────────────────────────────────────────
-    const cart = JSON.parse(sessionStorage.getItem('puntonet_cart') || '[]');
+    const cart = JSON.parse(sessionStorage.getItem('nissi_cart') || sessionStorage.getItem('puntonet_cart') || '[]');
     let totalAmount = cart.reduce((s, i) => s + i.subtotal, 0);
+
+    // Pasarelas habilitadas en el panel (Configuración → Pagos). Si el administrador
+    // deshabilitó una, no se muestra su método de pago. Con una sola disponible se
+    // selecciona por defecto; con ninguna, se bloquea el botón de pago.
+    let pasarelas = { taypi: true, izipay: true };
+    (async () => {
+        try {
+            const res = await fetch('../../controllers/C_Ecommerce.php?action=pasarelas', { cache: 'no-store' });
+            const json = await res.json();
+            if (json.success) pasarelas = { taypi: !!json.taypi, izipay: !!json.izipay };
+        } catch (e) { /* ante error, se asume que ambas están habilitadas */ }
+
+        const wrapTarjeta = document.getElementById('metodoTarjeta').closest('.col');
+        const wrapQr      = document.getElementById('metodoQr').closest('.col');
+
+        if (!pasarelas.izipay && wrapTarjeta) wrapTarjeta.style.display = 'none';
+        if (!pasarelas.taypi && wrapQr) wrapQr.style.display = 'none';
+
+        // La advertencia de pago solo menciona las pasarelas activas.
+        const notaText = document.getElementById('pasarelaNotaText');
+        if (notaText) {
+            const partes = [];
+            if (pasarelas.izipay) partes.push('Izipay (tarjeta)');
+            if (pasarelas.taypi)  partes.push('TAYPI (QR Yape/Plin)');
+            if (partes.length > 0) {
+                notaText.textContent = `Pago procesado por ${partes.join(' o ')} · Encriptación SSL · No almacenamos datos de tu tarjeta`;
+            } else {
+                notaText.closest('.pasarela-nota').style.display = 'none';
+            }
+        }
+
+        // Reacomodar la selección por defecto según lo que quede disponible.
+        if (!pasarelas.izipay && pasarelas.taypi) {
+            document.getElementById('metodoQr').checked = true;
+            document.getElementById('metodoPagoNota').innerHTML =
+                '<i class="bi bi-info-circle"></i> Escanea el código QR con Yape, Plin o tu app bancaria.';
+        } else if (!pasarelas.izipay && !pasarelas.taypi) {
+            document.getElementById('btn-pay').disabled = true;
+            document.getElementById('btn-pay').innerHTML =
+                '<i class="bi bi-exclamation-triangle"></i> Pagos no disponibles';
+            document.getElementById('metodoPagoNota').innerHTML =
+                '<i class="bi bi-exclamation-triangle-fill text-danger"></i> Los pagos en línea están deshabilitados temporalmente.';
+        }
+    })();
 
     if (cart.length === 0) {
         document.getElementById('empty-cart-msg').style.display = 'block';
@@ -647,7 +741,7 @@ $grados = M_Producto::singleton()->obtenerGrados();
             const s = document.createElement('script');
             s.src = 'https://static.micuentaweb.pe/static/js/krypton-client/V4.0/stable/kr-payment-form.min.js';
             s.setAttribute('kr-public-key', publicKey);
-            s.setAttribute('kr-post-url-success', 'V_checkout_success.php');
+            s.setAttribute('kr-post-url-success', '/confirmacion');
             s.setAttribute('kr-language', 'es-ES');
             s.onload = () => {
                 const ext = document.createElement('script');
@@ -673,6 +767,12 @@ $grados = M_Producto::singleton()->obtenerGrados();
             payload.estudiante_nombre = document.getElementById('coEstudiante').value.trim();
             payload.id_nivel = parseInt(document.getElementById('coNivel').value);
             payload.id_grado = parseInt(document.getElementById('coGrado').value);
+        } else {
+            payload.quien_recoge = document.querySelector('input[name="quienRecoge"]:checked').value;
+            if (payload.quien_recoge === 'otra') {
+                payload.recoge_dni = document.getElementById('coRecogeDni').value.trim();
+                payload.recoge_nombre = document.getElementById('coRecogeNombre').value.trim();
+            }
         }
         if (payload.tipo_comprobante === 2) {
             payload.ruc_facturacion = document.getElementById('coRuc').value.trim();
@@ -687,7 +787,7 @@ $grados = M_Producto::singleton()->obtenerGrados();
 
         if (!json.success) {
             if (json.requiere_login) {
-                window.location.href = 'V_cuenta.php?volver=checkout';
+                window.location.href = '/cuenta?volver=checkout';
                 return false;
             }
             showError(json.mensaje || 'No pudimos reservar tu pedido.');
@@ -695,6 +795,7 @@ $grados = M_Producto::singleton()->obtenerGrados();
         }
 
         pedidoCreado = { id_pedido: json.id_pedido, token: json.token };
+        activarProteccionAbandono();
         return true;
     }
 
@@ -746,16 +847,121 @@ $grados = M_Producto::singleton()->obtenerGrados();
         // de "un formulario ya está renderizado".
         await KR.setFormConfig({ formToken: json.formToken, 'kr-language': 'es-ES' });
 
+        // Cuando Krypton envía el pago, la página navega a V_checkout_success.php.
+        // Marcar el pago como en progreso antes de eso evita que el pagehide libere
+        // el stock de un cobro que sí se está procesando.
+        const contenedorForm = document.getElementById('izipay-form-container');
+        if (contenedorForm && !contenedorForm.dataset.proteccionAbandono) {
+            contenedorForm.dataset.proteccionAbandono = '1';
+            contenedorForm.addEventListener('submit', () => {
+                pagoEnProgreso = true;
+                desactivarProteccionAbandono();
+            }, true);
+        }
+
         return true;
     }
 
     function bloquearDatosEntrega() {
         document.querySelectorAll('#cardDatos input, #cardDatos select, #cardDatos textarea')
             .forEach(el => { el.disabled = true; });
+        document.querySelectorAll('#cardEntrega input, #cardEntrega select, #cardEntrega textarea')
+            .forEach(el => { el.disabled = true; });
     }
 
     // ─────────────────────────────────────────────────────────────
-    // 2.5 Comprobante: Boleta vs Factura (RUC validado contra SUNAT antes de pagar)
+    // 2.5 Método de pago: Tarjeta (Izipay) o QR (TAYPI)
+    // ─────────────────────────────────────────────────────────────
+    let checkoutJSCargado = false;
+
+    function metodoPagoSeleccionado() {
+        return document.querySelector('input[name="metodoPago"]:checked').value;
+    }
+
+    document.querySelectorAll('input[name="metodoPago"]').forEach(radio => {
+        radio.addEventListener('change', () => {
+            const esQr = metodoPagoSeleccionado() === 'qr';
+            document.getElementById('metodoPagoNota').innerHTML = esQr
+                ? '<i class="bi bi-info-circle"></i> Escanea el código QR con Yape, Plin o tu app bancaria.'
+                : '<i class="bi bi-info-circle"></i> Paga con tu tarjeta de débito o crédito.';
+        });
+    });
+
+    // Carga checkout.js de TAYPI. El host depende del modo (sandbox vs producción):
+    // con claves test_ el script debe venir de sandbox.taypi.pe, si no checkout.js
+    // valida la public key contra app.taypi.pe y responde "API key inválida".
+    // El backend expone la URL correcta en json.checkout_js_url.
+    function cargarCheckoutJS(checkoutJsUrl) {
+        if (checkoutJSCargado || window.Taypi) { checkoutJSCargado = true; return Promise.resolve(); }
+        return new Promise((resolve, reject) => {
+            const s = document.createElement('script');
+            s.src = checkoutJsUrl;
+            s.onload = () => { checkoutJSCargado = true; resolve(); };
+            s.onerror = () => reject(new Error('No se pudo cargar la pasarela de pago QR.'));
+            document.head.appendChild(s);
+        });
+    }
+
+    // Paso B (QR): crear el pago en TAYPI y abrir el modal con el QR.
+    async function montarPagoQR() {
+        const res  = await fetch('../../controllers/C_Taypi.php?action=crear_pago', {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify(pedidoCreado),
+        });
+        const json = await res.json();
+
+        if (!json.success || !json.checkout_token) {
+            showError(json.mensaje || 'No pudimos iniciar el pago QR.');
+            return false;
+        }
+
+        // Los datos de entrega ya están comprometidos en el pedido.
+        bloquearDatosEntrega();
+        document.getElementById('reservaNota').style.display = '';
+        document.getElementById('btn-pay').style.display = 'none';
+
+        try {
+            await cargarCheckoutJS(json.checkout_js_url);
+        } catch (e) {
+            showError(e.message);
+            return false;
+        }
+
+        if (!window.Taypi) {
+            showError('No se pudo cargar la pasarela de pago QR.');
+            return false;
+        }
+
+        window.Taypi.publicKey = json.public_key;
+
+        window.Taypi.open({
+            sessionToken: json.checkout_token,
+            onSuccess: (result) => {
+                // El callback del navegador NO es la fuente de verdad: el webhook
+                // confirma el cobro en servidor. Aquí solo se redirige al comprobante.
+                pagoEnProgreso = true;   // no liberar stock en pagehide
+                desactivarProteccionAbandono();
+                window.location.href = `/confirmacion?id=${pedidoCreado.id_pedido}&t=${encodeURIComponent(pedidoCreado.token)}`;
+            },
+            onExpired: () => {
+                showError('El código QR expiró. Intenta de nuevo.');
+                document.getElementById('btn-pay').style.display = '';
+            },
+            onClose: () => {
+                document.getElementById('btn-pay').style.display = '';
+            },
+            onError: (error) => {
+                showError(error && error.message ? error.message : 'Ocurrió un error al mostrar el QR.');
+                document.getElementById('btn-pay').style.display = '';
+            },
+        });
+
+        return true;
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // 2.6 Comprobante: Boleta vs Factura (RUC validado contra SUNAT antes de pagar)
     // ─────────────────────────────────────────────────────────────
     // Solo se puede continuar con Factura si el RUC actual ya fue confirmado por
     // consultar_ruc. Se resetea cada vez que el campo cambia: no basta con haber
@@ -835,6 +1041,21 @@ $grados = M_Producto::singleton()->obtenerGrados();
             const esColegio = document.getElementById('entregaColegio').checked;
             document.getElementById('camposEntregaColegio').style.display = esColegio ? 'block' : 'none';
             document.getElementById('entregaTiendaMsg').style.display = esColegio ? 'none' : 'block';
+            document.getElementById('bloqueRecogida').style.display = esColegio ? 'none' : 'block';
+        });
+    });
+
+    // Quién recoge en tienda: el comprador o una persona con su DNI y nombres.
+    document.querySelectorAll('input[name="quienRecoge"]').forEach(radio => {
+        radio.addEventListener('change', () => {
+            const esOtra = document.getElementById('recogeOtra').checked;
+            document.getElementById('camposRecogeOtra').style.display = esOtra ? 'flex' : 'none';
+            document.getElementById('recogeYoMsg').style.display = esOtra ? 'none' : 'block';
+        });
+    });
+    ['coRecogeDni', 'coRecogeNombre'].forEach(id => {
+        document.getElementById(id).addEventListener('input', () => {
+            document.getElementById(id).classList.remove('is-invalid');
         });
     });
 
@@ -853,20 +1074,41 @@ $grados = M_Producto::singleton()->obtenerGrados();
     });
 
     function validateEntrega() {
-        if (!document.getElementById('entregaColegio').checked) return true;
+        if (document.getElementById('entregaColegio').checked) {
+            const campos = ['coEstudiante', 'coNivel', 'coGrado'];
+            let valid = true;
+            campos.forEach(id => {
+                const el = document.getElementById(id);
+                if (!el.value.trim()) {
+                    el.classList.add('is-invalid');
+                    valid = false;
+                } else {
+                    el.classList.remove('is-invalid');
+                }
+            });
+            return valid;
+        }
 
-        const campos = ['coEstudiante', 'coNivel', 'coGrado'];
-        let valid = true;
-        campos.forEach(id => {
-            const el = document.getElementById(id);
-            if (!el.value.trim()) {
-                el.classList.add('is-invalid');
+        // Recojo en tienda: si recoge otra persona, DNI de 8 dígitos + nombres.
+        if (document.getElementById('recogeOtra').checked) {
+            const dni = document.getElementById('coRecogeDni').value.trim();
+            const nombre = document.getElementById('coRecogeNombre').value.trim();
+            let valid = true;
+            if (!/^\d{8}$/.test(dni)) {
+                document.getElementById('coRecogeDni').classList.add('is-invalid');
                 valid = false;
             } else {
-                el.classList.remove('is-invalid');
+                document.getElementById('coRecogeDni').classList.remove('is-invalid');
             }
-        });
-        return valid;
+            if (nombre === '') {
+                document.getElementById('coRecogeNombre').classList.add('is-invalid');
+                valid = false;
+            } else {
+                document.getElementById('coRecogeNombre').classList.remove('is-invalid');
+            }
+            return valid;
+        }
+        return true;
     }
 
     ['coEstudiante', 'coNivel', 'coGrado'].forEach(id => {
@@ -893,7 +1135,7 @@ $grados = M_Producto::singleton()->obtenerGrados();
         }
         if (!validateEntrega()) {
             document.getElementById('cardEntrega').scrollIntoView({ behavior: 'smooth', block: 'center' });
-            showError('Completa el nombre del estudiante, nivel y grado para la entrega en el colegio.');
+            showError('Completa los datos de entrega: estudiante (colegio) o DNI y nombres de quien recoge (tienda).');
             return;
         }
         if (cart.length === 0) {
@@ -909,7 +1151,12 @@ $grados = M_Producto::singleton()->obtenerGrados();
                 setLoading(false);
                 return;
             }
-            if (!(await montarFormularioPago())) {
+
+            const ok = metodoPagoSeleccionado() === 'qr'
+                ? await montarPagoQR()
+                : await montarFormularioPago();
+
+            if (!ok) {
                 setLoading(false);
                 return;
             }
@@ -924,6 +1171,46 @@ $grados = M_Producto::singleton()->obtenerGrados();
     // ─────────────────────────────────────────────────────────────
     // 5. Helpers
     // ─────────────────────────────────────────────────────────────
+    // Protección contra abandono: si el cliente cierra/abandona la ventana con su
+    // pedido pendiente (stock reservado), se muestra una alerta y, si confirma
+    // salir, se libera el stock de inmediato vía beacon (no esperar los 10 min de
+    // expiración). El endpoint verifica contra la pasarela antes de liberar, así
+    // que cerrar justo después de pagar NO pierde el pedido (se confirma).
+    let reservaActiva   = false;
+    let pagoEnProgreso  = false;   // true desde que el pago se envía/confirma
+
+    function activarProteccionAbandono() {
+        if (reservaActiva) return;
+        reservaActiva = true;
+        window.addEventListener('beforeunload', manejarBeforeUnload);
+        window.addEventListener('pagehide', manejarPageHide);
+    }
+
+    function desactivarProteccionAbandono() {
+        reservaActiva = false;
+        window.removeEventListener('beforeunload', manejarBeforeUnload);
+        window.removeEventListener('pagehide', manejarPageHide);
+    }
+
+    function manejarBeforeUnload(e) {
+        if (!reservaActiva || pagoEnProgreso) return;
+        e.preventDefault();
+        // La mayoría de navegadores ignoran el texto y muestran un diálogo propio;
+        // el returnValue sigue siendo la forma estándar de pedir confirmación.
+        e.returnValue = 'Tienes un pedido pendiente de pago. Si sales ahora se liberará el stock reservado.';
+    }
+
+    function manejarPageHide() {
+        // pagehide se dispara al cerrar pestaña/ventana o navegar fuera. Si el pago
+        // ya se envió o confirmó no se libera nada (el endpoint igualmente revalida).
+        if (!reservaActiva || pagoEnProgreso || !pedidoCreado) return;
+        try {
+            navigator.sendBeacon(
+                `../../controllers/C_Ecommerce.php?action=cancelar_pedido&id=${pedidoCreado.id_pedido}&t=${encodeURIComponent(pedidoCreado.token)}`
+            );
+        } catch (e) { /* best-effort: el barrido de expirados lo cubre igual */ }
+    }
+
     function setLoading(loading) {
         const btn     = document.getElementById('btn-pay');
         const spinner = document.getElementById('pay-spinner');

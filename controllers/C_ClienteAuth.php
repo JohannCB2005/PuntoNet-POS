@@ -5,6 +5,7 @@
  * de la tienda online. Sesión bajo $_SESSION['id_cliente'] — separada de
  * $_SESSION['id_usuario'] (staff) para que ambas convivan sin pisarse.
  */
+require_once dirname(__DIR__) . '/config/sesion_segura.php';
 session_start();
 
 header('X-Frame-Options: DENY');
@@ -13,14 +14,12 @@ header('Referrer-Policy: strict-origin');
 header('Content-Type: application/json');
 
 require_once dirname(__DIR__) . '/config/conexion.php';
-require_once dirname(__DIR__) . '/entities/Persona.php';
-require_once dirname(__DIR__) . '/entities/Cliente.php';
-require_once dirname(__DIR__) . '/models/M_Cliente.php';
+require_once dirname(__DIR__) . '/models/M_ClienteWeb.php';
 require_once dirname(__DIR__) . '/models/M_Mailer.php';
 
 $action = $_GET['action'] ?? '';
 $input = json_decode(file_get_contents('php://input'), true) ?: [];
-$model = M_Cliente::singleton();
+$model = M_ClienteWeb::singleton();
 
 // Regla de fuerza de contraseña — misma que C_Usuario.php (staff)
 const REGLA_PASSWORD = '/^(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{8,}$/';
@@ -91,7 +90,7 @@ switch ($action) {
 
         $cliente = $model->obtenerPorEmail($email);
         session_regenerate_id(true);
-        $_SESSION['id_cliente'] = (int) $cliente['id_cliente'];
+        $_SESSION['id_cliente'] = (int) $cliente['id_cliente_web'];
         $_SESSION['cliente_nombre'] = $cliente['nombres_razon_social'];
         $_SESSION['cliente_email'] = $cliente['email'];
 
@@ -152,7 +151,7 @@ switch ($action) {
         }
 
         session_regenerate_id(true);
-        $_SESSION['id_cliente'] = (int) $cliente['id_cliente'];
+        $_SESSION['id_cliente'] = (int) $cliente['id_cliente_web'];
         $_SESSION['cliente_nombre'] = $cliente['nombres_razon_social'];
         $_SESSION['cliente_email'] = $cliente['email'];
         $modeloIntentos->limpiar('cliente', $email);

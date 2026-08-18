@@ -1,5 +1,6 @@
 <?php
-if (session_status() === PHP_SESSION_NONE) { session_start(); }
+if (session_status() === PHP_SESSION_NONE) { require_once dirname(__DIR__) . '/config/sesion_segura.php';
+session_start(); }
 require_once dirname(__DIR__) . '/models/M_Ecommerce.php';
 
 $action = isset($_GET['action']) ? $_GET['action'] : '';
@@ -107,8 +108,22 @@ switch ($action) {
         echo json_encode(['success' => true, 'data' => $grupos]);
         break;
 
+    // Consulta pública: qué pasarelas de pago están habilitadas y configuradas en
+    // el panel. La usa el checkout para mostrar/ocultar los métodos de pago.
+    case 'pasarelas':
+        header('Cache-Control: no-store, no-cache, must-revalidate');
+        require_once dirname(__DIR__) . '/models/M_Taypi.php';
+        require_once dirname(__DIR__) . '/models/M_Izipay.php';
+        echo json_encode([
+            'success' => true,
+            'taypi'   => M_Taypi::singleton()->estaConfigurado(),
+            'izipay'  => M_Izipay::singleton()->estaConfigurado(),
+        ]);
+        break;
+
     // Requiere el token público del pedido: evita enumerar pedidos ajenos (IDOR).
     case 'get_pedido':
+        header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
         $id = intval($_GET['id'] ?? 0);
         $token = trim($_GET['t'] ?? '');
         if ($id <= 0 || $token === '') {
@@ -117,6 +132,23 @@ switch ($action) {
         }
         $pedido = M_Ecommerce::singleton()->getPedidoPublico($id, $token);
         echo json_encode(['success' => (bool) $pedido, 'data' => $pedido]);
+        break;
+
+    // Cancelación por abandono del checkout. Se llama desde la página de pago con
+    // navigator.sendBeacon cuando el cliente cierra/abandona la ventana mientras su
+    // pedido está pendiente. El servidor verifica antes contra la pasarela que el
+    // cobro no se haya completado (si sí, confirma en vez de liberar stock) — así
+    // cerrar la pestaña justo después de pagar no pierde ni pedido ni stock.
+    case 'cancelar_pedido':
+        header('Cache-Control: no-store');
+        $id = intval($_GET['id'] ?? 0);
+        $token = trim($_GET['t'] ?? '');
+        if ($id <= 0 || $token === '') {
+            echo json_encode(['success' => false, 'mensaje' => 'Solicitud inválida.']);
+            exit;
+        }
+        $r = M_Ecommerce::singleton()->cancelarPedidoPendiente($id, $token);
+        echo json_encode(['success' => (bool) ($r['ok'] ?? false), 'accion' => $r['accion'] ?? '', 'mensaje' => $r['mensaje'] ?? '']);
         break;
 
     // Crea el pedido en estado "pendiente de pago" y reserva stock. El precio y el total
@@ -156,6 +188,28 @@ switch ($action) {
             $entrega['estudiante_nombre'] = $estudiante_nombre;
             $entrega['id_nivel'] = $id_nivel;
             $entrega['id_grado'] = $id_grado;
+        } elseif ($tipo_entrega === 1) {
+            // Recojo en tienda: quién recoge. 'yo' = el comprador; 'otra' = otra persona
+            // de la que se pide DNI + nombres. El DNI/nombres del comprador se resuelven
+            // SIEMPRE en servidor desde su cuenta, nunca de lo que mande el navegador.
+            $quien_recoge = trim($data['quien_recoge'] ?? 'yo');
+            if ($quien_recoge === 'otra') {
+                $recoge_dni = trim($data['recoge_dni'] ?? '');
+                $recoge_nombre = trim($data['recoge_nombre'] ?? '');
+                if (!preg_match('/^\d{8}$/', $recoge_dni) || $recoge_nombre === '') {
+                    echo json_encode(['success' => false, 'mensaje' => 'Para que otra persona recoja, indica su DNI (8 dígitos) y sus nombres completos.']);
+                    exit;
+                }
+                $entrega['quien_recoge'] = 'otra';
+                $entrega['recoge_dni'] = $recoge_dni;
+                $entrega['recoge_nombre'] = $recoge_nombre;
+            } else {
+                require_once dirname(__DIR__) . '/models/M_ClienteWeb.php';
+                $cuenta = M_ClienteWeb::singleton()->obtenerPorId((int) $_SESSION['id_cliente']);
+                $entrega['quien_recoge'] = 'yo';
+                $entrega['recoge_dni'] = trim($cuenta['numero_documento'] ?? '') ?: null;
+                $entrega['recoge_nombre'] = trim(($cuenta['nombres_razon_social'] ?? '') . ' ' . ($cuenta['apellidos'] ?? '')) ?: null;
+            }
         }
 
         // Boleta/Factura: el tipo lo elige el cliente, pero la entidad a facturar
@@ -230,6 +284,8 @@ switch ($action) {
             echo json_encode(['success' => false, 'mensaje' => 'No autorizado']);
             exit;
         }
+        require_once dirname(__DIR__) . '/config/csrf.php';
+        csrfRequerir();
 
         $raw = file_get_contents("php://input");
         $data = json_decode($raw, true);

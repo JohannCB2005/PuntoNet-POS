@@ -27,6 +27,7 @@ DROP TABLE IF EXISTS `trabajadores`;
 DROP TABLE IF EXISTS `clientes`;
 DROP TABLE IF EXISTS `usuarios`;
 DROP TABLE IF EXISTS `productos`;
+DROP TABLE IF EXISTS `configuracion`;
 DROP TABLE IF EXISTS `categorias`;
 DROP TABLE IF EXISTS `unidades_medida`;
 DROP TABLE IF EXISTS `tallas`;
@@ -230,6 +231,33 @@ CREATE TABLE `clientes` (
   UNIQUE KEY `id_persona` (`id_persona`),
   UNIQUE KEY `uq_cliente_email` (`email`),
   CONSTRAINT `clientes_ibfk_1` FOREIGN KEY (`id_persona`) REFERENCES `personas` (`id_persona`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Cuentas de la tienda online: SEPARADAS de los clientes POS. El registro/login de la
+-- tienda escribe SOLO aquí (nunca en personas/clientes), evitando el bug de sobrescribir
+-- nombres o cambiar email/password de una cuenta ajena. Los clientes POS se validan con
+-- RENIEC desde el módulo de ventas; la cuenta web es autocontenida.
+CREATE TABLE `clientes_web` (
+  `id_cliente_web` int(11) NOT NULL AUTO_INCREMENT,
+  `email` varchar(150) NOT NULL,
+  `password` varchar(255) DEFAULT NULL,
+  `email_verificado` tinyint(1) NOT NULL DEFAULT 0,
+  `codigo_verificacion` varchar(10) DEFAULT NULL,
+  `codigo_verificacion_expira` datetime DEFAULT NULL,
+  `codigo_verificacion_intentos` tinyint(4) NOT NULL DEFAULT 0 COMMENT 'Intentos fallidos del código de verificación; a los 5 el código se invalida',
+  `codigo_reset` varchar(10) DEFAULT NULL,
+  `codigo_reset_expira` datetime DEFAULT NULL,
+  `codigo_reset_intentos` tinyint(4) NOT NULL DEFAULT 0 COMMENT 'Intentos fallidos del código de reset; a los 5 el código se invalida',
+  `numero_documento` varchar(15) DEFAULT NULL,
+  `nombres_razon_social` varchar(150) DEFAULT NULL,
+  `apellidos` varchar(100) DEFAULT NULL,
+  `telefono` varchar(15) DEFAULT NULL,
+  `direccion` varchar(255) DEFAULT NULL,
+  `fecha_registro` datetime DEFAULT NULL,
+  `estado` tinyint(1) NOT NULL DEFAULT 1,
+  PRIMARY KEY (`id_cliente_web`),
+  UNIQUE KEY `uq_cliente_web_email` (`email`),
+  KEY `idx_cliente_web_dni` (`numero_documento`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- =============================================================================
@@ -463,6 +491,20 @@ CREATE TABLE `comprobantes_sunat` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- =============================================================================
+-- CONFIGURACIÓN DE LA TIENDA
+-- =============================================================================
+
+CREATE TABLE `configuracion` (
+  `clave` varchar(60) NOT NULL,
+  `valor` text DEFAULT NULL,
+  `grupo` varchar(40) NOT NULL DEFAULT 'empresa',
+  `tipo` varchar(20) NOT NULL DEFAULT 'texto',
+  `etiqueta` varchar(120) DEFAULT NULL,
+  `fecha_actualizacion` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`clave`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- =============================================================================
 -- COTIZACIONES
 -- =============================================================================
 
@@ -510,8 +552,8 @@ CREATE TABLE `detalle_cotizaciones` (
 
 CREATE TABLE `pedidos_online` (
   `id_pedido` int(11) NOT NULL AUTO_INCREMENT,
-  `id_cliente` int(11) NOT NULL,
-  `id_cliente_facturacion` int(11) DEFAULT NULL COMMENT 'Entidad a facturar cuando tipo_comprobante=2 (empresa con RUC), distinta del id_cliente dueño del pedido',
+  `id_cliente_web` int(11) NOT NULL,
+  `id_cliente_facturacion` int(11) DEFAULT NULL COMMENT 'Entidad a facturar cuando tipo_comprobante=2 (empresa con RUC), distinta del id_cliente_web dueño del pedido',
   `fecha_pedido` datetime NOT NULL DEFAULT current_timestamp(),
   `total` decimal(10,2) NOT NULL,
   `tipo_comprobante` tinyint(1) NOT NULL DEFAULT 1 COMMENT '1=Boleta, 2=Factura (mismo mapeo que ventas.tipo_comprobante)',
@@ -520,6 +562,9 @@ CREATE TABLE `pedidos_online` (
   `id_nivel` int(11) DEFAULT NULL,
   `id_grado` int(11) DEFAULT NULL,
   `observaciones` text DEFAULT NULL,
+  `quien_recoge` varchar(4) DEFAULT NULL COMMENT 'Quien recoge en tienda: yo (el comprador) | otra (persona con DNI). Solo aplica cuando tipo_entrega=1.',
+  `recoge_dni` varchar(20) DEFAULT NULL COMMENT 'DNI de quien recoge (el comprador si quien_recoge=yo, resuelto en servidor)',
+  `recoge_nombre` varchar(150) DEFAULT NULL COMMENT 'Nombres completos de quien recoge',
   `motivo_rechazo` text DEFAULT NULL COMMENT 'Motivo escrito por quien despacha al rechazar; se envía al cliente por correo.',
   `nro_operacion_yape` varchar(50) NOT NULL DEFAULT '',
   `referencia_pago` varchar(64) DEFAULT NULL COMMENT 'orderId enviado a Izipay (PN-{id_pedido}). En pedidos antiguos, el PaymentIntent de Stripe.',
@@ -532,13 +577,13 @@ CREATE TABLE `pedidos_online` (
   `estado` tinyint(1) NOT NULL DEFAULT 3 COMMENT '3=Pendiente de pago, 1=Pagado/Pendiente entrega, 5=Preparado, 2=Entregado, 0=Rechazado, 4=Expirado',
   `id_venta` int(11) DEFAULT NULL,
   PRIMARY KEY (`id_pedido`),
-  KEY `id_cliente` (`id_cliente`),
+  KEY `id_cliente_web` (`id_cliente_web`),
   KEY `id_venta` (`id_venta`),
   KEY `id_nivel` (`id_nivel`),
   KEY `id_grado` (`id_grado`),
   KEY `idx_referencia_pago` (`referencia_pago`),
   KEY `idx_estado_expira` (`estado`, `fecha_expira`),
-  CONSTRAINT `pedidos_online_ibfk_1` FOREIGN KEY (`id_cliente`) REFERENCES `clientes` (`id_cliente`),
+  CONSTRAINT `pedidos_online_ibfk_1` FOREIGN KEY (`id_cliente_web`) REFERENCES `clientes_web` (`id_cliente_web`),
   CONSTRAINT `pedidos_online_ibfk_2` FOREIGN KEY (`id_venta`) REFERENCES `ventas` (`id_venta`),
   CONSTRAINT `pedidos_online_ibfk_3` FOREIGN KEY (`id_nivel`) REFERENCES `niveles_educativos` (`id_nivel`),
   CONSTRAINT `pedidos_online_ibfk_4` FOREIGN KEY (`id_grado`) REFERENCES `grados` (`id_grado`),
