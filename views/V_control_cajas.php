@@ -23,10 +23,9 @@ $cajas = $model->listarPorFecha($fechaFiltro);
             <h4 class="mb-1 fw-bold text-dark">Control de Cajas</h4>
             <p class="text-muted mb-0" style="font-size: 14px;">Supervisa las aperturas y cierres de todos los usuarios.</p>
         </div>
-        <form class="d-flex gap-2" method="GET" action="/">
+        <form class="d-flex gap-2" method="GET" action="/" id="filtroFechaForm">
             <input type="hidden" name="modulo" value="control-cajas">
-            <input type="date" name="fecha" class="form-control" value="<?php echo htmlspecialchars($fechaFiltro); ?>" max="<?php echo htmlspecialchars($hoyBD); ?>">
-            <button type="submit" class="btn btn-primary"><i class="bi bi-search"></i></button>
+            <input type="date" name="fecha" class="form-control" value="<?php echo htmlspecialchars($fechaFiltro); ?>" max="<?php echo htmlspecialchars($hoyBD); ?>" id="filtroFecha">
         </form>
     </div>
 
@@ -36,8 +35,10 @@ $cajas = $model->listarPorFecha($fechaFiltro);
             <table class="table align-middle text-sm" style="font-size: 14px;">
                 <thead>
                     <tr class="text-muted border-bottom" style="font-size: 13px;">
+                        <th scope="col" class="pb-3">N° Caja</th>
                         <th scope="col" class="pb-3">Usuario</th>
-                        <th scope="col" class="pb-3">Horario</th>
+                        <th scope="col" class="pb-3">Apertura</th>
+                        <th scope="col" class="pb-3">Cierre</th>
                         <th scope="col" class="pb-3 text-end">M. Inicial</th>
                         <th scope="col" class="pb-3 text-end">Ventas Totales</th>
                         <th scope="col" class="pb-3 text-end">M. Cierre</th>
@@ -49,7 +50,7 @@ $cajas = $model->listarPorFecha($fechaFiltro);
                 <tbody>
                     <?php if (empty($cajas)): ?>
                         <tr>
-                            <td colspan="8" class="text-center py-5 text-muted">
+                            <td colspan="9" class="text-center py-5 text-muted">
                                 <i class="bi bi-safe-fill fs-2 mb-2 d-block"></i>
                                 No hay registros de cajas en esta fecha.
                             </td>
@@ -72,14 +73,23 @@ $cajas = $model->listarPorFecha($fechaFiltro);
                         ?>
                             <tr class="border-bottom">
                                 <td class="py-3">
+                                    <span class="fw-bold text-primary">#<?php echo htmlspecialchars($caja['numero_caja']); ?></span>
+                                </td>
+                                <td class="py-3">
                                     <div class="d-flex flex-column">
                                         <span class="fw-semibold text-dark"><?php echo htmlspecialchars($caja['nombre_completo']); ?></span>
                                         <span class="text-muted font-mono" style="font-size: 11px;">@<?php echo htmlspecialchars($caja['username']); ?></span>
                                     </div>
                                 </td>
                                 <td class="text-muted">
-                                    A: <?php echo date('h:i A', strtotime($caja['fecha_apertura'])); ?> <br>
-                                    C: <?php echo $caja['fecha_cierre'] ? date('h:i A', strtotime($caja['fecha_cierre'])) : '-'; ?>
+                                    <span class="font-mono" style="font-size: 12px;"><?php echo date('d/m/Y', strtotime($caja['fecha_apertura'])); ?> · <?php echo date('h:i A', strtotime($caja['fecha_apertura'])); ?></span>
+                                </td>
+                                <td class="text-muted">
+                                    <?php if ($caja['fecha_cierre']): ?>
+                                        <span class="font-mono" style="font-size: 12px;"><?php echo date('d/m/Y', strtotime($caja['fecha_cierre'])); ?> · <?php echo date('h:i A', strtotime($caja['fecha_cierre'])); ?></span>
+                                    <?php else: ?>
+                                        <span class="text-success fst-italic">En curso</span>
+                                    <?php endif; ?>
                                 </td>
                                 <td class="text-end fw-medium">S/ <?php echo number_format($caja['monto_apertura'], 2); ?></td>
                                 <td class="text-end text-success fw-bold">+ S/ <?php echo number_format($ventas, 2); ?> <br><small class="text-muted">(<?php echo $caja['num_ventas'] !== null ? $caja['num_ventas'] : '-'; ?> op.)</small></td>
@@ -117,7 +127,7 @@ $cajas = $model->listarPorFecha($fechaFiltro);
                         <?php endforeach; ?>
                         <!-- Fila de Totales del Día Consolidados -->
                         <tr class="bg-light">
-                            <td colspan="2" class="text-end fw-bold">TOTALES DEL DÍA:</td>
+                            <td colspan="4" class="text-end fw-bold">TOTALES DEL DÍA:</td>
                             <td class="text-end fw-bold">S/ <?php echo number_format($sum_apertura, 2); ?></td>
                             <td class="text-end fw-bold text-success">S/ <?php echo number_format($sum_ventas, 2); ?></td>
                             <td class="text-end fw-bold">S/ <?php echo number_format($sum_cierre, 2); ?></td>
@@ -135,13 +145,13 @@ $cajas = $model->listarPorFecha($fechaFiltro);
 
 <!-- Modal Detalle de Caja -->
 <div class="modal fade" id="cajaDetalleModal" tabindex="-1" aria-labelledby="cajaDetalleModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-xl">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title fw-bold" id="cajaDetalleModalLabel">Detalle de Caja</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+    <div class="modal-dialog modal-xl modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 15px;">
+            <div class="modal-header gp-bg-primary text-white border-0 py-3" style="border-radius: 15px 15px 0 0;">
+                <h6 class="modal-title fw-bold" id="cajaDetalleModalLabel">Detalle de Caja</h6>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar" style="box-shadow: none;"></button>
             </div>
-            <div class="modal-body">
+            <div class="modal-body p-4">
                 <div class="row mb-4" id="cajaResumenCards">
                     <!-- Se llenará dinámicamente -->
                 </div>
@@ -169,6 +179,14 @@ $cajas = $model->listarPorFecha($fechaFiltro);
 
 <script>
 document.addEventListener('DOMContentLoaded', function () {
+    // Auto-envío del filtro de fecha al cambiar (sin botón de búsqueda)
+    const filtroFecha = document.getElementById('filtroFecha');
+    if (filtroFecha) {
+        filtroFecha.addEventListener('change', function () {
+            document.getElementById('filtroFechaForm').submit();
+        });
+    }
+
     // Inicializar tooltips para ver observaciones de descuadres de caja al pasar el mouse
     var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
     var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {

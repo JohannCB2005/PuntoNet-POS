@@ -120,5 +120,39 @@
             }
         });
     </script>
+
+    <!-- CSRF: inyecta el token de sesión en toda petición fetch del panel -->
+    <script>
+        (function () {
+            const CSRF_TOKEN = document.querySelector('meta[name="csrf-token"]');
+            if (!CSRF_TOKEN) return;
+            const token = CSRF_TOKEN.getAttribute('content');
+            const fetchOriginal = window.fetch;
+            window.fetch = function (url, options) {
+                options = options || {};
+                const metodo = (options.method || 'GET').toUpperCase();
+                if (metodo !== 'GET' && metodo !== 'HEAD' && metodo !== 'OPTIONS') {
+                    const headers = new Headers(options.headers || {});
+                    if (!headers.has('X-CSRF-Token')) {
+                        headers.set('X-CSRF-Token', token);
+                        options.headers = headers;
+                    }
+                }
+                return fetchOriginal.call(this, url, options);
+            };
+        })();
+    </script>
+
+    <!-- Cierre de la Configuración de la tienda: vuelve a la página anterior, o
+         al Dashboard si no hay historial de navegación dentro del sitio. -->
+    <script>
+        function cerrarConfiguracion() {
+            if (document.referrer && document.referrer.indexOf(location.origin) === 0) {
+                history.back();
+            } else {
+                window.location.href = '/dashboard';
+            }
+        }
+    </script>
 </body>
 </html>

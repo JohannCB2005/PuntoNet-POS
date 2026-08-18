@@ -105,9 +105,12 @@ class M_Venta {
         $ventaIgv = round((float) $venta->total - $ventaSubtotal, 2);
 
         // --- PASO 1: Insertar cabecera de venta ---
+        // fecha: si el POS envió una fecha de emisión se usa esa (más la hora
+        // actual); si no, la BD pone CURRENT_TIMESTAMP. fecha_vencimiento y serie
+        // son opcionales y solo llegan cuando el cajero las eligió.
         $stmtVenta = $conexion->prepare(
-            "INSERT INTO ventas (id_usuario, id_caja, id_cliente, tipo_comprobante, total, subtotal, igv, metodo_pago, estado, origen)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?)"
+            "INSERT INTO ventas (id_usuario, id_caja, id_cliente, tipo_comprobante, total, subtotal, igv, metodo_pago, estado, origen, fecha, serie, fecha_vencimiento)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?)"
         );
         $stmtVenta->execute([
             $venta->id_usuario,
@@ -118,9 +121,19 @@ class M_Venta {
             $ventaSubtotal,
             $ventaIgv,
             $metodoPagoResumen,
-            $venta->origen ?? 1
+            $venta->origen ?? 1,
+            $venta->fecha ?: date('Y-m-d H:i:s'),
+            $venta->serie ?: null,
+            $venta->fecha_vencimiento ?: null
         ]);
         $id_venta = (int) $conexion->lastInsertId();
+
+        // Token para el enlace público del comprobante (patrón de pedidos_online):
+        // 32 chars hex impredecibles. Se genera siempre para que cualquier venta
+        // nueva pueda compartirse; la vista pública lo valida con hash_equals.
+        $token = bin2hex(random_bytes(16));
+        $stmtToken = $conexion->prepare("UPDATE ventas SET token_publico = ? WHERE id_venta = ?");
+        $stmtToken->execute([$token, $id_venta]);
 
         // --- PASO 1b: Insertar cada línea de pago ---
         $stmtPago = $conexion->prepare(
@@ -295,8 +308,8 @@ class M_Venta {
      */
     public function listar($id_usuario = null) {
         try {
-            $sql = "SELECT v.id_venta, v.tipo_comprobante, v.fecha, v.total, v.subtotal, v.igv, v.estado, v.metodo_pago, v.origen,
-                           v.serie, v.correlativo, v.estado_sunat, v.sunat_codigo, v.sunat_mensaje, v.sunat_hash,
+            $sql = "SELECT v.id_venta, v.tipo_comprobante, v.fecha, v.fecha_vencimiento, v.total, v.subtotal, v.igv, v.estado, v.metodo_pago, v.origen,
+                           v.serie, v.correlativo, v.estado_sunat, v.sunat_codigo, v.sunat_mensaje, v.sunat_hash, v.token_publico,
                            DATEDIFF(NOW(), v.fecha) AS dias_transcurridos,
                            u.username AS vendedor,
                            IF(p.apellidos IS NOT NULL AND p.apellidos != '',
@@ -355,6 +368,63 @@ class M_Venta {
             return $stmt->fetchAll();
         } catch (PDOException $e) {
             return [];
+        }
+    }
+
+    /**
+     * Token público de una venta, para construir el enlace de comprobante público.
+     * No se expone por ningún endpoint del panel: solo lo usa código de servidor.
+     */
+    public function tokenPublicoDe(int $id_venta): string {
+        try {
+            $stmt = $this->conexion->prepare("SELECT token_publico FROM ventas WHERE id_venta = ?");
+            $stmt->execute([$id_venta]);
+            return (string) $stmt->fetchColumn();
+        } catch (PDOException $e) {
+            return '';
+        }
+    }
+
+    /**
+     * Comprobante completo de una venta validado por token público (patrón de
+     * pedidos_online: hash_equals). Devuelve null si la venta no existe o el
+     * token no coincide. Nunca expone datos sensibles que el ticket no muestre.
+     */
+    public function obtenerComprobantePublico($id_venta, $token) {
+        try {
+            $sql = "SELECT v.id_venta, v.tipo_comprobante, v.fecha, v.fecha_vencimiento, v.total, v.subtotal, v.igv,
+                           v.estado, v.metodo_pago, v.origen, v.serie, v.correlativo, v.estado_sunat, v.sunat_hash,
+                           v.token_publico,
+                           u.username AS vendedor,
+                           IF(p.apellidos IS NOT NULL AND p.apellidos != '',
+                              CONCAT(p.apellidos, ', ', p.nombres_razon_social),
+                              p.nombres_razon_social) AS cliente,
+                           p.numero_documento, p.tipo_documento
+                     FROM ventas v
+                     INNER JOIN usuarios u ON v.id_usuario = u.id_usuario
+                     LEFT JOIN clientes c ON v.id_cliente = c.id_cliente
+                     LEFT JOIN personas p ON c.id_persona = p.id_persona
+                     WHERE v.id_venta = ?";
+            $stmt = $this->conexion->prepare($sql);
+            $stmt->execute([$id_venta]);
+            $venta = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            if (!$venta || !hash_equals((string) $venta['token_publico'], (string) $token)) {
+                return null;
+            }
+            unset($venta['token_publico']);
+
+            $venta['detalles'] = $this->obtenerDetallesPorVenta($id_venta);
+
+            $stmtPagos = $this->conexion->prepare(
+                "SELECT metodo_pago, monto FROM pagos_venta WHERE id_venta = ? ORDER BY id_pago"
+            );
+            $stmtPagos->execute([$id_venta]);
+            $venta['pagos'] = $stmtPagos->fetchAll(PDO::FETCH_ASSOC);
+
+            return $venta;
+        } catch (PDOException $e) {
+            return null;
         }
     }
 

@@ -55,9 +55,11 @@ class M_Caja {
             if ($this->obtenerCajaAbierta($id_usuario)) {
                 return false;
             }
-            $sql = "INSERT INTO cajas (id_usuario, monto_apertura, estado) VALUES (?, ?, 1)";
+            // Correlativo global: máximo existente + 1 (identificador de caja).
+            $numero = (int) $this->conexion->query('SELECT COALESCE(MAX(numero_caja), 0) + 1 FROM cajas')->fetchColumn();
+            $sql = "INSERT INTO cajas (numero_caja, id_usuario, monto_apertura, estado) VALUES (?, ?, ?, 1)";
             $stmt = $this->conexion->prepare($sql);
-            return $stmt->execute([$id_usuario, $monto_apertura]);
+            return $stmt->execute([$numero, $id_usuario, $monto_apertura]);
         } catch (PDOException $e) {
             return false;
         }
@@ -147,9 +149,10 @@ class M_Caja {
                     FROM cajas c
                     INNER JOIN usuarios u ON c.id_usuario = u.id_usuario
                     INNER JOIN personas p ON u.id_persona = p.id_persona
-                    WHERE DATE(c.fecha_apertura) = ?";
-            
-            $params = [$fecha];
+                    WHERE DATE(c.fecha_apertura) <= ?
+                      AND (c.estado = 1 OR DATE(c.fecha_cierre) >= ?)";
+
+            $params = [$fecha, $fecha];
 
             if ($id_usuario) {
                 $sql .= " AND c.id_usuario = ?";

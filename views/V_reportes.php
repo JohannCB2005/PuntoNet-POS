@@ -29,8 +29,8 @@ $hoyBD = fechaHoyBD();
         transition: all 0.2s ease;
     }
     .nav-tabs .nav-link.active {
-        color: #0284c7;
-        border-bottom: 3px solid #0284c7;
+        color: #23284E;
+        border-bottom: 3px solid #23284E;
         background: transparent;
     }
     .nav-tabs .nav-link:hover:not(.active) {
@@ -63,7 +63,7 @@ $hoyBD = fechaHoyBD();
                 <label class="form-label text-muted fw-semibold mb-1" style="font-size: 12px;">Hasta</label>
                 <input type="date" id="filtroHasta" class="form-control form-control-sm" value="<?php echo htmlspecialchars($hoyBD); ?>">
             </div>
-            <button class="btn btn-primary btn-sm px-3 fw-semibold" id="btnFiltrar" style="height: 31px; background-color: #0284c7; border: none;">
+            <button class="btn btn-primary btn-sm px-3 fw-semibold" id="btnFiltrar" style="height: 31px; background-color: #23284E; border: none;">
                 <i class="bi bi-funnel"></i> Aplicar
             </button>
             <div class="dropdown">
@@ -351,7 +351,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 datasets: [{
                     label: 'Ingresos S/',
                     data: values,
-                    borderColor: '#0284c7',
+                    borderColor: '#23284E',
                     backgroundColor: gradient,
                     fill: true,
                     tension: 0.3
@@ -533,7 +533,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Cabecera Documento
         doc.setFontSize(22);
         doc.setFont("helvetica", "bold");
-        doc.text("PuntoNet", 40, 50);
+        doc.text("NISSI", 40, 50);
         
         doc.setFontSize(14);
         doc.text(title, 40, 80);

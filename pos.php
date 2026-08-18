@@ -1,9 +1,8 @@
 <?php
-// Cabeceras de seguridad HTTP
-header('X-Frame-Options: DENY');           // Anti-clickjacking
-header('X-Content-Type-Options: nosniff'); // Anti-MIME sniffing
-header('Referrer-Policy: strict-origin');  // Control de referrer
+// Cabeceras de seguridad HTTP emitidas por nginx (vhost nissi.conf): HSTS, CSP,
+// X-Frame-Options, X-Content-Type-Options, Referrer-Policy, Permissions-Policy.
 
+require_once __DIR__ . '/config/sesion_segura.php';
 session_start();
 
 // 1. Auth check
@@ -37,6 +36,7 @@ $routes = [
     'control-cajas'  => ['Administrador'],
     'comisiones'     => ['Administrador'],
     'sunat-series'   => ['Administrador'],
+    'configuracion'  => ['Administrador'],
     'carga'          => ['Administrador'],
     'alumnos'        => ['Administrador'],
     'pagos'          => ['Administrador'],
@@ -75,6 +75,7 @@ $titles = [
     'control-cajas'  => 'Control de Cajas - NISSI POS',
     'comisiones'     => 'Comisiones - NISSI POS',
     'sunat-series'   => 'Series SUNAT - NISSI POS',
+    'configuracion'  => 'Configuración de la tienda - NISSI POS',
     'carga'          => 'Carga de Datos - NISSI POS',
     'alumnos'        => 'Padrón de Alumnos - NISSI POS',
     'pagos'          => 'Pagos y Pensiones - NISSI POS',
@@ -85,8 +86,13 @@ $titles = [
 $title = isset($titles[$modulo]) ? $titles[$modulo] : 'NISSI POS';
 
 // 6. Include layout and render module view
+// En Configuración de la tienda se oculta el sidebar (vista de pantalla completa
+// con botón de cerrar "X" arriba a la derecha).
+$ocultarSidebar = ($modulo === 'configuracion');
 require_once 'views/layouts/header.php';
-require_once 'views/layouts/sidebar.php';
+if (!$ocultarSidebar) {
+    require_once 'views/layouts/sidebar.php';
+}
 require_once 'views/layouts/navbar.php';
 
 echo '<main class="main-content">';
@@ -141,6 +147,9 @@ switch ($modulo) {
         break;
     case 'sunat-series':
         require_once 'views/V_sunat_series.php';
+        break;
+    case 'configuracion':
+        require_once 'views/V_configuracion.php';
         break;
     case 'carga':
         require_once 'views/V_carga.php';

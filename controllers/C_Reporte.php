@@ -1,9 +1,13 @@
 <?php
+require_once dirname(__DIR__) . '/config/sesion_segura.php';
 session_start();
 if (!isset($_SESSION['id_usuario']) || $_SESSION['rol'] !== 'Administrador') {
     echo json_encode(["success" => false, "mensaje" => "Acceso denegado."]);
     exit;
 }
+
+require_once dirname(__DIR__) . '/config/csrf.php';
+csrfRequerir();
 
 require_once '../models/M_Reporte.php';
 

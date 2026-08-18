@@ -7,8 +7,8 @@ if (!isset($_SESSION['id_usuario']) || $_SESSION['rol'] !== 'Administrador') {
 ?>
 
 <style>
-    .hover-text-primary:hover { color: #0284c7 !important; }
-    .badge-concepto-venta { background-color: #0284c7; color: #fff; }
+    .hover-text-primary:hover { color: #23284E !important; }
+    .badge-concepto-venta { background-color: #23284E; color: #fff; }
     .badge-concepto-cambio_talla { background-color: #f59e0b; color: #fff; }
     .badge-concepto-separacion { background-color: #10b981; color: #fff; }
     .badge-concepto-online { background-color: #8b5cf6; color: #fff; }
@@ -92,10 +92,10 @@ if (!isset($_SESSION['id_usuario']) || $_SESSION['rol'] !== 'Administrador') {
 <!-- Modal: Detalle de comisiones de un vendedor -->
 <div class="modal fade" id="modalDetalleComision" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-centered">
-        <div class="modal-content border-0 shadow-lg rounded-4">
-            <div class="modal-header border-bottom py-3">
-                <h5 class="modal-title fw-bold text-dark">Detalle de comisiones — <span id="detVendedorNombre"></span></h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 15px;">
+            <div class="modal-header gp-bg-primary text-white border-0 py-3" style="border-radius: 15px 15px 0 0;">
+                <h6 class="modal-title fw-bold">Detalle de comisiones — <span id="detVendedorNombre"></span></h6>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" style="box-shadow: none;"></button>
             </div>
             <div class="modal-body p-4">
                 <div class="table-responsive">

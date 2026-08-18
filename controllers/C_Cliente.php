@@ -1,5 +1,6 @@
 <?php
 // Iniciar sesión PHP para control de autenticación
+require_once dirname(__DIR__) . '/config/sesion_segura.php';
 session_start();
 
 // Definir cabecera de respuesta JSON
@@ -10,6 +11,9 @@ if (!isset($_SESSION['id_usuario'])) {
     echo json_encode(["success" => false, "mensaje" => "No autorizado."]);
     exit;
 }
+
+require_once dirname(__DIR__) . '/config/csrf.php';
+csrfRequerir();
 
 // Cargar dependencias de Cliente
 require_once dirname(__DIR__) . '/entities/Cliente.php';
@@ -377,6 +381,10 @@ switch ($action) {
 
     // Realiza la eliminación física o lógica de un cliente
     case 'eliminar':
+        if ($_SESSION['rol'] !== 'Administrador') {
+            echo json_encode(["success" => false, "mensaje" => "No tienes permisos para esta acción."]);
+            exit;
+        }
         $id_cliente = isset($input['id_cliente']) ? intval($input['id_cliente']) : 0;
 
         if ($id_cliente <= 0) {

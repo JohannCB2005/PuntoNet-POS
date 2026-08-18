@@ -11,6 +11,8 @@ if (isset($_SESSION['nombres'])) {
 $iniciales = strtoupper($iniciales);
 $nombreUsuario = isset($_SESSION['nombres']) ? $_SESSION['nombres'] : 'Usuario';
 $rolUsuario = isset($_SESSION['rol']) ? $_SESSION['rol'] : 'Rol';
+require_once dirname(__DIR__, 2) . '/config/settings.php';
+$navbarMarcaNombre = configuracion('SUNAT_NOMBRE_COMERCIAL', configuracion('SUNAT_RAZON_SOCIAL', 'NISSI'));
 ?>
 <header class="top-navbar">
     <div class="d-flex align-items-center gap-3">
@@ -24,7 +26,7 @@ $rolUsuario = isset($_SESSION['rol']) ? $_SESSION['rol'] : 'Rol';
         </button>
         
         <div class="d-none d-sm-block">
-            <h6 class="mb-0 fw-bold">NISSI POS</h6>
+            <h6 class="mb-0 fw-bold"><?php echo htmlspecialchars($navbarMarcaNombre); ?> POS</h6>
             <small class="text-muted" style="font-size: 11px;">Tienda de Uniformes Escolares</small>
         </div>
     </div>
@@ -54,6 +56,20 @@ $rolUsuario = isset($_SESSION['rol']) ? $_SESSION['rol'] : 'Rol';
                     <div class="fw-bold" style="font-size: 14px;"><?php echo htmlspecialchars($nombreUsuario); ?></div>
                     <small class="text-muted"><?php echo htmlspecialchars($rolUsuario); ?></small>
                 </li>
+                <?php if ($_SESSION['rol'] === 'Administrador'): ?>
+                <li class="mb-1">
+                    <a class="dropdown-item d-flex align-items-center gap-2 py-2 rounded-2" href="/configuracion">
+                        <i class="bi bi-gear-fill text-primary"></i>
+                        Configuración de la tienda
+                    </a>
+                </li>
+                <li class="mb-1">
+                    <a class="dropdown-item d-flex align-items-center gap-2 py-2 rounded-2" href="/usuarios">
+                        <i class="bi bi-people-fill text-primary"></i>
+                        Gestión de Usuarios
+                    </a>
+                </li>
+                <?php endif; ?>
                 <li>
                     <a class="dropdown-item text-danger d-flex align-items-center gap-2 py-2 rounded-2" href="/logout">
                         <i class="bi bi-box-arrow-right"></i>

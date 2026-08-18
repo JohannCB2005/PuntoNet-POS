@@ -2,3 +2,4 @@
 *.zip
 *.xlsx
 assets/.venv_trace/
+config/certs/

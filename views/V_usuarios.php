@@ -403,7 +403,7 @@ $roles = $modelRol->listar();
                             icon: 'error',
                             title: 'Error',
                             text: data.mensaje,
-                            confirmButtonColor: '#0284c7'
+                            confirmButtonColor: '#23284E'
                         });
                     }
                 } catch (error) {
@@ -469,7 +469,7 @@ $roles = $modelRol->listar();
                             icon: 'error',
                             title: 'Error',
                             text: data.mensaje,
-                            confirmButtonColor: '#0284c7'
+                            confirmButtonColor: '#23284E'
                         });
                     }
                 } catch (error) {
@@ -516,7 +516,7 @@ $roles = $modelRol->listar();
                                     icon: 'error',
                                     title: 'Error',
                                     text: data.mensaje,
-                                    confirmButtonColor: '#0284c7'
+                                    confirmButtonColor: '#23284E'
                                 });
                             }
                         } catch (error) {

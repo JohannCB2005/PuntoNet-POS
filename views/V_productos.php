@@ -248,8 +248,8 @@ $isAdmin = ($_SESSION['rol'] === 'Administrador');
 <!-- Modal: Actualizar Stock (Integrado con Kardex) -->
 <div class="modal fade" id="stockModal" tabindex="-1" aria-labelledby="stockModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered" style="max-width: 480px;">
-        <div class="modal-content border-0 shadow-lg" style="border-radius: 16px;">
-            <div class="modal-header border-0 py-3 px-4" id="stockModalHeader" style="border-radius: 16px 16px 0 0; background: #1d4ed8;">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 15px;">
+            <div class="modal-header gp-bg-primary text-white border-0 py-3 px-4" id="stockModalHeader" style="border-radius: 15px 15px 0 0;">
                 <div>
                     <h6 class="modal-title fw-bold text-white mb-0" id="stockModalLabel">Actualizar Stock</h6>
                     <small class="text-white opacity-75" id="stockModalSubtitle">Producto</small>
@@ -276,7 +276,7 @@ $isAdmin = ($_SESSION['rol'] === 'Administrador');
                         <div class="d-flex gap-2">
                             <button type="button" id="btnTipoEntrada" class="btn flex-fill fw-semibold stock-tipo-btn active-tipo"
                                     onclick="setTipoStock('entrada')"
-                                    style="border-radius:10px; border: 2px solid #1d4ed8; background:#eff6ff; color:#1d4ed8; font-size:14px; padding:10px;">
+                                    style="border-radius:10px; border: 2px solid #23284E; background:#eef1f7; color:#23284E; font-size:14px; padding:10px;">
                                 <i class="bi bi-plus-circle-fill me-1"></i> Agregar
                             </button>
                             <button type="button" id="btnTipoSalida" class="btn flex-fill fw-semibold stock-tipo-btn"
@@ -337,8 +337,8 @@ $isAdmin = ($_SESSION['rol'] === 'Administrador');
 <!-- Modal: Actualizar Stock Masivo (Padre) -->
 <div class="modal fade" id="stockMasivoModal" tabindex="-1" aria-labelledby="stockMasivoModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-lg">
-        <div class="modal-content border-0 shadow-lg" style="border-radius: 16px;">
-            <div class="modal-header border-0 py-3 px-4" id="stockMasivoModalHeader" style="border-radius: 16px 16px 0 0; background: #1d4ed8;">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 15px;">
+            <div class="modal-header gp-bg-primary text-white border-0 py-3 px-4" id="stockMasivoModalHeader" style="border-radius: 15px 15px 0 0;">
                 <div>
                     <h6 class="modal-title fw-bold text-white mb-0" id="stockMasivoModalLabel">Actualizar Stock por Tallas</h6>
                     <small class="text-white opacity-75" id="stockMasivoSubtitle">Producto Padre</small>
@@ -355,7 +355,7 @@ $isAdmin = ($_SESSION['rol'] === 'Administrador');
                         <div class="d-flex gap-2">
                             <button type="button" id="btnTipoMasivoEntrada" class="btn flex-fill fw-semibold active-tipo"
                                     onclick="setTipoStockMasivo('entrada')"
-                                    style="border-radius:10px; border: 2px solid #1d4ed8; background:#eff6ff; color:#1d4ed8; font-size:14px; padding:10px;">
+                                    style="border-radius:10px; border: 2px solid #23284E; background:#eef1f7; color:#23284E; font-size:14px; padding:10px;">
                                 <i class="bi bi-plus-circle-fill me-1"></i> Agregar Stock
                             </button>
                             <button type="button" id="btnTipoMasivoSalida" class="btn flex-fill fw-semibold"
@@ -1005,7 +1005,7 @@ $isAdmin = ($_SESSION['rol'] === 'Administrador');
                             icon: 'error',
                             title: 'Error',
                             text: data.mensaje,
-                            confirmButtonColor: '#0284c7'
+                            confirmButtonColor: '#23284E'
                         });
                     }
                 } catch (error) {
@@ -1242,7 +1242,7 @@ $isAdmin = ($_SESSION['rol'] === 'Administrador');
                             icon: 'error',
                             title: 'Error',
                             text: data.mensaje,
-                            confirmButtonColor: '#0284c7'
+                            confirmButtonColor: '#23284E'
                         });
                     }
                 } catch (error) {
@@ -1289,7 +1289,7 @@ $isAdmin = ($_SESSION['rol'] === 'Administrador');
                                     icon: 'error',
                                     title: 'Error',
                                     text: data.mensaje,
-                                            confirmButtonColor: '#0284c7'
+                                            confirmButtonColor: '#23284E'
                                 });
                             }
                         } catch (error) {
@@ -1307,7 +1307,7 @@ $isAdmin = ($_SESSION['rol'] === 'Administrador');
         document.querySelectorAll('.update-stock-btn').forEach(btn => {
             btn.addEventListener('click', () => {
                 if (btn.dataset.ilimitado === "1") {
-                    Swal.fire({ icon: 'info', title: 'Stock ilimitado', text: 'Este producto es un servicio: no administra stock.', confirmButtonColor: '#0284c7' });
+                    Swal.fire({ icon: 'info', title: 'Stock ilimitado', text: 'Este producto es un servicio: no administra stock.', confirmButtonColor: '#23284E' });
                     return;
                 }
                 const esPadre = btn.dataset.espadre === "1";
@@ -1375,11 +1375,11 @@ $isAdmin = ($_SESSION['rol'] === 'Administrador');
             const btnConfirmar = document.getElementById('btnConfirmarStock');
 
             if (tipo === 'entrada') {
-                btnEntrada.style.cssText = 'border-radius:10px; border:2px solid #1d4ed8; background:#eff6ff; color:#1d4ed8; font-size:14px; padding:10px;';
+                btnEntrada.style.cssText = 'border-radius:10px; border:2px solid #23284E; background:#eef1f7; color:#23284E; font-size:14px; padding:10px;';
                 btnSalida.style.cssText  = 'border-radius:10px; border:2px solid #e5e7eb; background:#f9fafb; color:#6b7280; font-size:14px; padding:10px;';
                 campoBoleta.classList.remove('d-none');
                 campoMotivo.classList.add('d-none');
-                header.style.background = '#1d4ed8';
+                header.style.background = '#23284E';
                 btnConfirmar.style.background = '';
             } else {
                 btnSalida.style.cssText  = 'border-radius:10px; border:2px solid #ef4444; background:#fef2f2; color:#ef4444; font-size:14px; padding:10px;';
@@ -1403,11 +1403,11 @@ $isAdmin = ($_SESSION['rol'] === 'Administrador');
             const spanAccion  = document.getElementById('masivoAccionTexto');
 
             if (tipo === 'entrada') {
-                btnEntrada.style.cssText = 'border-radius:10px; border:2px solid #1d4ed8; background:#eff6ff; color:#1d4ed8; font-size:14px; padding:10px;';
+                btnEntrada.style.cssText = 'border-radius:10px; border:2px solid #23284E; background:#eef1f7; color:#23284E; font-size:14px; padding:10px;';
                 btnSalida.style.cssText  = 'border-radius:10px; border:2px solid #e5e7eb; background:#f9fafb; color:#6b7280; font-size:14px; padding:10px;';
                 campoBoleta.classList.remove('d-none');
                 campoMotivo.classList.add('d-none');
-                header.style.background = '#1d4ed8';
+                header.style.background = '#23284E';
                 btnConfirmar.style.background = '';
                 spanAccion.textContent = 'Sumar';
             } else {

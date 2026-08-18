@@ -1,5 +1,6 @@
 <?php
 // Iniciar sesión PHP para el control de identidad y roles de usuario
+require_once dirname(__DIR__) . '/config/sesion_segura.php';
 session_start();
 
 // Configurar cabecera para responder en formato JSON
@@ -10,6 +11,9 @@ if (!isset($_SESSION['id_usuario'])) {
     echo json_encode(["success" => false, "mensaje" => "No autorizado."]);
     exit;
 }
+
+require_once dirname(__DIR__) . '/config/csrf.php';
+csrfRequerir();
 
 require_once dirname(__DIR__) . '/models/M_Separacion.php';
 require_once dirname(__DIR__) . '/models/M_Caja.php';

@@ -1,4 +1,5 @@
 <?php
+require_once dirname(__DIR__) . '/config/sesion_segura.php';
 session_start();
 header('Content-Type: application/json');
 

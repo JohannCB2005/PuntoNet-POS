@@ -2,17 +2,23 @@
 // Obtener el módulo actual para pintar con clase "active" el botón seleccionado
 $moduloActual = isset($_GET['modulo']) ? $_GET['modulo'] : ($_SESSION['rol'] === 'Administrador' ? 'dashboard' : 'nueva-venta');
 $rol = $_SESSION['rol'];
+require_once dirname(__DIR__, 2) . '/config/settings.php';
+require_once dirname(__DIR__, 2) . '/config/marca.php';
+$marcaSidebarNombre = marcaVar('nombre');
+$marcaSidebarSlogan = marcaVar('slogan');
+$marcaSidebarLogo   = configuracion('LOGO_OSCURO', '');
 ?>
 <aside class="sidebar" id="sidebar">
     <!-- Logotipo y Nombre de Marca -->
     <div class="sidebar-brand">
-        <div class="sidebar-brand-icon" style="background: transparent; overflow: hidden; display: flex; align-items: center; justify-content: center; width: 44px; height: 44px;">
-            <img src="assets/logo.svg" alt="PuntoNet" style="max-width: 100%; max-height: 100%; object-fit: contain;">
-        </div>
-        <div class="brand-text">
-            <h6 class="mb-0 fw-bold">NISSI</h6>
-            <small class="text-white-50" style="font-size: 10px;">Tienda de Uniformes</small>
-        </div>
+        <?php if ($marcaSidebarLogo !== ''): ?>
+            <img src="<?php echo htmlspecialchars($marcaSidebarLogo); ?>" alt="<?php echo htmlspecialchars($marcaSidebarNombre); ?>" class="sb-brand-img">
+        <?php else: ?>
+            <div class="brand-text">
+                <span class="sb-brand-name"><?php echo htmlspecialchars($marcaSidebarNombre); ?><em>.</em></span>
+                <span class="sb-brand-sub"><?php echo htmlspecialchars($marcaSidebarSlogan); ?></span>
+            </div>
+        <?php endif; ?>
     </div>
     
     <!-- Menú de Navegación Lateral -->
@@ -25,53 +31,8 @@ $rol = $_SESSION['rol'];
             </a>
         <?php endif; ?>
 
-        <!-- Grupo de Mantenimiento de Inventario (Solo Administrador) -->
-        <?php if ($rol === 'Administrador'): ?>
-            <div class="sidebar-group<?php echo in_array($moduloActual, ['categorias', 'productos', 'kardex']) ? ' open has-active' : ''; ?>" data-group="inventario">
-                <button class="menu-header" type="button" aria-expanded="true" aria-controls="grupo-inventario">
-                    <span>Inventario</span>
-                    <i class="bi bi-chevron-down menu-header-arrow"></i>
-                </button>
-                <div class="menu-group-items" id="grupo-inventario">
-                    <a href="/categorias" class="menu-item <?php echo $moduloActual === 'categorias' ? 'active' : ''; ?>">
-                        <i class="bi bi-tags-fill"></i>
-                        <span>Categorías</span>
-                    </a>
-                    <a href="/productos" class="menu-item <?php echo $moduloActual === 'productos' ? 'active' : ''; ?>">
-                        <i class="bi bi-box-seam-fill"></i>
-                        <span>Productos</span>
-                    </a>
-                    <a href="/kardex" class="menu-item <?php echo $moduloActual === 'kardex' ? 'active' : ''; ?>">
-                        <i class="bi bi-journal-bookmark-fill"></i>
-                        <span>Kardex</span>
-                    </a>
-                </div>
-            </div>
-        <?php endif; ?>
-
-        <!-- Grupo de Administración y Clientes -->
-        <?php $grupoAdminActivo = ($rol === 'Administrador' && $moduloActual === 'usuarios') || $moduloActual === 'clientes'; ?>
-        <div class="sidebar-group<?php echo $grupoAdminActivo ? ' open has-active' : ''; ?>" data-group="administracion">
-            <button class="menu-header" type="button" aria-expanded="true" aria-controls="grupo-administracion">
-                <span>Administración</span>
-                <i class="bi bi-chevron-down menu-header-arrow"></i>
-            </button>
-            <div class="menu-group-items" id="grupo-administracion">
-                <?php if ($rol === 'Administrador'): ?>
-                    <a href="/usuarios" class="menu-item <?php echo $moduloActual === 'usuarios' ? 'active' : ''; ?>">
-                        <i class="bi bi-people-fill"></i>
-                        <span>Usuarios</span>
-                    </a>
-                <?php endif; ?>
-                <a href="/clientes" class="menu-item <?php echo $moduloActual === 'clientes' ? 'active' : ''; ?>">
-                    <i class="bi bi-person-vcard-fill"></i>
-                    <span>Clientes</span>
-                </a>
-            </div>
-        </div>
-
         <!-- Grupo Operativo de Ventas y Cajas -->
-        <?php $grupoVentasActivo = in_array($moduloActual, ['caja', 'nueva-venta', 'cotizaciones', 'separaciones', 'pedidos-online', 'historial']); ?>
+        <?php $grupoVentasActivo = in_array($moduloActual, ['caja', 'nueva-venta', 'cotizaciones', 'separaciones', 'pedidos-online', 'historial', 'clientes']); ?>
         <div class="sidebar-group<?php echo $grupoVentasActivo ? ' open has-active' : ''; ?>" data-group="ventas">
             <button class="menu-header" type="button" aria-expanded="true" aria-controls="grupo-ventas">
                 <span>Ventas &amp; Caja</span>
@@ -102,8 +63,36 @@ $rol = $_SESSION['rol'];
                     <i class="bi bi-receipt-cutoff"></i>
                     <span>Historial de Ventas</span>
                 </a>
+                <a href="/clientes" class="menu-item <?php echo $moduloActual === 'clientes' ? 'active' : ''; ?>">
+                    <i class="bi bi-person-vcard-fill"></i>
+                    <span>Clientes</span>
+                </a>
             </div>
         </div>
+
+        <!-- Grupo de Mantenimiento de Inventario (Solo Administrador) -->
+        <?php if ($rol === 'Administrador'): ?>
+            <div class="sidebar-group<?php echo in_array($moduloActual, ['categorias', 'productos', 'kardex']) ? ' open has-active' : ''; ?>" data-group="inventario">
+                <button class="menu-header" type="button" aria-expanded="true" aria-controls="grupo-inventario">
+                    <span>Inventario</span>
+                    <i class="bi bi-chevron-down menu-header-arrow"></i>
+                </button>
+                <div class="menu-group-items" id="grupo-inventario">
+                    <a href="/categorias" class="menu-item <?php echo $moduloActual === 'categorias' ? 'active' : ''; ?>">
+                        <i class="bi bi-tags-fill"></i>
+                        <span>Categorías</span>
+                    </a>
+                    <a href="/productos" class="menu-item <?php echo $moduloActual === 'productos' ? 'active' : ''; ?>">
+                        <i class="bi bi-box-seam-fill"></i>
+                        <span>Productos</span>
+                    </a>
+                    <a href="/kardex" class="menu-item <?php echo $moduloActual === 'kardex' ? 'active' : ''; ?>">
+                        <i class="bi bi-journal-bookmark-fill"></i>
+                        <span>Kardex</span>
+                    </a>
+                </div>
+            </div>
+        <?php endif; ?>
 
         <!-- Grupo de Colegio (Módulos) — Admin ve todo; Vendedor solo Entregas -->
         <?php $grupoColegioActivo = in_array($moduloActual, ['carga', 'alumnos', 'pagos', 'conciliacion', 'promociones', 'entregas']); ?>

@@ -20,17 +20,22 @@
 $_envFile = dirname(__DIR__) . '/.env';
 $_env     = file_exists($_envFile) ? parse_ini_file($_envFile) : [];
 
+require_once dirname(__DIR__) . '/config/settings.php';
+
 // TEST mientras se integra en sandbox. En Izipay el modo lo determina la clave
 // utilizada, no un host distinto; esta constante es solo para que la UI y los logs
 // puedan advertir que no se está cobrando de verdad.
-define('IZIPAY_MODO', strtoupper($_env['IZIPAY_MODO'] ?? 'TEST'));
+define('IZIPAY_MODO', strtoupper(configuracion('IZIPAY_MODO', $_env['IZIPAY_MODO'] ?? 'TEST')));
 
-define('IZIPAY_SHOP_ID',     $_env['IZIPAY_SHOP_ID']     ?? '');
-define('IZIPAY_PASSWORD',    $_env['IZIPAY_PASSWORD']    ?? '');
-define('IZIPAY_PUBLIC_KEY',  $_env['IZIPAY_PUBLIC_KEY']  ?? '');
-define('IZIPAY_HMAC_SHA256', $_env['IZIPAY_HMAC_SHA256'] ?? '');
+// ¿Pasarela habilitada? La administra el panel (Configuración → Pagos). Default SI.
+define('IZIPAY_HABILITADO', strtoupper(configuracion('IZIPAY_HABILITADO', $_env['IZIPAY_HABILITADO'] ?? 'SI')));
+
+define('IZIPAY_SHOP_ID',     configuracion('IZIPAY_SHOP_ID',     $_env['IZIPAY_SHOP_ID']     ?? ''));
+define('IZIPAY_PASSWORD',    configuracion('IZIPAY_PASSWORD',    $_env['IZIPAY_PASSWORD']    ?? ''));
+define('IZIPAY_PUBLIC_KEY',  configuracion('IZIPAY_PUBLIC_KEY',  $_env['IZIPAY_PUBLIC_KEY']  ?? ''));
+define('IZIPAY_HMAC_SHA256', configuracion('IZIPAY_HMAC_SHA256', $_env['IZIPAY_HMAC_SHA256'] ?? ''));
 
 // "Dirección del servidor de API REST" que indica el propio Back Office.
-define('IZIPAY_API_HOST', rtrim($_env['IZIPAY_API_HOST'] ?? 'https://api.micuentaweb.pe', '/'));
+define('IZIPAY_API_HOST', rtrim(configuracion('IZIPAY_API_HOST', $_env['IZIPAY_API_HOST'] ?? 'https://api.micuentaweb.pe'), '/'));
 
 unset($_envFile, $_env);

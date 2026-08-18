@@ -1,5 +1,6 @@
 <?php
 // Iniciar la sesión PHP para acceder a los datos de autenticación del usuario
+require_once dirname(__DIR__) . '/config/sesion_segura.php';
 session_start();
 
 // Establecer cabecera para indicar que la respuesta será en formato JSON
@@ -10,6 +11,9 @@ if (!isset($_SESSION['id_usuario'])) {
     echo json_encode(["success" => false, "mensaje" => "No autorizado."]);
     exit;
 }
+
+require_once dirname(__DIR__) . '/config/csrf.php';
+csrfRequerir();
 
 // Requerir el modelo centralizado de Caja
 require_once dirname(__DIR__) . '/models/M_Caja.php';

@@ -1,9 +1,13 @@
 <?php
+require_once dirname(__DIR__) . '/config/sesion_segura.php';
 session_start();
 if (!isset($_SESSION['id_usuario'])) {
     echo json_encode(['success' => false, 'mensaje' => 'No autorizado']);
     exit;
 }
+
+require_once dirname(__DIR__) . '/config/csrf.php';
+csrfRequerir();
 
 require_once dirname(__DIR__) . '/models/M_Cotizacion.php';
 require_once dirname(__DIR__) . '/entities/Cotizacion.php';

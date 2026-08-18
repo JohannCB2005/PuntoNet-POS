@@ -31,16 +31,22 @@ class M_Serie {
      *
      * @param PDO $conexion Conexión con transacción activa (la del llamador)
      * @param int $tipoComprobante 1=Boleta, 2=Factura, 4=NC de Boleta, 5=NC de Factura
+     * @param string|null $serieEspecifica Si se indica, reserva el correlativo de
+     *        ESA serie concreta (la elegida en el POS) en vez de la primera activa.
      * @return array ['serie' => string, 'correlativo' => int]
      * @throws Exception si no hay una serie activa para ese tipo de comprobante
      */
-    public function reservarSiguiente(PDO $conexion, int $tipoComprobante): array {
-        $stmt = $conexion->prepare(
-            "SELECT id_serie, serie, correlativo_actual FROM series_comprobante
-             WHERE tipo_comprobante = ? AND estado = 1
-             ORDER BY id_serie ASC LIMIT 1 FOR UPDATE"
-        );
-        $stmt->execute([$tipoComprobante]);
+    public function reservarSiguiente(PDO $conexion, int $tipoComprobante, ?string $serieEspecifica = null): array {
+        $sql = "SELECT id_serie, serie, correlativo_actual FROM series_comprobante
+                WHERE tipo_comprobante = ? AND estado = 1";
+        $params = [$tipoComprobante];
+        if ($serieEspecifica !== null && $serieEspecifica !== '') {
+            $sql .= " AND serie = ?";
+            $params[] = strtoupper(trim($serieEspecifica));
+        }
+        $sql .= " ORDER BY id_serie ASC LIMIT 1 FOR UPDATE";
+        $stmt = $conexion->prepare($sql);
+        $stmt->execute($params);
         $fila = $stmt->fetch(PDO::FETCH_ASSOC);
 
         if (!$fila) {

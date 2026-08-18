@@ -105,6 +105,70 @@ class M_Pago {
     }
 
     /**
+     * Listado filtrable de comprobantes de pago, paginado. El mes y el año son
+     * opcionales (null = todos) y la búsqueda barre boleta, nombre, alumno y
+     * observación. Ordenado de más reciente a más antiguo.
+     *
+     * @param int|null $mes      Mes de pensión o null para "Todos".
+     * @param int|null $anio     Año de concepto o null para "Todos".
+     * @param string   $busqueda Texto a buscar en número, nombre y alumno.
+     * @param int      $limite   Filas por página.
+     * @param int      $offset   Filas a saltar (página - 1) * limite.
+     */
+    public function listarFiltrado(?int $mes, ?int $anio, string $busqueda = '', int $limite = 25, int $offset = 0): array {
+        [$where, $params] = $this->whereFiltrado($mes, $anio, $busqueda);
+        $sql = "SELECT p.*, a.codigo, a.nombre_completo AS alumno_nombre
+                FROM pagos p
+                LEFT JOIN alumnos a ON p.id_alumno = a.id_alumno
+                WHERE $where
+                ORDER BY p.fecha_pago DESC, p.id_pago DESC
+                LIMIT " . (int) $limite . " OFFSET " . (int) $offset;
+        $stmt = $this->conexion->prepare($sql);
+        $stmt->execute($params);
+        return $stmt->fetchAll();
+    }
+
+    /** Total de comprobantes que coinciden con los filtros (sin paginar). */
+    public function contarFiltrado(?int $mes, ?int $anio, string $busqueda = ''): int {
+        [$where, $params] = $this->whereFiltrado($mes, $anio, $busqueda);
+        $stmt = $this->conexion->prepare("SELECT COUNT(*) FROM pagos p LEFT JOIN alumnos a ON p.id_alumno = a.id_alumno WHERE $where");
+        $stmt->execute($params);
+        return (int) $stmt->fetchColumn();
+    }
+
+    private function whereFiltrado(?int $mes, ?int $anio, string $busqueda): array {
+        $where = 'p.estado = 1';
+        $params = [];
+
+        if ($mes !== null) {
+            $where .= " AND p.mes_concepto = ?";
+            $params[] = $mes;
+        }
+        if ($anio !== null) {
+            $where .= " AND p.anio_concepto = ?";
+            $params[] = $anio;
+        }
+
+        $busqueda = trim($busqueda);
+        if ($busqueda !== '') {
+            $where .= " AND (p.numero LIKE ? OR p.nombre_comprobante LIKE ? OR p.nombre_normalizado LIKE ?
+                        OR a.codigo LIKE ? OR a.nombre_completo LIKE ? OR p.observacion LIKE ?)";
+            $like = '%' . $busqueda . '%';
+            array_push($params, $like, $like, $like, $like, $like, $like);
+        }
+
+        return [$where, $params];
+    }
+
+    /** Años con pagos activos en la BD, de más reciente a más antiguo. */
+    public function aniosDisponibles(): array {
+        $stmt = $this->conexion->query(
+            "SELECT DISTINCT anio_concepto FROM pagos WHERE estado = 1 ORDER BY anio_concepto DESC"
+        );
+        return $stmt->fetchAll(PDO::FETCH_COLUMN);
+    }
+
+    /**
      * Bandeja de conciliación: pagos sin alumno asignado. Se limita al año
      * escolar vigente por defecto — el histórico de años anteriores casi
      * siempre son alumnos que ya no están en el colegio (no un error real por

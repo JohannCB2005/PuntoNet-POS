@@ -1,4 +1,5 @@
 <?php
+require_once dirname(__DIR__) . '/config/sesion_segura.php';
 session_start();
 header('Content-Type: application/json');
 
@@ -6,6 +7,9 @@ if (!isset($_SESSION['id_usuario']) || $_SESSION['rol'] !== 'Administrador') {
     echo json_encode(["success" => false, "mensaje" => "No autorizado."]);
     exit;
 }
+
+require_once dirname(__DIR__) . '/config/csrf.php';
+csrfRequerir();
 
 require_once dirname(__DIR__) . '/models/M_LectorHoja.php';
 require_once dirname(__DIR__) . '/models/M_Importacion.php';

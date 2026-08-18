@@ -11,7 +11,7 @@ $esAdmin = ($_SESSION['rol'] === 'Administrador');
     .badge-sep-2 { background-color: #10b981; color: #fff; } /* Despachada */
     .badge-sep-0 { background-color: #6b7280; color: #fff; } /* Anulada */
     .fila-vencida { background-color: #fef2f2 !important; }
-    .hover-text-primary:hover { color: #0284c7 !important; }
+    .hover-text-primary:hover { color: #23284E !important; }
     .hover-text-danger:hover  { color: #ef4444 !important; }
     .hover-text-success:hover { color: #10b981 !important; }
 </style>
@@ -65,10 +65,10 @@ $esAdmin = ($_SESSION['rol'] === 'Administrador');
 <!-- Modal: Ver detalle -->
 <div class="modal fade" id="modalVerSeparacion" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content border-0 shadow-lg rounded-4">
-            <div class="modal-header border-bottom py-3">
-                <h5 class="modal-title fw-bold text-dark">Separación <span id="verCodigo"></span></h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 15px;">
+            <div class="modal-header gp-bg-primary text-white border-0 py-3" style="border-radius: 15px 15px 0 0;">
+                <h6 class="modal-title fw-bold">Separación <span id="verCodigo"></span></h6>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" style="box-shadow: none;"></button>
             </div>
             <div class="modal-body p-4">
                 <div class="d-flex justify-content-between mb-2"><span class="text-muted">Cliente</span><span class="fw-semibold" id="verCliente"></span></div>
@@ -96,10 +96,10 @@ $esAdmin = ($_SESSION['rol'] === 'Administrador');
 <!-- Modal: Abonar / Despachar (comparten la tabla de líneas de pago) -->
 <div class="modal fade" id="modalPagoSeparacion" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content border-0 shadow-lg rounded-4">
-            <div class="modal-header border-bottom py-3">
-                <h5 class="modal-title fw-bold text-dark" id="pagoModalTitulo">Abonar</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 15px;">
+            <div class="modal-header gp-bg-primary text-white border-0 py-3" style="border-radius: 15px 15px 0 0;">
+                <h6 class="modal-title fw-bold" id="pagoModalTitulo">Abonar</h6>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" style="box-shadow: none;"></button>
             </div>
             <div class="modal-body p-4">
                 <input type="hidden" id="pagoIdSeparacion">
@@ -139,7 +139,7 @@ $esAdmin = ($_SESSION['rol'] === 'Administrador');
                     <div id="pagoSepDiferenciaHint" class="badge w-100 mt-2 py-2"></div>
                 </div>
 
-                <button class="gp-btn-primary w-100 border-0 py-2.5" id="btnConfirmarPagoSep" style="background-color: #0284c7;" disabled>
+                <button class="gp-btn-primary w-100 border-0 py-2.5" id="btnConfirmarPagoSep" disabled>
                     Confirmar
                 </button>
             </div>
@@ -150,10 +150,10 @@ $esAdmin = ($_SESSION['rol'] === 'Administrador');
 <!-- Modal: Anular (solo Administrador) -->
 <div class="modal fade" id="modalAnularSeparacion" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content border-0 shadow-lg rounded-4">
-            <div class="modal-header border-bottom py-3">
-                <h5 class="modal-title fw-bold text-dark">Anular separación</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 15px;">
+            <div class="modal-header gp-bg-primary text-white border-0 py-3" style="border-radius: 15px 15px 0 0;">
+                <h6 class="modal-title fw-bold">Anular separación</h6>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" style="box-shadow: none;"></button>
             </div>
             <div class="modal-body p-4">
                 <input type="hidden" id="anularIdSeparacion">

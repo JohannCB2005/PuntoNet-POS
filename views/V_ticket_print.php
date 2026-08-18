@@ -12,6 +12,7 @@ header('X-Frame-Options: SAMEORIGIN');
 // Cargar la conexión y el modelo de Ventas
 require_once dirname(__DIR__) . '/config/conexion.php';
 require_once dirname(__DIR__) . '/config/sunat.php';
+require_once dirname(__DIR__) . '/config/marca.php';
 require_once dirname(__DIR__) . '/models/M_Venta.php';
 
 $id_venta       = isset($_GET['id']) ? intval($_GET['id']) : 0;
@@ -92,7 +93,7 @@ if ($id_separacion > 0) {
     $tipo_doc = $venta['tipo_comprobante'] == 1 ? 'BOLETA DE VENTA'
               : ($venta['tipo_comprobante'] == 2 ? 'FACTURA ELECTRÓNICA' : 'NOTA DE VENTA');
     $fecha_emision  = date('Y-m-d / H:i:s', strtotime($venta['fecha']));
-    $fecha_venc     = date('Y-m-d', strtotime($venta['fecha']));
+    $fecha_venc     = date('Y-m-d', strtotime($venta['fecha_vencimiento'] ?: $venta['fecha']));
     // Persistidos al registrar la venta (M_Venta::registrarEnTransaccion()), no
     // calculados aquí: SUNAT valida el IGV al céntimo y un total/1.18 al vuelo
     // puede descuadrar por redondeo frente a lo que se envió a SUNAT.
@@ -111,6 +112,27 @@ if ($id_separacion > 0) {
     );
     $stmtInfoSep->execute([$id_venta]);
     $infoSeparacionAbono = $stmtInfoSep->fetch() ?: null;
+}
+
+// Bloque de pagos estilo tukifac: una línea por cada pago (PAGOS:) + saldo.
+$pagosLista = [];
+$saldoPendiente = 0.0;
+if ($id_separacion > 0) {
+    foreach ($abonosParaImprimir as $a) {
+        $pagosLista[] = '- ' . date('Y-m-d', strtotime($a['fecha'])) . ' - '
+            . ($a['es_anticipo'] == 1 ? 'Anticipo' : 'Abono') . ' - S/ ' . number_format($a['total'], 2);
+    }
+    $saldoPendiente = max(0, $total - $anticipoMonto - $saldoCancelado);
+} else {
+    $fechaPago = date('Y-m-d', strtotime($venta['fecha']));
+    $pagadoVenta = 0.0;
+    foreach ($pagosVenta as $p) {
+        $nombre = $nombresMetodo[$p['metodo_pago']] ?? 'Otro';
+        $monto  = (float) $p['monto'];
+        $pagadoVenta += $monto;
+        $pagosLista[] = '- ' . $fechaPago . ' - ' . $nombre . ' - S/ ' . number_format($monto, 2);
+    }
+    $saldoPendiente = max(0, (float) $total - $pagadoVenta);
 }
 
 // Ajustes del ancho y tipografía para formatos de ticketeras térmicas
@@ -161,158 +183,104 @@ if ($esComprobanteSunat) {
 @page { size: A4; margin: 12mm 15mm; }
 body {
     font-family: Arial, Helvetica, sans-serif;
-    font-size: 11pt;
+    font-size: 10pt;
     color: #000;
     background: #fff;
 }
 
-/* Encabezado */
-.header {
+/* Encabezado estilo tukifac: logo a la izquierda, razón social + datos a la derecha */
+.header { margin-bottom: 14px; }
+.header-main {
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
-    gap: 20px;
-    margin-bottom: 20px;
-}
-.header-brand {
-    flex: 1;
-    display: flex;
-    align-items: flex-start;
     gap: 14px;
+    text-align: left;
 }
-.brand-logo {
-    font-family: Georgia, serif;
-    font-size: 48pt;
-    font-weight: 900;
-    letter-spacing: -2px;
-    line-height: 1;
-    color: #000;
+.header-main .logo {
+    width: 110px;
+    height: auto;
+    flex-shrink: 0;
 }
-.brand-info {
-    padding-top: 6px;
-}
-.brand-info .biz-name {
+.header-main .brand-left { font-size: 8.5pt; line-height: 1.5; }
+.header-main .brand-left .biz-name {
     font-size: 13pt;
-    font-weight: bold;
-    text-transform: uppercase;
-    margin-bottom: 2px;
-}
-.brand-info p {
-    font-size: 8.5pt;
-    color: #333;
-    line-height: 1.5;
-}
-.header-doc {
-    border: 1.5px dotted #000;
-    padding: 12px 18px;
-    text-align: center;
-    min-width: 170px;
-}
-.header-doc .doc-type {
-    font-size: 12pt;
-    font-weight: bold;
+    font-weight: 800;
     text-transform: uppercase;
     letter-spacing: 0.5px;
-    margin-bottom: 6px;
+    margin-bottom: 4px;
 }
-.header-doc .doc-code {
-    font-size: 14pt;
-    font-weight: bold;
-}
+.header-main .brand-right { text-align: right; margin-left: auto; }
+.header-main .doc-type { font-size: 11pt; font-weight: 800; text-transform: uppercase; }
+.header-main .doc-code { font-size: 12pt; font-weight: bold; margin-top: 3px; }
 
 /* Separadores */
-.sep { border: none; border-top: 1px dotted #555; margin: 16px 0; }
-.sep-solid { border: none; border-top: 1.5px solid #000; margin: 6px 0; }
+.sep { border: none; border-top: 1px dotted #555; margin: 12px 0; }
 
-/* Grid de Información del Cliente */
+/* Grid de Información (Cliente / Doc / Dirección | Fecha / Vendedor / Estado) */
 .info-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 0 30px;
-    margin-bottom: 18px;
+    margin-bottom: 14px;
 }
 .info-row {
     display: flex;
     gap: 6px;
-    padding: 3px 0;
-    font-size: 9.5pt;
-    border-bottom: 1px dotted #ccc;
+    padding: 2px 0;
+    font-size: 9pt;
 }
-.info-label { color: #444; white-space: nowrap; }
-.info-value { font-weight: 600; color: #000; }
+.info-label { white-space: nowrap; }
+.info-value { font-weight: 600; }
 
-/* Tabla de Productos */
+/* Tabla de Productos (cabecera con rayas punteadas como tukifac) */
 .prod-table {
     width: 100%;
     border-collapse: collapse;
-    margin-bottom: 12px;
-    font-size: 9.5pt;
+    margin-bottom: 10px;
+    font-size: 8.5pt;
 }
 .prod-table thead tr {
-    border-top: 1.5px dotted #000;
-    border-bottom: 1.5px dotted #000;
+    border-top: 1px solid #000;
+    border-bottom: 1px solid #000;
 }
 .prod-table th {
-    padding: 6px 5px;
+    padding: 4px 5px;
     text-align: left;
     font-weight: bold;
     text-transform: uppercase;
-    font-size: 8pt;
+    font-size: 7.5pt;
 }
 .prod-table th.r { text-align: right; }
-.prod-table tbody tr {
-    border-bottom: 1px dotted #bbb;
-}
-.prod-table td {
-    padding: 6px 5px;
-    vertical-align: middle;
-}
+.prod-table tbody tr { border-bottom: 1px dotted #bbb; }
+.prod-table td { padding: 4px 5px; vertical-align: top; }
 .prod-table td.r { text-align: right; }
 
 /* Tabla de Importes */
 .totals-wrap {
     display: flex;
     justify-content: flex-end;
-    margin-top: 10px;
+    margin-top: 8px;
 }
 .totals-table {
-    width: 260px;
+    width: 240px;
     border-collapse: collapse;
     font-size: 9.5pt;
 }
-.totals-table td {
-    padding: 4px 6px;
-    border-bottom: 1px dotted #ccc;
-}
-.totals-table td.label { color: #444; text-align: right; padding-right: 12px; }
-.totals-table td.value { text-align: right; font-weight: 600; }
+.totals-table td { padding: 3px 6px; }
+.totals-table td.label { text-align: right; padding-right: 12px; }
+.totals-table td.value { text-align: right; font-weight: 600; white-space: nowrap; }
 .totals-table .grand td {
-    border-top: 2px solid #000;
-    border-bottom: none;
+    border-top: 1.5px solid #000;
     font-weight: bold;
-    font-size: 11pt;
-    padding-top: 8px;
+    font-size: 10.5pt;
 }
-.totals-table .split td {
-    color: #444;
-    font-size: 9pt;
-    padding-top: 2px;
-}
+.totals-table .split td { color: #444; font-size: 8.5pt; }
 
-/* Pie de Página */
-.footer {
-    margin-top: 22px;
-    font-size: 8.5pt;
-    color: #444;
-}
-.footer p { margin-bottom: 4px; }
-.footer .thanks {
-    text-align: center;
-    font-size: 10pt;
-    font-weight: bold;
-    color: #000;
-    margin-top: 14px;
-}
+/* Pie de Página (estilo tukifac: CONDICIÓN DE PAGO + PAGOS) */
+.footer { margin-top: 18px; font-size: 9pt; }
+.footer p { margin-bottom: 3px; }
+.footer .pago-line { margin-left: 12px; }
 
 <?php else: /* ===== ESTILOS PARA TICKETERAS TÉRMICAS ===== */ ?>
 @page { size: <?php echo $ticketW; ?> auto; margin: 3mm; }
@@ -331,14 +299,21 @@ p { margin: 1px 0; }
 
 .brand-logo {
     font-family: Georgia, serif;
-    font-size: <?php echo $format === '58mm' ? '26pt' : '32pt'; ?>;
+    font-size: <?php echo $format === '58mm' ? '22pt' : '28pt'; ?>;
     font-weight: 900;
     letter-spacing: -1px;
     text-align: center;
     line-height: 1;
     margin-bottom: 4px;
+    color: #000;
 }
-.biz-info { text-align: center; line-height: 1.55; margin-bottom: 4px; }
+.brand-logo-img {
+    display: block;
+    margin: 0 auto 4px auto;
+    width: <?php echo $format === '58mm' ? '40px' : '56px'; ?>;
+    height: auto;
+}
+.biz-info { text-align: center; line-height: 1.5; margin-bottom: 4px; }
 .biz-info .biz-name { font-weight: bold; text-transform: uppercase; }
 
 .sep  { border: none; border-top: 1px dashed #000; margin: 6px 0; }
@@ -371,20 +346,21 @@ p { margin: 1px 0; }
 </head>
 <body>
 
-<?php if (!$isTicket): /* ========= MAQUETADO A4 ========= */ ?>
+<?php if (!$isTicket): /* ========= MAQUETADO A4 (estilo tukifac) ========= */ ?>
 <div class="header">
-    <div class="header-brand">
-        <div class="brand-logo"><img src="../assets/logo.svg" style="height: 60px; filter: grayscale(100%);" alt="NISSI"></div>
-        <div class="brand-info">
-            <p class="biz-name"><?php echo htmlspecialchars(SUNAT_RAZON_SOCIAL ?: 'Confecciones NISSI'); ?></p>
-            <p><?php echo htmlspecialchars(SUNAT_DIRECCION ?: 'Av. Principal S/N'); ?></p>
-            <p>RUC: <?php echo htmlspecialchars(SUNAT_RUC ?: '20000000000'); ?></p>
-            <p>Tel: 999 999 999 | nissi@uniformes.com</p>
+    <div class="header-main">
+        <img class="logo" src="<?php echo htmlspecialchars(marcaLogo('LOGO_CLARO', '../assets/logo.svg')); ?>" alt="<?php echo htmlspecialchars(SUNAT_NOMBRE_COMERCIAL ?: 'NISSI'); ?>">
+        <div class="brand-left">
+            <div class="biz-name"><?php echo htmlspecialchars(SUNAT_RAZON_SOCIAL ?: 'Confecciones NISSI'); ?></div>
+            <div>RUC <?php echo htmlspecialchars(SUNAT_RUC_EMISOR ?: '20000000000'); ?></div>
+            <div><?php echo htmlspecialchars(SUNAT_DIRECCION ?: 'Av. Principal S/N'); ?></div>
+            <div><?php echo htmlspecialchars(SUNAT_EMAIL ?: ''); ?></div>
+            <div><?php echo htmlspecialchars(SUNAT_TELEFONO ?: ''); ?></div>
         </div>
-    </div>
-    <div class="header-doc">
-        <div class="doc-type"><?php echo $tipo_doc; ?></div>
-        <div class="doc-code"><?php echo $codigoReal; ?></div>
+        <div class="brand-right">
+            <div class="doc-type"><?php echo $tipo_doc; ?></div>
+            <div class="doc-code"><?php echo $codigoReal; ?></div>
+        </div>
     </div>
 </div>
 
@@ -399,18 +375,19 @@ p { margin: 1px 0; }
 <div class="info-grid">
     <div>
         <div class="info-row"><span class="info-label">Cliente:</span><span class="info-value"><?php echo htmlspecialchars($venta['cliente']); ?></span></div>
-        <div class="info-row"><span class="info-label">Doc. / RUC:</span><span class="info-value"><?php echo htmlspecialchars($venta['numero_documento']); ?></span></div>
-        <div class="info-row"><span class="info-label">Vendedor:</span><span class="info-value"><?php echo htmlspecialchars($venta['vendedor']); ?></span></div>
-        <div class="info-row"><span class="info-label">Forma de Pago:</span><span class="info-value"><?php echo htmlspecialchars($formaPagoTexto); ?></span></div>
+        <div class="info-row"><span class="info-label">Doc.:</span><span class="info-value"><?php echo htmlspecialchars($venta['numero_documento'] ?: '—'); ?></span></div>
+        <div class="info-row"><span class="info-label">Dirección:</span><span class="info-value">—</span></div>
         <div class="info-row"><span class="info-label">Estado:</span><span class="info-value"><?php echo $estado; ?></span></div>
     </div>
     <div>
         <div class="info-row"><span class="info-label">Fecha de emisión:</span><span class="info-value"><?php echo $fecha_emision; ?></span></div>
         <div class="info-row"><span class="info-label">Fecha vencimiento:</span><span class="info-value"><?php echo $fecha_venc; ?></span></div>
+        <div class="info-row"><span class="info-label">Vendedor:</span><span class="info-value"><?php echo htmlspecialchars($venta['vendedor']); ?></span></div>
+        <div class="info-row"><span class="info-label">Forma de pago:</span><span class="info-value"><?php echo htmlspecialchars($formaPagoTexto); ?></span></div>
         <?php if ($infoSeparacionAbono): ?>
-        <div class="info-row"><span class="info-label">Valor mercadería:</span><span class="info-value">S/ <?php echo number_format($infoSeparacionAbono['total_mercaderia'], 2); ?></span></div>
+        <div class="info-row"><span class="info-label">Mercadería:</span><span class="info-value">S/ <?php echo number_format($infoSeparacionAbono['total_mercaderia'], 2); ?></span></div>
         <div class="info-row"><span class="info-label">Pagado hoy:</span><span class="info-value">S/ <?php echo number_format($total, 2); ?></span></div>
-        <div class="info-row"><span class="info-label">Saldo pendiente:</span><span class="info-value">S/ <?php echo number_format(max(0, $infoSeparacionAbono['total_mercaderia'] - $infoSeparacionAbono['abonado']), 2); ?></span></div>
+        <div class="info-row"><span class="info-label">Saldo:</span><span class="info-value">S/ <?php echo number_format(max(0, $infoSeparacionAbono['total_mercaderia'] - $infoSeparacionAbono['abonado']), 2); ?></span></div>
         <?php endif; ?>
     </div>
 </div>
@@ -418,24 +395,26 @@ p { margin: 1px 0; }
 <table class="prod-table">
     <thead>
         <tr>
-            <th style="width:8%">COD.</th>
-            <th style="width:10%">CANT.</th>
-            <th style="width:10%">UNIDAD</th>
+            <th style="width:7%">COD.</th>
+            <th style="width:7%">CANT.</th>
+            <th style="width:8%">UNIDAD</th>
             <th>DESCRIPCIÓN</th>
-            <th class="r" style="width:12%">P.UNIT</th>
-            <th class="r" style="width:12%">TOTAL</th>
+            <th style="width:11%">MARCA</th>
+            <th class="r" style="width:10%">P.UNIT</th>
+            <th class="r" style="width:8%">DTO.</th>
+            <th class="r" style="width:10%">TOTAL</th>
         </tr>
     </thead>
     <tbody>
-        <?php foreach ($detalles as $i => $d): ?>
+        <?php foreach ($detalles as $d): ?>
         <tr>
-            <td><?php echo str_pad($i+1, 2, '0', STR_PAD_LEFT); ?></td>
-            <td>
-                <?php echo number_format($d['piezas'], 2); ?>
-            </td>
+            <td><?php echo htmlspecialchars($d['id_producto']); ?></td>
+            <td><?php echo number_format($d['piezas'], 2); ?></td>
             <td><?php echo htmlspecialchars($d['abreviatura']); ?></td>
             <td><?php echo htmlspecialchars($d['producto_nombre']); ?></td>
+            <td>—</td>
             <td class="r"><?php echo number_format($d['precio_venta'], 2); ?></td>
+            <td class="r">0.00</td>
             <td class="r"><?php echo number_format($d['subtotal'], 2); ?></td>
         </tr>
         <?php endforeach; ?>
@@ -466,12 +445,8 @@ p { margin: 1px 0; }
 <div class="totals-wrap">
     <table class="totals-table">
         <tr>
-            <td class="label">OP. GRAVADA:</td>
-            <td class="value">S/ <?php echo number_format($subtotal, 2); ?></td>
-        </tr>
-        <tr>
-            <td class="label">IGV (18%):</td>
-            <td class="value">S/ <?php echo number_format($igv, 2); ?></td>
+            <td class="label">OP. EXONERADAS:</td>
+            <td class="value">S/ <?php echo number_format($total, 2); ?></td>
         </tr>
         <tr class="grand">
             <td class="label">TOTAL A PAGAR: S/</td>
@@ -492,18 +467,28 @@ p { margin: 1px 0; }
 <?php endif; ?>
 
 <div class="footer">
-    <p><strong>CONDICIÓN DE PAGO:</strong> Al contado</p>
-    <p class="thanks">¡Gracias por su compra!</p>
+    <p><strong>CONDICIÓN DE PAGO:</strong> Contado</p>
+    <p><strong>PAGOS:</strong></p>
+    <?php foreach ($pagosLista as $lineaPago): ?>
+    <p class="pago-line"><?php echo htmlspecialchars($lineaPago); ?></p>
+    <?php endforeach; ?>
+    <p><strong>SALDO:</strong> S/ <?php echo number_format($saldoPendiente, 2); ?></p>
 </div>
 
-<?php else: /* ========= MAQUETADO TICKETERAS TÉRMICAS ========= */ ?>
+<p style="margin-top:14px; font-size:8.5pt; color:#444;">
+    Para consultar el comprobante ingresar a
+    <?php echo htmlspecialchars(SUNAT_CONSULTA_URL); ?>
+</p>
 
-<div class="brand-logo"><img src="../assets/logo.svg" style="height: 40px; filter: grayscale(100%);" alt="NISSI"></div>
+<?php else: /* ========= MAQUETADO TICKETERAS TÉRMICAS (estilo tukifac) ========= */ ?>
+
 <div class="biz-info">
+    <img class="brand-logo-img" src="<?php echo htmlspecialchars(marcaLogo('LOGO_CLARO', '../assets/logo.svg')); ?>" alt="<?php echo htmlspecialchars(SUNAT_NOMBRE_COMERCIAL ?: 'NISSI'); ?>">
     <p class="biz-name"><?php echo htmlspecialchars(SUNAT_RAZON_SOCIAL ?: 'Confecciones NISSI'); ?></p>
-    <p>RUC: <?php echo htmlspecialchars(SUNAT_RUC ?: '20000000000'); ?></p>
+    <p>RUC <?php echo htmlspecialchars(SUNAT_RUC_EMISOR ?: '20000000000'); ?></p>
     <p><?php echo htmlspecialchars(SUNAT_DIRECCION ?: 'Av. Principal S/N'); ?></p>
-    <p>Tel: 999 999 999</p>
+    <p><?php echo htmlspecialchars(SUNAT_EMAIL ?: ''); ?></p>
+    <p><?php echo htmlspecialchars(SUNAT_TELEFONO ?: ''); ?></p>
 </div>
 
 <hr class="sep">
@@ -540,7 +525,7 @@ p { margin: 1px 0; }
 <table class="prod-table">
     <thead>
         <tr>
-            <th>COD</th>
+            <?php if ($format !== '58mm'): ?><th>COD</th><?php endif; ?>
             <th>CANT</th>
             <th>UNID</th>
             <th>DESCRIPCIÓN</th>
@@ -549,12 +534,10 @@ p { margin: 1px 0; }
         </tr>
     </thead>
     <tbody>
-        <?php foreach ($detalles as $i => $d): ?>
+        <?php foreach ($detalles as $d): ?>
         <tr>
-            <td><?php echo str_pad($i+1, 2, '0', STR_PAD_LEFT); ?></td>
-            <td>
-                <?php echo number_format($d['piezas'], 2); ?>
-            </td>
+            <?php if ($format !== '58mm'): ?><td><?php echo htmlspecialchars($d['id_producto']); ?></td><?php endif; ?>
+            <td><?php echo number_format($d['piezas'], 2); ?></td>
             <td><?php echo htmlspecialchars($d['abreviatura']); ?></td>
             <td><?php echo htmlspecialchars($d['producto_nombre']); ?></td>
             <td class="r"><?php echo number_format($d['precio_venta'], 2); ?></td>
@@ -581,8 +564,7 @@ p { margin: 1px 0; }
 </table>
 <?php endif; ?>
 
-<div class="total-row"><span>OP. GRAVADA:</span><span>S/ <?php echo number_format($subtotal, 2); ?></span></div>
-<div class="total-row"><span>IGV (18%):</span><span>S/ <?php echo number_format($igv, 2); ?></span></div>
+<div class="total-row"><span>OP. EXONERADAS:</span><span>S/ <?php echo number_format($total, 2); ?></span></div>
 <div class="total-row grand"><span>TOTAL A PAGAR: S/</span><span><?php echo number_format($total, 2); ?></span></div>
 
 <?php if ($esComprobanteSunat): ?>
@@ -593,6 +575,16 @@ p { margin: 1px 0; }
 <?php endif; ?>
 
 <hr class="sep" style="margin-top:8px;">
+<p style="text-align:left;"><strong>CONDICIÓN DE PAGO:</strong> Contado</p>
+<p><strong>PAGOS:</strong></p>
+<?php foreach ($pagosLista as $lineaPago): ?>
+<p style="margin-left:12px;"><?php echo htmlspecialchars($lineaPago); ?></p>
+<?php endforeach; ?>
+<p><strong>SALDO:</strong> S/ <?php echo number_format($saldoPendiente, 2); ?></p>
+<hr class="sep">
+<p class="footer-msg">Para consultar el comprobante ingresar a:</p>
+<p class="tc" style="word-break: break-all;"><?php echo htmlspecialchars(SUNAT_CONSULTA_URL); ?></p>
+<hr class="sep">
 <p class="footer-msg">¡Gracias por su compra!</p>
 
 <?php endif; ?>

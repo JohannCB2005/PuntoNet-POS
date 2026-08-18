@@ -1,5 +1,6 @@
 <?php
 // Iniciar la sesión PHP para validar accesos
+require_once dirname(__DIR__) . '/config/sesion_segura.php';
 session_start();
 
 // Definir el tipo de respuesta a retornar (JSON)
@@ -10,6 +11,9 @@ if (!isset($_SESSION['id_usuario'])) {
     echo json_encode(["success" => false, "mensaje" => "No autorizado."]);
     exit;
 }
+
+require_once dirname(__DIR__) . '/config/csrf.php';
+csrfRequerir();
 
 // Cargar las dependencias necesarias: Entidad y Modelo de Categoría
 require_once dirname(__DIR__) . '/entities/Categoria.php';

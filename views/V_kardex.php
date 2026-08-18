@@ -308,7 +308,7 @@ document.addEventListener('DOMContentLoaded', () => {
             kardexLoading.classList.add('d-none');
 
             if (!json.success) {
-                Swal.fire({ icon:'error', title:'Error', text: json.mensaje, confirmButtonColor:'#0284c7' });
+                Swal.fire({ icon:'error', title:'Error', text: json.mensaje, confirmButtonColor:'#23284E' });
                 return;
             }
 
@@ -355,7 +355,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             ${row.tipo_doc}
                         </span>
                     </td>
-                    <td class="fw-semibold" style="color:#0284c7; font-size:12px;">${row.numero_doc}</td>
+                    <td class="fw-semibold" style="color:#23284E; font-size:12px;">${row.numero_doc}</td>
                     <td class="text-muted" style="font-size:12px;">${row.concepto}</td>
 
                     <!-- COLUMNAS ENTRADAS -->
@@ -386,7 +386,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         } catch (err) {
             kardexLoading.classList.add('d-none');
-            Swal.fire({ icon:'error', title:'Error de red', text:'No se pudo contactar al servidor.', confirmButtonColor:'#0284c7' });
+            Swal.fire({ icon:'error', title:'Error de red', text:'No se pudo contactar al servidor.', confirmButtonColor:'#23284E' });
         }
     }
 

@@ -1,5 +1,6 @@
 <?php
 // Iniciar sesión para el seguimiento de CSRF y control de fuerza bruta
+require_once dirname(__DIR__) . '/config/sesion_segura.php';
 session_start();
 
 // Cabeceras de seguridad HTTP

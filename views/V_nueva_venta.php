@@ -10,6 +10,7 @@ require_once dirname(__DIR__) . '/models/M_Producto.php';
 require_once dirname(__DIR__) . '/models/M_Cliente.php';
 require_once dirname(__DIR__) . '/models/M_Categoria.php';
 require_once dirname(__DIR__) . '/models/M_Caja.php';
+require_once dirname(__DIR__) . '/models/M_Serie.php';
 require_once dirname(__DIR__) . '/config/sunat.php';
 
 // Listar productos activos en catálogo
@@ -38,6 +39,39 @@ foreach ($productos as $ins) {
             'stock'     => (float) $ins['stock_piezas'],
             'unidad'    => $ins['abreviatura'],
         ];
+    }
+}
+
+// Reordenar el catálogo: primero los productos con stock disponible (o cuyas
+// variantes de talla tienen stock), y al final los agotados. Así el cajero ve
+// primero lo vendible. Los agrupadores sin variantes disponibles ya se ocultan
+// en el render (continue), así que aquí solo se prioriza lo que SÍ se puede vender.
+$productosConStock = [];
+$productosAgotados = [];
+foreach ($productos as $idx => $ins) {
+    $tieneStock = false;
+    if ($ins['estado'] == 1) {
+        if ($ins['es_agrupador'] == 1) {
+            $tieneStock = !empty($productosAgrupados[$ins['id_producto']]['variantes']);
+        } elseif (!$ins['id_producto_padre']) {
+            $tieneStock = ($ins['stock_ilimitado'] ?? 0) == 1 || ($ins['stock_piezas'] ?? 0) > 0;
+        }
+    }
+    if ($tieneStock) {
+        $productosConStock[] = $ins;
+    } else {
+        $productosAgotados[] = $ins;
+    }
+}
+$productos = array_merge($productosConStock, $productosAgotados);
+unset($productosConStock, $productosAgotados);
+
+// Series activas por tipo de comprobante (1=Boleta, 2=Factura) para el select
+// de serie del POS. Se agrupan para que el front filtre al cambiar el tipo.
+$seriesActivas = [];
+foreach (M_Serie::singleton()->listar() as $serie) {
+    if ((int) $serie['estado'] === 1) {
+        $seriesActivas[$serie['tipo_comprobante']][] = $serie['serie'];
     }
 }
 
@@ -106,7 +140,7 @@ $cajaAbierta = $modelCaja->obtenerCajaAbierta($_SESSION['id_usuario']);
 
     .client-dropdown-item:hover, .client-dropdown-item:focus {
         background-color: #f0fdf4;
-        color: #0284c7;
+        color: #23284E;
         outline: none;
     }
 
@@ -115,7 +149,7 @@ $cajaAbierta = $modelCaja->obtenerCajaAbierta($_SESSION['id_usuario']);
     }
 
     .client-dropdown-item:hover strong {
-        color: #0284c7;
+        color: #23284E;
     }
 
     .client-dropdown-divider {
@@ -159,8 +193,8 @@ $cajaAbierta = $modelCaja->obtenerCajaAbierta($_SESSION['id_usuario']);
     }
     
     #clientTabs .nav-link.active {
-        color: #0284c7 !important;
-        border-bottom: 3px solid #0284c7 !important;
+        color: #23284E !important;
+        border-bottom: 3px solid #23284E !important;
         font-weight: 600;
     }
 
@@ -191,7 +225,7 @@ $cajaAbierta = $modelCaja->obtenerCajaAbierta($_SESSION['id_usuario']);
                     <i class="bi bi-lock-fill text-muted mb-3 d-block" style="font-size: 3.5rem;"></i>
                     <h3 class="fw-bold text-dark mb-2">Caja Cerrada</h3>
                     <p class="text-muted mb-4" style="font-size: 14px;">Debes aperturar tu caja para poder registrar ventas en el sistema.</p>
-                    <a href="/caja" class="btn btn-primary rounded-pill px-4 py-2 fw-bold w-100 shadow-sm">
+                    <a href="/caja" class="gp-btn-primary rounded-pill px-4 py-2 fw-bold w-100 border-0 shadow-sm">
                         <i class="bi bi-unlock-fill me-2"></i> Ir a Mi Caja
                     </a>
                 </div>
@@ -213,8 +247,8 @@ $cajaAbierta = $modelCaja->obtenerCajaAbierta($_SESSION['id_usuario']);
                     <div class="col-12 col-md-4">
                         <label class="form-label fw-semibold d-block text-muted mb-1" style="font-size: 12px;">Tipo de comprobante</label>
                         <select class="form-select form-select-sm text-sm fw-semibold" id="docTypeSelect" style="height: 38px; border-color: #ced4da; box-shadow: none;">
-                            <option value="3">Nota de Venta</option>
-                            <option value="1" selected>Boleta</option>
+                            <option value="3" selected>Nota de Venta</option>
+                            <option value="1">Boleta</option>
                             <option value="2">Factura</option>
                         </select>
                     </div>
@@ -245,6 +279,31 @@ $cajaAbierta = $modelCaja->obtenerCajaAbierta($_SESSION['id_usuario']);
                                 <span id="selectedClientText">Público General</span>
                             </span>
                         </div>
+                    </div>
+                </div>
+                <div class="row g-3 mt-1">
+                    <div class="col-12 col-md-4">
+                        <label class="form-label fw-semibold text-muted mb-1" style="font-size: 12px;">Serie del comprobante</label>
+                        <select class="form-select form-select-sm text-sm" id="serieSelect" style="height: 38px; border-color: #ced4da; box-shadow: none;">
+                            <option value="">Automática</option>
+                            <?php foreach (($seriesActivas[1] ?? []) as $serie): ?>
+                                <option value="<?php echo htmlspecialchars($serie); ?>" data-tipo="1"><?php echo htmlspecialchars($serie); ?></option>
+                            <?php endforeach; ?>
+                            <?php foreach (($seriesActivas[2] ?? []) as $serie): ?>
+                                <option value="<?php echo htmlspecialchars($serie); ?>" data-tipo="2"><?php echo htmlspecialchars($serie); ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                        <div class="form-text text-muted" id="serieHint" style="font-size: 10.5px;">Sin selección se asigna la siguiente serie activa.</div>
+                    </div>
+                    <div class="col-6 col-md-4">
+                        <label class="form-label fw-semibold text-muted mb-1" style="font-size: 12px;">Fecha de emisión</label>
+                        <input type="date" class="form-control form-control-sm" id="fechaEmisionInput" style="height: 38px; border-color: #ced4da; box-shadow: none;">
+                        <div class="form-text text-muted" style="font-size: 10.5px;">No se admiten fechas futuras.</div>
+                    </div>
+                    <div class="col-6 col-md-4">
+                        <label class="form-label fw-semibold text-muted mb-1" style="font-size: 12px;">Fecha de vencimiento</label>
+                        <input type="date" class="form-control form-control-sm" id="fechaVencimientoInput" style="height: 38px; border-color: #ced4da; box-shadow: none;">
+                        <div class="form-text text-muted" style="font-size: 10.5px;">No se admiten fechas futuras.</div>
                     </div>
                 </div>
             </div>
@@ -323,7 +382,7 @@ $cajaAbierta = $modelCaja->obtenerCajaAbierta($_SESSION['id_usuario']);
                                                         data-stock="<?php echo $ilimitado ? 9999 : $ins['stock_piezas']; ?>"
                                                         data-stockilimitado="<?php echo $ilimitado ? 1 : 0; ?>"
                                                         data-unidad="<?php echo htmlspecialchars($ins['abreviatura']); ?>"
-                                                        style="width: 32px; height: 32px; border-radius: 8px; padding: 0; background-color: #0284c7;"
+                                                        style="width: 32px; height: 32px; border-radius: 8px; padding: 0; background-color: #23284E;"
                                                         <?php echo (!$ilimitado && $ins['stock_piezas'] <= 0) ? 'disabled' : ''; ?>>
                                                     <i class="bi bi-plus-lg"></i>
                                                 </button>
@@ -360,7 +419,7 @@ $cajaAbierta = $modelCaja->obtenerCajaAbierta($_SESSION['id_usuario']);
                                                 <button class="btn open-talla-picker-btn"
                                                         data-padre-id="<?php echo $ins['id_producto']; ?>"
                                                         data-nombre="<?php echo htmlspecialchars($ins['nombre']); ?>"
-                                                        style="height: 32px; border-radius: 8px; padding: 0 10px; font-size: 12px; background: #eff6ff; border: 1.5px solid #0284c7; color: #0284c7; white-space: nowrap;">
+                                                        style="height: 32px; border-radius: 8px; padding: 0 10px; font-size: 12px; background: #eef1f7; border: 1.5px solid #23284E; color: #23284E; white-space: nowrap;">
                                                     <i class="bi bi-rulers me-1"></i>Elegir talla
                                                 </button>
                                             </div>
@@ -468,7 +527,7 @@ $cajaAbierta = $modelCaja->obtenerCajaAbierta($_SESSION['id_usuario']);
                     </div>
 
                     <!-- Confirmar Venta -->
-                    <button class="gp-btn-primary w-100 border-0 py-2.5 d-flex align-items-center justify-content-center gap-2" id="submitSaleBtn" style="background-color: #0284c7;" disabled>
+                    <button class="gp-btn-primary w-100 border-0 py-2.5 d-flex align-items-center justify-content-center gap-2" id="submitSaleBtn" disabled>
                         <span id="submitSaleBtnLabel">Registrar Venta</span>
                     </button>
                 </div>
@@ -482,8 +541,8 @@ $cajaAbierta = $modelCaja->obtenerCajaAbierta($_SESSION['id_usuario']);
 <!-- Modal: Selector de Talla para Productos con Variantes (POS) -->
 <div class="modal fade" id="tallaPosModal" tabindex="-1" aria-labelledby="tallaPosModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered" style="max-width: 480px;">
-        <div class="modal-content border-0 shadow-lg" style="border-radius: 16px;">
-            <div class="modal-header border-0 py-3 px-4" style="background: #1d4ed8; border-radius: 16px 16px 0 0;">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 15px;">
+            <div class="modal-header gp-bg-primary border-0 py-3 px-4" style="border-radius: 15px 15px 0 0;">
                 <div>
                     <h6 class="modal-title fw-bold text-white mb-0" id="tallaPosModalLabel">Seleccionar Talla</h6>
                     <small class="text-white opacity-75" id="tallaPosNombreProducto">Producto</small>
@@ -524,8 +583,8 @@ $cajaAbierta = $modelCaja->obtenerCajaAbierta($_SESSION['id_usuario']);
             </div>
             <div class="modal-footer border-0 px-4 pb-4 pt-0">
                 <button type="button" class="btn btn-light fw-semibold" data-bs-dismiss="modal" style="border-radius:10px;">Cancelar</button>
-                <button type="button" class="btn fw-semibold" id="tallaPosAddBtn" disabled
-                        style="border-radius:10px; background:#1d4ed8; color:#fff; border:none; padding: 8px 20px;">
+                <button type="button" class="gp-btn-primary border-0 fw-semibold" id="tallaPosAddBtn" disabled
+                        style="border-radius:10px; padding: 8px 20px;">
                     <i class="bi bi-cart-plus-fill me-1"></i> Agregar al carrito
                 </button>
             </div>
@@ -536,10 +595,10 @@ $cajaAbierta = $modelCaja->obtenerCajaAbierta($_SESSION['id_usuario']);
 <!-- Modal: Registro de Nuevo Cliente en caliente -->
 <div class="modal fade" id="nuevoClienteModal" tabindex="-1" aria-labelledby="nuevoClienteModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-centered">
-        <div class="modal-content border-0 shadow-lg" style="border-radius: 12px;">
-            <div class="modal-header bg-light border-bottom py-3">
-                <h5 class="modal-title fw-bold text-dark" id="nuevoClienteModalLabel" style="font-size: 16px;">Nuevo Cliente</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" style="box-shadow: none;"></button>
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 15px;">
+            <div class="modal-header gp-bg-primary text-white border-0 py-3" style="border-radius: 15px 15px 0 0;">
+                <h6 class="modal-title fw-bold" id="nuevoClienteModalLabel">Nuevo Cliente</h6>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close" style="box-shadow: none;"></button>
             </div>
             <div class="modal-body p-4">
                 <!-- Inputs ocultos para compatibilidad de base de datos -->
@@ -564,7 +623,7 @@ $cajaAbierta = $modelCaja->obtenerCajaAbierta($_SESSION['id_usuario']);
                         <label class="form-label text-muted fw-semibold mb-1">Número <span class="text-danger">*</span></label>
                         <div class="input-group input-group-sm">
                             <input type="text" class="form-control" id="modalNumDoc" placeholder="Ej. 78945612" style="box-shadow: none; height: 38px; font-size: 13.5px;">
-                            <button type="button" class="btn btn-primary fw-semibold d-flex align-items-center gap-1 px-3" id="modalSearchApiBtn" style="height: 38px; border: none; background-color: #0284c7;">
+                            <button type="button" class="btn gp-bg-primary text-white fw-semibold d-flex align-items-center gap-1 px-3" id="modalSearchApiBtn" style="height: 38px; border: none;">
                                 <i class="bi bi-search"></i> <span id="modalSearchApiBtnText">RENIEC</span>
                             </button>
                         </div>
@@ -588,9 +647,9 @@ $cajaAbierta = $modelCaja->obtenerCajaAbierta($_SESSION['id_usuario']);
                     </div>
                 </div>
             </div>
-            <div class="modal-footer border-top bg-light py-3 d-flex justify-content-end gap-2" style="border-radius: 0 0 12px 12px;">
+            <div class="modal-footer border-0 p-4 pt-0 d-flex justify-content-end gap-2" style="border-radius: 0 0 15px 15px;">
                 <button type="button" class="btn btn-light fw-semibold px-4" data-bs-dismiss="modal" style="font-size: 13.5px; height: 38px;">Cancelar</button>
-                <button type="button" class="btn btn-primary fw-semibold px-4" id="modalSaveClientBtn" style="font-size: 13.5px; height: 38px; background-color: #0284c7; border: none;">Guardar</button>
+                <button type="button" class="gp-btn-primary border-0 fw-semibold px-4" id="modalSaveClientBtn" style="font-size: 13.5px; height: 38px;">Guardar</button>
             </div>
         </div>
     </div>
@@ -610,13 +669,13 @@ $cajaAbierta = $modelCaja->obtenerCajaAbierta($_SESSION['id_usuario']);
 
             <!-- Selector de formato de papel -->
             <div class="d-flex justify-content-center gap-2 py-2 bg-light border-bottom" style="flex-shrink: 0;">
-                <button class="btn btn-primary btn-sm px-3 ticket-format-btn active" data-format="80mm" style="background-color: #0284c7; border: none;">
+                <button class="btn btn-primary btn-sm px-3 ticket-format-btn active" data-format="80mm" style="background-color: #23284E; border: none;">
                     <i class="bi bi-receipt"></i> Ticket 80mm
                 </button>
-                <button class="btn btn-outline-primary btn-sm px-3 ticket-format-btn" data-format="58mm" style="border-color: #0284c7; color: #0284c7;">
+                <button class="btn btn-outline-primary btn-sm px-3 ticket-format-btn" data-format="58mm" style="border-color: #23284E; color: #23284E;">
                     <i class="bi bi-receipt"></i> Ticket 58mm
                 </button>
-                <button class="btn btn-outline-primary btn-sm px-3 ticket-format-btn" data-format="a4" style="border-color: #0284c7; color: #0284c7;">
+                <button class="btn btn-outline-primary btn-sm px-3 ticket-format-btn" data-format="a4" style="border-color: #23284E; color: #23284E;">
                     <i class="bi bi-file-earmark-text"></i> A4
                 </button>
             </div>
@@ -636,14 +695,14 @@ $cajaAbierta = $modelCaja->obtenerCajaAbierta($_SESSION['id_usuario']);
 
             <!-- Botones de Acción -->
             <div class="modal-footer border-top bg-white py-2 px-4 d-flex justify-content-between align-items-center" style="flex-shrink: 0; border-radius: 0 0 12px 12px;">
-                <button class="btn btn-primary d-flex align-items-center gap-2 px-4" onclick="printCurrentIframe()" style="background-color: #0284c7; border: none;">
+                <button class="btn btn-primary d-flex align-items-center gap-2 px-4" onclick="printCurrentIframe()" style="background-color: #23284E; border: none;">
                     <i class="bi bi-printer-fill"></i> Imprimir
                 </button>
                 <div class="d-flex gap-2">
                     <button class="btn btn-outline-secondary px-4" onclick="window.location.href='/historial'">
                         <i class="bi bi-list-ul"></i> Ir al listado
                     </button>
-                    <button class="btn btn-primary px-4" onclick="window.location.reload()" style="background-color: #0284c7; border: none;">
+                    <button class="btn btn-primary px-4" onclick="window.location.reload()" style="background-color: #23284E; border: none;">
                         <i class="bi bi-plus-lg"></i> Nueva venta
                     </button>
                 </div>
@@ -680,6 +739,12 @@ $cajaAbierta = $modelCaja->obtenerCajaAbierta($_SESSION['id_usuario']);
 
         // Tipo de Comprobante
         const docTypeSelect = document.getElementById('docTypeSelect');
+
+        // Serie y fechas del comprobante (SUNAT)
+        const serieSelect = document.getElementById('serieSelect');
+        const serieHint = document.getElementById('serieHint');
+        const fechaEmisionInput = document.getElementById('fechaEmisionInput');
+        const fechaVencimientoInput = document.getElementById('fechaVencimientoInput');
 
         // Elementos de importes del resumen
         const summarySubtotal = document.getElementById('summarySubtotal');
@@ -798,9 +863,9 @@ $cajaAbierta = $modelCaja->obtenerCajaAbierta($_SESSION['id_usuario']);
                 <tr>
                     <td>
                         <select class="form-select form-select-sm pago-metodo" data-idx="${idx}" style="font-size:12px;">
-                            <option value="1" ${p.metodo_pago === 1 ? 'selected' : ''}>💵 Efectivo</option>
-                            <option value="2" ${p.metodo_pago === 2 ? 'selected' : ''}>📱 Yape/Plin</option>
-                            <option value="3" ${p.metodo_pago === 3 ? 'selected' : ''}>💳 Tarjeta</option>
+                            <option value="1" ${p.metodo_pago === 1 ? 'selected' : ''}>Efectivo</option>
+                            <option value="2" ${p.metodo_pago === 2 ? 'selected' : ''}>Yape/Plin</option>
+                            <option value="3" ${p.metodo_pago === 3 ? 'selected' : ''}>Tarjeta</option>
                         </select>
                     </td>
                     <td>
@@ -978,8 +1043,27 @@ $cajaAbierta = $modelCaja->obtenerCajaAbierta($_SESSION['id_usuario']);
                 clientAutocompleteInput.value = '';
                 clearClientSelectionBtn.classList.add('d-none');
             }
+            updateSerieOptions(docType);
             updateInputConstraints();
             validateSubmitBtn();
+        }
+
+        // Mostrar solo las series activas del tipo de comprobante elegido. Para
+        // Nota de Venta (3) no hay series SUNAT, así que se desactiva el selector
+        // y se informa que no aplica. La opción "Automática" sigue disponible para
+        // que el sistema reserve la siguiente serie activa por su cuenta.
+        function updateSerieOptions(docType) {
+            if (!serieSelect) return;
+            const opcionesTipo = (docType === '1' || docType === '2') ? seriesPorTipo[docType] || [] : [];
+            const actual = serieSelect.value;
+            serieSelect.innerHTML = '<option value="">Automática</option>' +
+                opcionesTipo.map(s => `<option value="${s}" ${s === actual ? 'selected' : ''}>${s}</option>`).join('');
+            serieSelect.disabled = docType === '3';
+            if (serieHint) {
+                serieHint.textContent = docType === '3'
+                    ? 'Las Notas de Venta no requieren serie SUNAT.'
+                    : (opcionesTipo.length ? 'Si eliges una serie, se usará esa para numerar.' : 'Sin selección se asigna la siguiente serie activa.');
+            }
         }
 
         // Cambiar marcador de posición según DNI o RUC
@@ -998,6 +1082,25 @@ $cajaAbierta = $modelCaja->obtenerCajaAbierta($_SESSION['id_usuario']);
             docTypeSelect.addEventListener('change', updateDocumentMode);
             updateInputConstraints();
         }
+
+        // Series activas por tipo de comprobante (inyectadas desde PHP) para
+        // filtrar el select de serie sin llamadas extra al servidor.
+        const seriesPorTipo = <?php echo json_encode($seriesActivas); ?>;
+
+        // Fechas del comprobante: por defecto hoy, sin permitir fechas futuras.
+        const hoy = new Date();
+        const hoyStr = hoy.getFullYear() + '-' +
+            String(hoy.getMonth() + 1).padStart(2, '0') + '-' +
+            String(hoy.getDate()).padStart(2, '0');
+        if (fechaEmisionInput) {
+            fechaEmisionInput.value = hoyStr;
+            fechaEmisionInput.max = hoyStr;
+        }
+        if (fechaVencimientoInput) {
+            fechaVencimientoInput.value = hoyStr;
+            fechaVencimientoInput.max = hoyStr;
+        }
+        updateSerieOptions(docTypeSelect ? docTypeSelect.value : '1');
 
         // Filtrar y renderizar el desplegable de autocompletado de clientes
         function showAutocompleteDropdown() {
@@ -1194,17 +1297,17 @@ $cajaAbierta = $modelCaja->obtenerCajaAbierta($_SESSION['id_usuario']);
             const docType = modalTipoDoc.value;
 
             if (docNum === '') {
-                Swal.fire({ icon: 'warning', title: 'Número requerido', text: 'Debe ingresar el número de documento para realizar la consulta.', confirmButtonColor: '#0284c7' });
+                Swal.fire({ icon: 'warning', title: 'Número requerido', text: 'Debe ingresar el número de documento para realizar la consulta.', confirmButtonColor: '#23284E' });
                 return;
             }
 
             if (docType === '1' && docNum.length !== 8) {
-                Swal.fire({ icon: 'warning', title: 'DNI Inválido', text: 'El DNI debe tener exactamente 8 dígitos.', confirmButtonColor: '#0284c7' });
+                Swal.fire({ icon: 'warning', title: 'DNI Inválido', text: 'El DNI debe tener exactamente 8 dígitos.', confirmButtonColor: '#23284E' });
                 return;
             }
 
             if (docType === '2' && docNum.length !== 11) {
-                Swal.fire({ icon: 'warning', title: 'RUC Inválido', text: 'El RUC debe tener exactamente 11 dígitos.', confirmButtonColor: '#0284c7' });
+                Swal.fire({ icon: 'warning', title: 'RUC Inválido', text: 'El RUC debe tener exactamente 11 dígitos.', confirmButtonColor: '#23284E' });
                 return;
             }
 
@@ -1228,10 +1331,10 @@ $cajaAbierta = $modelCaja->obtenerCajaAbierta($_SESSION['id_usuario']);
 
                     Swal.fire({ icon: 'success', title: '¡Datos Obtenidos!', text: 'Los datos del cliente se cargaron exitosamente.', showConfirmButton: false, timer: 1500 });
                 } else {
-                    Swal.fire({ icon: 'error', title: 'Error de consulta', text: res.mensaje, confirmButtonColor: '#0284c7' });
+                    Swal.fire({ icon: 'error', title: 'Error de consulta', text: res.mensaje, confirmButtonColor: '#23284E' });
                 }
             } catch (err) {
-                Swal.fire({ icon: 'error', title: 'Error de red', text: 'No se pudo conectar con el servidor para la consulta de API.', confirmButtonColor: '#0284c7' });
+                Swal.fire({ icon: 'error', title: 'Error de red', text: 'No se pudo conectar con el servidor para la consulta de API.', confirmButtonColor: '#23284E' });
             } finally {
                 modalSearchApiBtn.disabled = false;
                 modalSearchApiBtnText.innerText = originalText;
@@ -1261,7 +1364,7 @@ $cajaAbierta = $modelCaja->obtenerCajaAbierta($_SESSION['id_usuario']);
             }
 
             if (numero_documento === '' || nombres_razon_social === '') {
-                Swal.fire({ icon: 'warning', title: 'Campos obligatorios', text: 'Debe ingresar el Número de documento y el Nombre / Razón Social.', confirmButtonColor: '#0284c7' });
+                Swal.fire({ icon: 'warning', title: 'Campos obligatorios', text: 'Debe ingresar el Número de documento y el Nombre / Razón Social.', confirmButtonColor: '#23284E' });
                 return;
             }
 
@@ -1300,10 +1403,10 @@ $cajaAbierta = $modelCaja->obtenerCajaAbierta($_SESSION['id_usuario']);
                         modalInstance.hide();
                     }
                 } else {
-                    Swal.fire({ icon: 'error', title: 'Error al registrar', text: res.mensaje, confirmButtonColor: '#0284c7' });
+                    Swal.fire({ icon: 'error', title: 'Error al registrar', text: res.mensaje, confirmButtonColor: '#23284E' });
                 }
             } catch (err) {
-                Swal.fire({ icon: 'error', title: 'Error de red', text: 'No se pudo contactar al servidor para registrar el cliente.', confirmButtonColor: '#0284c7' });
+                Swal.fire({ icon: 'error', title: 'Error de red', text: 'No se pudo contactar al servidor para registrar el cliente.', confirmButtonColor: '#23284E' });
             } finally {
                 modalSaveClientBtn.disabled = false;
             }
@@ -1333,15 +1436,15 @@ $cajaAbierta = $modelCaja->obtenerCajaAbierta($_SESSION['id_usuario']);
                 catFilterBtns.forEach(b => {
                     b.classList.remove('btn-primary', 'active');
                     b.classList.add('btn-outline-primary');
-                    b.style.borderColor = '#0284c7';
-                    b.style.color = '#0284c7';
+                    b.style.borderColor = '#23284E';
+                    b.style.color = '#23284E';
                     b.style.backgroundColor = 'transparent';
                 });
                 btn.classList.add('btn-primary', 'active');
                 btn.classList.remove('btn-outline-primary');
                 btn.style.borderColor = '';
                 btn.style.color = '#fff';
-                btn.style.backgroundColor = '#0284c7';
+                btn.style.backgroundColor = '#23284E';
                 
                 currentCategory = btn.dataset.cat;
                 filterCatalog();
@@ -1353,6 +1456,7 @@ $cajaAbierta = $modelCaja->obtenerCajaAbierta($_SESSION['id_usuario']);
         // ── Lógica del Modal de Selección de Talla (POS) ──
         const productosAgrupados = <?php echo json_encode($productosAgrupados); ?>;
         const tallaPosModal    = new bootstrap.Modal(document.getElementById('tallaPosModal'));
+        let tallaPosTriggerBtn = null;
         const tallaPosNombre   = document.getElementById('tallaPosNombreProducto');
         const tallaPosPills    = document.getElementById('tallaPosPickerPills');
         const tallaPosPrec     = document.getElementById('tallaPosSelectedPrecio');
@@ -1375,9 +1479,9 @@ $cajaAbierta = $modelCaja->obtenerCajaAbierta($_SESSION['id_usuario']);
                 p.style.fontWeight   = '500';
             });
             pillEl.classList.add('active');
-            pillEl.style.background  = '#1d4ed8';
+            pillEl.style.background  = '#23284E';
             pillEl.style.color       = '#fff';
-            pillEl.style.borderColor = '#1d4ed8';
+            pillEl.style.borderColor = '#23284E';
             pillEl.style.fontWeight  = '700';
             // Actualizar info
             tallaPosPrec.textContent = 'S/ ' + parseFloat(variante.precio).toFixed(2);
@@ -1389,6 +1493,7 @@ $cajaAbierta = $modelCaja->obtenerCajaAbierta($_SESSION['id_usuario']);
 
         document.querySelectorAll('.open-talla-picker-btn').forEach(btn => {
             btn.addEventListener('click', () => {
+                tallaPosTriggerBtn = btn;
                 const idPadre  = parseInt(btn.dataset.padreId);
                 const nombre   = btn.dataset.nombre;
                 const producto = productosAgrupados[idPadre];
@@ -1417,6 +1522,18 @@ $cajaAbierta = $modelCaja->obtenerCajaAbierta($_SESSION['id_usuario']);
             });
         });
 
+        // Al cerrar el modal, devolver el foco al botón que lo abrió. Sin esto,
+        // Bootstrap marca aria-hidden="true" con el foco aún dentro (p.ej. en el
+        // botón de cerrar), y el navegador bloquea el aria-hidden + advierte en
+        // consola (WAI-ARIA: no ocultar un elemento enfocado o su ancestro).
+        const tallaPosModalEl = document.getElementById('tallaPosModal');
+        tallaPosModalEl.addEventListener('hidden.bs.modal', () => {
+            if (tallaPosTriggerBtn && document.contains(tallaPosTriggerBtn)) {
+                tallaPosTriggerBtn.focus({ preventScroll: true });
+            }
+            tallaPosTriggerBtn = null;
+        });
+
         tallaPosDecBtn.addEventListener('click', () => {
             const val = parseInt(tallaPosCant.value) - 1;
             tallaPosCant.value = Math.max(1, val);
@@ -1442,7 +1559,7 @@ $cajaAbierta = $modelCaja->obtenerCajaAbierta($_SESSION['id_usuario']);
             if (existing) {
                 const newQty = existing.cantidad + cantidad;
                 if (newQty > stock) {
-                    Swal.fire({ icon: 'warning', title: 'Stock insuficiente', text: `Solo hay ${stock} unidades de esta talla.`, confirmButtonColor: '#1d4ed8' });
+                    Swal.fire({ icon: 'warning', title: 'Stock insuficiente', text: `Solo hay ${stock} unidades de esta talla.`, confirmButtonColor: '#23284E' });
                     return;
                 }
                 existing.cantidad = newQty;
@@ -1467,7 +1584,7 @@ $cajaAbierta = $modelCaja->obtenerCajaAbierta($_SESSION['id_usuario']);
                 const existing = cart.find(item => item.id_producto === id);
                 if (existing) {
                     if (existing.cantidad + 1 > stock) {
-                        Swal.fire({ icon: 'warning', title: 'Stock Insuficiente', text: `Solo hay ${stock} unidades disponibles de este producto.`, confirmButtonColor: '#0284c7' });
+                        Swal.fire({ icon: 'warning', title: 'Stock Insuficiente', text: `Solo hay ${stock} unidades disponibles de este producto.`, confirmButtonColor: '#23284E' });
                         return;
                     }
                     existing.cantidad += 1;
@@ -1505,7 +1622,7 @@ $cajaAbierta = $modelCaja->obtenerCajaAbierta($_SESSION['id_usuario']);
             if (newQty <= 0) {
                 cart = cart.filter(i => i.id_producto !== id);
             } else if (newQty > item.stock) {
-                Swal.fire({ icon: 'warning', title: 'Stock Insuficiente', text: `El stock disponible es de ${item.stock} ${item.unidad}.`, confirmButtonColor: '#0284c7' });
+                Swal.fire({ icon: 'warning', title: 'Stock Insuficiente', text: `El stock disponible es de ${item.stock} ${item.unidad}.`, confirmButtonColor: '#23284E' });
                 item.cantidad = item.stock;
                 item.subtotal = item.cantidad * item.precio;
             } else {
@@ -1680,7 +1797,16 @@ $cajaAbierta = $modelCaja->obtenerCajaAbierta($_SESSION['id_usuario']);
                     : './controllers/C_Venta.php?action=crear';
                 const dataToSend = modoSeparacion
                     ? { id_cliente, cart: cartPayload, pagos: pagosPayload }
-                    : { id_cliente, tipo_comprobante, total: totalGeneral, pagos: pagosPayload, cart: cartPayload };
+                    : {
+                        id_cliente,
+                        tipo_comprobante,
+                        total: totalGeneral,
+                        pagos: pagosPayload,
+                        cart: cartPayload,
+                        serie: serieSelect && !serieSelect.disabled ? (serieSelect.value || '') : '',
+                        fecha_emision: fechaEmisionInput ? fechaEmisionInput.value : '',
+                        fecha_vencimiento: fechaVencimientoInput ? fechaVencimientoInput.value : ''
+                    };
 
                 let confirmTitle = '¿Confirmar venta?';
                 let confirmText;
@@ -1699,7 +1825,7 @@ $cajaAbierta = $modelCaja->obtenerCajaAbierta($_SESSION['id_usuario']);
                     text: confirmText,
                     icon: 'question',
                     showCancelButton: true,
-                    confirmButtonColor: '#0284c7',
+                    confirmButtonColor: '#23284E',
                     cancelButtonColor: '#6b7280',
                     confirmButtonText: modoSeparacion ? 'Separar' : 'Registrar',
                     cancelButtonText: 'Cancelar'
@@ -1732,7 +1858,7 @@ $cajaAbierta = $modelCaja->obtenerCajaAbierta($_SESSION['id_usuario']);
                                     openPrintModal(eraModoSeparacion ? result.id_venta_anticipo : result.id_venta);
                                 });
                             } else {
-                                Swal.fire({ icon: 'error', title: 'Error', text: result.mensaje, confirmButtonColor: '#0284c7' });
+                                Swal.fire({ icon: 'error', title: 'Error', text: result.mensaje, confirmButtonColor: '#23284E' });
                                 submitSaleBtn.disabled = false;
                             }
                         } catch (err) {

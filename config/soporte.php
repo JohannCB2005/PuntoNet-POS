@@ -9,6 +9,8 @@
 $_envFile = dirname(__DIR__) . '/.env';
 $_env     = file_exists($_envFile) ? parse_ini_file($_envFile) : [];
 
-define('WHATSAPP_ATENCION', $_env['WHATSAPP_ATENCION'] ?? '');
+require_once dirname(__DIR__) . '/config/settings.php';
+
+define('WHATSAPP_ATENCION', configuracion('WHATSAPP_ATENCION', $_env['WHATSAPP_ATENCION'] ?? ''));
 
 unset($_envFile, $_env);

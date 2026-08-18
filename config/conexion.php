@@ -1,4 +1,12 @@
 <?php
+// La app opera en horario de Perú (SUNAT, soles, reportes). php-fpm suele
+// correr en UTC y eso descuadra los cálculos de "hoy"/"ayer" contra MySQL,
+// que usa la zona del sistema (America/Lima). Se fija aquí para que date()
+// coincida siempre con la BD, en local y en el hosting.
+if (date_default_timezone_get() !== 'America/Lima') {
+    date_default_timezone_set('America/Lima');
+}
+
 class Conexion {
     private static $instancia = null;
     private $dbh;

@@ -180,6 +180,13 @@ $diasMaxCambioTalla = ($_SESSION['rol'] === 'Administrador') ? 7 : 1;
                                                 style="color: #6b7280;">
                                             <i class="bi bi-printer-fill"></i>
                                         </button>
+                                        <!-- Botón Compartir por Enlace (comprobante público estilo tukifac) -->
+                                        <button class="btn btn-link text-muted p-1 share-link-btn"
+                                                data-id="<?php echo $v['id_venta']; ?>"
+                                                data-token="<?php echo htmlspecialchars($v['token_publico'] ?? ''); ?>"
+                                                title="Compartir enlace del comprobante">
+                                            <i class="bi bi-link-45deg"></i>
+                                        </button>
                                         <!-- Botón Anular (Retorna productos al stock; si el comprobante ya fue
                                              aceptado por SUNAT y está dentro de 7 días, además encola la baja) -->
                                         <?php if ($v['estado'] == 1): ?>
@@ -254,7 +261,7 @@ $diasMaxCambioTalla = ($_SESSION['rol'] === 'Administrador') ? 7 : 1;
             <div class="modal-body p-4" id="ticketContent">
                 <!-- Encabezado de la Boleta -->
                 <div class="text-center mb-4 border-bottom pb-3">
-                    <h5 class="fw-bold text-dark mb-1">PuntoNet</h5>
+                    <h5 class="fw-bold text-dark mb-1">NISSI</h5>
                     <p class="text-muted mb-2" style="font-size: 12px;">Gestión de Productos y Ventas</p>
                     <div class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-20 px-3 py-1.5 fw-bold" id="ticketCodigo" style="font-size: 13px;">
                         V-000000
@@ -360,7 +367,7 @@ $diasMaxCambioTalla = ($_SESSION['rol'] === 'Administrador') ? 7 : 1;
             </div>
             <div class="modal-footer border-0 p-4 pt-0">
                 <button type="button" class="btn btn-light fw-semibold" data-bs-dismiss="modal" style="border-radius: 8px;">Cancelar</button>
-                <button type="button" class="btn btn-primary fw-semibold" id="btnConfirmarCambioTalla" style="border-radius: 8px;" disabled>
+                <button type="button" class="gp-btn-primary border-0 fw-semibold" id="btnConfirmarCambioTalla" style="border-radius: 8px;" disabled>
                     Confirmar cambio
                 </button>
             </div>
@@ -382,13 +389,13 @@ $diasMaxCambioTalla = ($_SESSION['rol'] === 'Administrador') ? 7 : 1;
 
             <!-- Selector dinámico de formato para impresión -->
             <div class="d-flex justify-content-center gap-2 py-2 bg-light border-bottom" style="flex-shrink: 0;">
-                <button class="btn btn-primary btn-sm px-3 hist-format-btn active" data-format="80mm" style="background-color: #0284c7; border: none;">
+                <button class="btn btn-primary btn-sm px-3 hist-format-btn active" data-format="80mm" style="background-color: #23284E; border: none;">
                     <i class="bi bi-receipt"></i> Ticket 80mm
                 </button>
-                <button class="btn btn-outline-primary btn-sm px-3 hist-format-btn" data-format="58mm" style="border-color: #0284c7; color: #0284c7;">
+                <button class="btn btn-outline-primary btn-sm px-3 hist-format-btn" data-format="58mm" style="border-color: #23284E; color: #23284E;">
                     <i class="bi bi-receipt"></i> Ticket 58mm
                 </button>
-                <button class="btn btn-outline-primary btn-sm px-3 hist-format-btn" data-format="a4" style="border-color: #0284c7; color: #0284c7;">
+                <button class="btn btn-outline-primary btn-sm px-3 hist-format-btn" data-format="a4" style="border-color: #23284E; color: #23284E;">
                     <i class="bi bi-file-earmark-text"></i> A4
                 </button>
             </div>
@@ -405,8 +412,8 @@ $diasMaxCambioTalla = ($_SESSION['rol'] === 'Administrador') ? 7 : 1;
             </div>
 
             <!-- Botones de Acción de Impresión -->
-            <div class="modal-footer border-top bg-white py-2 px-4 d-flex justify-content-between" style="flex-shrink: 0; border-radius: 0 0 12px 12px;">
-                <button class="btn btn-primary d-flex align-items-center gap-2 px-4" id="histPrintBtn" style="background-color: #0284c7; border: none;">
+            <div class="modal-footer border-top bg-white py-2 px-4 d-flex justify-content-between align-items-center" style="flex-shrink: 0; border-radius: 0 0 12px 12px;">
+                <button class="btn btn-primary d-flex align-items-center gap-2 px-4" id="histPrintBtn" style="background-color: #23284E; border: none;">
                     <i class="bi bi-printer-fill"></i> Imprimir
                 </button>
                 <button class="btn btn-outline-secondary px-4" data-bs-dismiss="modal">Cerrar</button>
@@ -569,7 +576,7 @@ $diasMaxCambioTalla = ($_SESSION['rol'] === 'Administrador') ? 7 : 1;
                                     icon: 'error',
                                     title: 'Error',
                                     text: data.mensaje,
-                                    confirmButtonColor: '#0284c7'
+                                    confirmButtonColor: '#23284E'
                                 });
                             }
                         } catch (err) {
@@ -595,7 +602,7 @@ $diasMaxCambioTalla = ($_SESSION['rol'] === 'Administrador') ? 7 : 1;
                     text: 'Se reintentará el envío de este comprobante.',
                     icon: 'question',
                     showCancelButton: true,
-                    confirmButtonColor: '#0284c7',
+                    confirmButtonColor: '#23284E',
                     confirmButtonText: 'Sí, reenviar',
                     cancelButtonText: 'Cancelar'
                 }).then(async (result) => {
@@ -611,7 +618,7 @@ $diasMaxCambioTalla = ($_SESSION['rol'] === 'Administrador') ? 7 : 1;
                             icon: data.success ? 'success' : 'error',
                             title: data.success ? 'Enviado' : 'No se pudo enviar',
                             text: data.mensaje,
-                            confirmButtonColor: '#0284c7'
+                            confirmButtonColor: '#23284E'
                         }).then(() => { if (data.success) window.location.reload(); });
                     } catch (err) {
                         Swal.fire({ icon: 'error', title: 'Error de red', text: 'No se pudo contactar al servidor.' });
@@ -630,7 +637,7 @@ $diasMaxCambioTalla = ($_SESSION['rol'] === 'Administrador') ? 7 : 1;
                         icon: data.success ? 'success' : 'info',
                         title: 'Estado de la baja',
                         text: data.mensaje,
-                        confirmButtonColor: '#0284c7'
+                        confirmButtonColor: '#23284E'
                     }).then(() => window.location.reload());
                 } catch (err) {
                     Swal.fire({ icon: 'error', title: 'Error de red', text: 'No se pudo contactar al servidor.' });
@@ -662,7 +669,7 @@ $diasMaxCambioTalla = ($_SESSION['rol'] === 'Administrador') ? 7 : 1;
                             icon: data.success ? 'success' : 'error',
                             title: data.success ? 'Baja encolada' : 'No se pudo enviar',
                             text: data.mensaje,
-                            confirmButtonColor: '#0284c7'
+                            confirmButtonColor: '#23284E'
                         }).then(() => { if (data.success) window.location.reload(); });
                     } catch (err) {
                         Swal.fire({ icon: 'error', title: 'Error de red', text: 'No se pudo contactar al servidor.' });
@@ -678,7 +685,7 @@ $diasMaxCambioTalla = ($_SESSION['rol'] === 'Administrador') ? 7 : 1;
                     const response = await fetch(`./controllers/C_Sunat.php?action=ver_cdr&tipo_documento=venta&id_referencia=${id}`);
                     const data = await response.json();
                     if (!data.success) {
-                        Swal.fire({ icon: 'info', title: 'Sin información', text: data.mensaje, confirmButtonColor: '#0284c7' });
+                        Swal.fire({ icon: 'info', title: 'Sin información', text: data.mensaje, confirmButtonColor: '#23284E' });
                         return;
                     }
                     Swal.fire({
@@ -687,7 +694,7 @@ $diasMaxCambioTalla = ($_SESSION['rol'] === 'Administrador') ? 7 : 1;
                         html: `<p class="text-start mb-1"><b>Fecha:</b> ${escapeHtmlHist(data.data.fecha)}</p>
                                <p class="text-start mb-1"><b>XML firmado:</b> ${data.data.xml_firmado ? 'guardado (' + data.data.xml_firmado.length + ' caracteres)' : '—'}</p>
                                <p class="text-start mb-0"><b>CDR:</b> ${data.data.cdr_zip_base64 ? 'guardado' : 'aún no llega'}</p>`,
-                        confirmButtonColor: '#0284c7'
+                        confirmButtonColor: '#23284E'
                     });
                 } catch (err) {
                     Swal.fire({ icon: 'error', title: 'Error de red', text: 'No se pudo contactar al servidor.' });
@@ -699,22 +706,75 @@ $diasMaxCambioTalla = ($_SESSION['rol'] === 'Administrador') ? 7 : 1;
             btn.addEventListener('click', async () => {
                 const id = btn.dataset.id;
                 const total = btn.dataset.total;
+                let lineas = [];
+
+                try {
+                    const res = await fetch(`./controllers/C_Venta.php?action=detalles&id_venta=${id}`);
+                    const datos = await res.json();
+                    if (Array.isArray(datos) && datos.length > 0) lineas = datos;
+                } catch (e) { /* se cae a NC total clásica */ }
+
+                const lineasHtml = lineas.length > 0
+                    ? lineas.map((l, i) => `
+                        <div class="nc-linea d-flex align-items-center gap-2 py-1 border-bottom" data-idx="${i}">
+                            <input type="checkbox" class="form-check-input nc-linea-check mt-0" data-idx="${i}" checked>
+                            <span class="flex-grow-1 text-start" style="font-size: 13px;">${escapeHtmlHist(l.producto_nombre)}</span>
+                            <input type="number" class="form-control form-control-sm nc-linea-cant text-end"
+                                   style="width: 72px;" min="0.01" max="${parseFloat(l.piezas)}" step="0.01"
+                                   value="${parseFloat(l.piezas)}" data-idx="${i}">
+                            <span class="nc-linea-sub text-end text-muted" style="width: 84px; font-size: 13px;">
+                                S/ ${(parseFloat(l.piezas) * parseFloat(l.precio_venta)).toFixed(2)}
+                            </span>
+                        </div>`).join('')
+                    : '<p class="text-start text-muted" style="font-size: 13px;">No se pudo cargar el detalle.</p>';
+
                 const { value: form } = await Swal.fire({
                     title: 'Emitir Nota de Crédito',
                     html: `
                         <p class="text-start text-muted mb-2" style="font-size: 13px;">
                             Esta venta ya fue aceptada por SUNAT hace más de 7 días: ya no se puede anular
                             directamente. La Nota de Crédito la anula ante SUNAT y devuelve el dinero desde
-                            la caja de hoy.
+                            la caja de hoy. Marca solo las líneas que devuelves para una devolución parcial.
                         </p>
+                        <div class="text-start mb-2 nc-lineas" style="max-height: 180px; overflow-y: auto;">${lineasHtml}</div>
+                        <div class="text-start d-flex justify-content-between align-items-center mb-2">
+                            <span class="fw-semibold" style="font-size: 13px;">Total a devolver</span>
+                            <span class="fw-bold nc-total" style="font-size: 14px; color: #23284E;">S/ ${total}</span>
+                        </div>
                         <input id="ncMotivo" class="swal2-input" placeholder="Motivo de la anulación">
                         <select id="ncMetodo" class="swal2-select">
                             <option value="1">Efectivo</option>
                             <option value="2">Tarjeta</option>
                             <option value="3">Yape/Plin</option>
                         </select>
-                        <input id="ncMonto" type="number" step="0.01" class="swal2-input" value="${total}" placeholder="Monto a devolver">
                     `,
+                    didOpen: () => {
+                        document.querySelectorAll('.nc-linea').forEach(row => {
+                            const idx = row.dataset.idx;
+                            const linea = lineas[idx];
+                            const check = row.querySelector('.nc-linea-check');
+                            const cant  = row.querySelector('.nc-linea-cant');
+                            const subEl = row.querySelector('.nc-linea-sub');
+
+                            const recalcular = () => {
+                                const totalSel = lineas.reduce((acc, l, j) => {
+                                    const r = document.querySelector(`.nc-linea[data-idx="${j}"]`);
+                                    if (!r.querySelector('.nc-linea-check').checked) return acc;
+                                    return acc + (parseFloat(r.querySelector('.nc-linea-cant').value) || 0) * parseFloat(l.precio_venta);
+                                }, 0);
+                                subEl.innerText = 'S/ ' + (parseFloat(cant.value) * parseFloat(linea.precio_venta)).toFixed(2);
+                                document.querySelector('.nc-total').innerText = 'S/ ' + totalSel.toFixed(2);
+                            };
+                            check.addEventListener('change', recalcular);
+                            cant.addEventListener('input', recalcular);
+                            cant.addEventListener('blur', () => {
+                                const v = parseFloat(cant.value) || 0;
+                                const max = parseFloat(linea.piezas);
+                                if (v > max) { cant.value = max; recalcular(); }
+                                if (v < 0.01) { cant.value = 0.01; recalcular(); }
+                            });
+                        });
+                    },
                     focusConfirm: false,
                     showCancelButton: true,
                     confirmButtonColor: '#ef4444',
@@ -723,10 +783,28 @@ $diasMaxCambioTalla = ($_SESSION['rol'] === 'Administrador') ? 7 : 1;
                     preConfirm: () => {
                         const motivo = document.getElementById('ncMotivo').value.trim();
                         const metodo_pago = parseInt(document.getElementById('ncMetodo').value, 10);
-                        const monto = parseFloat(document.getElementById('ncMonto').value);
                         if (!motivo) { Swal.showValidationMessage('Indica el motivo de la anulación.'); return false; }
-                        if (!monto || monto <= 0) { Swal.showValidationMessage('Indica un monto válido.'); return false; }
-                        return { motivo, pagos: [{ metodo_pago, monto }] };
+
+                        const items = [];
+                        let monto = 0;
+                        for (const l of lineas) {
+                            const r = document.querySelector(`.nc-linea[data-idx="${lineas.indexOf(l)}"]`);
+                            if (!r.querySelector('.nc-linea-check').checked) continue;
+                            const cant = parseFloat(r.querySelector('.nc-linea-cant').value) || 0;
+                            const max = parseFloat(l.piezas);
+                            if (cant < 0.01 || cant > max) {
+                                Swal.showValidationMessage(`Cantidad inválida para ${l.producto_nombre} (máx. ${max}).`);
+                                return false;
+                            }
+                            items.push({ id_detalle: l.id_detalle, cantidad: cant });
+                            monto += cant * parseFloat(l.precio_venta);
+                        }
+                        if (items.length === 0) {
+                            Swal.showValidationMessage('Selecciona al menos una línea a devolver.');
+                            return false;
+                        }
+                        monto = Math.round(monto * 100) / 100;
+                        return { motivo, pagos: [{ metodo_pago, monto }], items };
                     }
                 });
                 if (!form) return;
@@ -735,14 +813,14 @@ $diasMaxCambioTalla = ($_SESSION['rol'] === 'Administrador') ? 7 : 1;
                     const response = await fetch('./controllers/C_Sunat.php?action=nota_credito', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ id_venta: id, motivo: form.motivo, pagos: form.pagos })
+                        body: JSON.stringify({ id_venta: id, motivo: form.motivo, pagos: form.pagos, items: form.items })
                     });
                     const data = await response.json();
                     Swal.fire({
                         icon: data.success ? 'success' : 'error',
                         title: data.success ? 'Nota de Crédito emitida' : 'No se pudo emitir',
                         text: data.mensaje,
-                        confirmButtonColor: '#0284c7'
+                        confirmButtonColor: '#23284E'
                     }).then(() => { if (data.success) window.location.reload(); });
                 } catch (err) {
                     Swal.fire({ icon: 'error', title: 'Error de red', text: 'No se pudo contactar al servidor.' });
@@ -876,7 +954,7 @@ $diasMaxCambioTalla = ($_SESSION['rol'] === 'Administrador') ? 7 : 1;
                         timer: 1500,
                     }).then(() => window.location.reload());
                 } else {
-                    Swal.fire({ icon: 'error', title: 'No se pudo cambiar la talla', text: json.mensaje, confirmButtonColor: '#0284c7' });
+                    Swal.fire({ icon: 'error', title: 'No se pudo cambiar la talla', text: json.mensaje, confirmButtonColor: '#23284E' });
                     btnConfirmar.disabled = false;
                     btnConfirmar.textContent = 'Confirmar cambio';
                 }
@@ -912,6 +990,54 @@ $diasMaxCambioTalla = ($_SESSION['rol'] === 'Administrador') ? 7 : 1;
 
                 histPrintModal.show();
                 loadHistIframe();
+            });
+        });
+
+        // Compartir enlace público del comprobante (estilo tukifac): el cliente lo
+        // abre y ve el comprobante sin necesidad de cuenta ni del panel.
+        document.querySelectorAll('.share-link-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const token = btn.dataset.token;
+                if (!token) {
+                    Swal.fire({
+                        icon: 'info',
+                        title: 'Sin enlace disponible',
+                        text: 'Esta venta se registró antes de activarse los enlaces públicos y no tiene token. Solo las ventas nuevas los generan.',
+                        confirmButtonColor: '#23284E'
+                    });
+                    return;
+                }
+                const url = `${window.location.origin}/comprobante?id=${btn.dataset.id}&t=${token}`;
+                Swal.fire({
+                    title: 'Enlace del comprobante',
+                    html: `
+                        <div class="text-start mb-2 text-muted" style="font-size:13px;">Cualquiera con este enlace puede ver el comprobante. Envíalo al cliente para que lo abra o lo guarde en PDF.</div>
+                        <div class="d-flex align-items-center gap-2">
+                            <input id="shareLinkInput" class="form-control form-control-sm" readonly value="${url}" onclick="this.select()">
+                            <button type="button" class="btn btn-primary btn-sm flex-shrink-0" id="shareCopyBtn" style="background-color:#23284E; border:none;">
+                                <i class="bi bi-clipboard me-1"></i>Copiar
+                            </button>
+                        </div>
+                    `,
+                    showCancelButton: false,
+                    confirmButtonText: 'Cerrar',
+                    confirmButtonColor: '#23284E',
+                    didOpen: () => {
+                        document.getElementById('shareCopyBtn').addEventListener('click', async () => {
+                            const input = document.getElementById('shareLinkInput');
+                            input.select();
+                            try {
+                                await navigator.clipboard.writeText(url);
+                                Swal.fire({
+                                    icon: 'success', title: 'Enlace copiado', text: 'Pégalo donde quieras compartirlo.',
+                                    timer: 1500, showConfirmButton: false, confirmButtonColor: '#23284E'
+                                });
+                            } catch (e) {
+                                Swal.fire({ icon: 'error', title: 'No se pudo copiar', text: 'Selecciona el enlace y cópialo con Ctrl+C.', confirmButtonColor: '#23284E' });
+                            }
+                        });
+                    }
+                });
             });
         });
 

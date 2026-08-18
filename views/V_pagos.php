@@ -10,24 +10,44 @@ require_once dirname(__DIR__) . '/config/conexion.php';
 $todosAlumnos = M_Alumno::singleton()->listar();
 $mesesNombre = [1=>'Enero',2=>'Febrero',3=>'Marzo',4=>'Abril',5=>'Mayo',6=>'Junio',7=>'Julio',8=>'Agosto',9=>'Setiembre',10=>'Octubre',11=>'Noviembre',12=>'Diciembre'];
 $anioActual = (int) date('Y');
+$aniosDisponibles = M_Pago::singleton()->aniosDisponibles();
 
-// El módulo se restringe al año escolar vigente: el histórico de años
-// anteriores queda en la BD (no se borra), pero no se navega desde aquí — se
-// pidió explícitamente no mezclar años pasados en esta vista.
-$conexion = Conexion::singleton()->getConexion();
-$stmtUltimoMes = $conexion->prepare("SELECT mes_concepto FROM pagos WHERE estado=1 AND anio_concepto=? ORDER BY mes_concepto DESC LIMIT 1");
-$stmtUltimoMes->execute([$anioActual]);
-$ultimoMes = $stmtUltimoMes->fetchColumn();
-$mes = isset($_GET['mes']) ? (int) $_GET['mes'] : ((int) $ultimoMes ?: (int) date('n'));
-$anio = $anioActual;
+// Filtros: año (Todos por defecto → todos los años) y mes (Todos por defecto).
+$anioFiltro = isset($_GET['anio']) && $_GET['anio'] !== '' ? (int) $_GET['anio'] : null;
+$mesFiltro  = isset($_GET['mes']) && $_GET['mes'] !== '' ? (int) $_GET['mes'] : null;
+$busqueda   = isset($_GET['q']) ? trim((string) $_GET['q']) : '';
 
-$pagos = M_Pago::singleton()->listarPorPeriodo($mes, $anio);
+// Paginación: 25 comprobantes por página, del más reciente al más antiguo.
+$porPagina = 25;
+$totalPagos = M_Pago::singleton()->contarFiltrado($mesFiltro, $anioFiltro, $busqueda);
+$totalPaginas = max(1, (int) ceil($totalPagos / $porPagina));
+$pagina = isset($_GET['pagina']) ? (int) $_GET['pagina'] : 1;
+if ($pagina < 1) $pagina = 1;
+if ($pagina > $totalPaginas) $pagina = $totalPaginas;
+$offset = ($pagina - 1) * $porPagina;
+
+$pagos = M_Pago::singleton()->listarFiltrado($mesFiltro, $anioFiltro, $busqueda, $porPagina, $offset);
+
+// Base para los enlaces de paginación (conserva los filtros activos).
+$paramsPagina = ['modulo' => 'pagos'];
+if ($anioFiltro !== null) $paramsPagina['anio'] = $anioFiltro;
+if ($mesFiltro !== null) $paramsPagina['mes'] = $mesFiltro;
+if ($busqueda !== '') $paramsPagina['q'] = $busqueda;
+function urlPagina(array $params, int $p): string {
+    $params['pagina'] = $p;
+    return '?' . http_build_query($params);
+}
 ?>
 <div class="container-fluid px-0">
     <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
         <div>
-            <h4 class="fw-bold mb-1">Pagos</h4>
-            <p class="text-muted mb-0">Pagos de pensión de <?php echo $anioActual; ?>. El histórico de años anteriores se conserva en la base de datos pero no se muestra aquí.</p>
+            <h4 class="fw-bold mb-1">Pagos y Pensiones</h4>
+            <p class="text-muted mb-0">
+                Todos los comprobantes de pago de pensión. Filtra por año, mes y busca por boleta, nombre o alumno.
+                <?php if ($anioFiltro !== null && $anioFiltro !== $anioActual): ?>
+                    El histórico de <?php echo $anioFiltro; ?> se conserva en la base de datos.
+                <?php endif; ?>
+            </p>
         </div>
         <button class="gp-btn-primary border-0" data-bs-toggle="modal" data-bs-target="#nuevoPagoModal">
             <i class="bi bi-plus-lg me-1"></i>Registrar Pago Manual
@@ -38,17 +58,49 @@ $pagos = M_Pago::singleton()->listarPorPeriodo($mes, $anio);
         <form class="row g-2 mb-3" method="get">
             <input type="hidden" name="modulo" value="pagos">
             <div class="col-auto">
-                <select class="form-select form-select-sm" name="mes" onchange="this.form.submit()">
-                    <?php foreach ($mesesNombre as $num => $nombre): ?>
-                        <option value="<?php echo $num; ?>" <?php echo $num == $mes ? 'selected' : ''; ?>><?php echo $nombre; ?></option>
+                <label class="form-label fw-semibold text-muted mb-1" style="font-size:11px;">Año</label>
+                <select class="form-select form-select-sm" name="anio" onchange="this.form.submit()">
+                    <option value="" <?php echo $anioFiltro === null ? 'selected' : ''; ?>>Todos</option>
+                    <?php foreach ($aniosDisponibles as $a): ?>
+                        <option value="<?php echo $a; ?>" <?php echo $anioFiltro === (int) $a ? 'selected' : ''; ?>><?php echo $a; ?></option>
                     <?php endforeach; ?>
                 </select>
             </div>
-            <div class="col-auto d-flex align-items-center">
-                <span class="badge bg-secondary-subtle text-secondary-emphasis"><?php echo $anioActual; ?></span>
+            <div class="col-auto">
+                <label class="form-label fw-semibold text-muted mb-1" style="font-size:11px;">Mes</label>
+                <select class="form-select form-select-sm" name="mes" onchange="this.form.submit()">
+                    <option value="" <?php echo $mesFiltro === null ? 'selected' : ''; ?>>Todos</option>
+                    <?php foreach ($mesesNombre as $num => $nombre): ?>
+                        <option value="<?php echo $num; ?>" <?php echo $mesFiltro === $num ? 'selected' : ''; ?>><?php echo $nombre; ?></option>
+                    <?php endforeach; ?>
+                </select>
             </div>
-            <div class="col-auto text-muted d-flex align-items-center" style="font-size:13px;">
-                <?php echo count($pagos); ?> pagos — Total: S/ <?php echo number_format(array_sum(array_column($pagos, 'total')), 2); ?>
+            <div class="col">
+                <label class="form-label fw-semibold text-muted mb-1" style="font-size:11px;">Buscar</label>
+                <div class="input-group input-group-sm">
+                    <span class="input-group-text bg-transparent"><i class="bi bi-search"></i></span>
+                    <input type="text" class="form-control" name="q" value="<?php echo htmlspecialchars($busqueda); ?>" placeholder="Boleta, nombre del comprobante o alumno...">
+                    <button class="btn btn-outline-secondary" type="submit">Buscar</button>
+                    <?php if ($busqueda !== ''): ?>
+                        <a class="btn btn-outline-secondary" href="?modulo=pagos">Limpiar</a>
+                    <?php endif; ?>
+                </div>
+            </div>
+            <div class="col-12 text-muted d-flex align-items-center" style="font-size:13px;">
+                <?php
+                $partes = [];
+                if ($anioFiltro !== null) $partes[] = $anioFiltro;
+                if ($mesFiltro !== null) $partes[] = $mesesNombre[$mesFiltro] ?? '';
+                if ($busqueda !== '') $partes[] = 'buscando "' . $busqueda . '"';
+                ?>
+                <span>
+                    <i class="bi bi-funnel me-1"></i>
+                    <?php echo $partes ? 'Filtro: ' . implode(' · ', array_filter($partes)) : 'Todos los años y meses'; ?>
+                    — <?php echo $totalPagos; ?> pagos en total
+                    <?php if ($totalPagos > 0): ?>
+                        (mostrando <?php echo $offset + 1; ?>–<?php echo min($offset + $porPagina, $totalPagos); ?>)
+                    <?php endif; ?>
+                </span>
             </div>
         </form>
 
@@ -87,11 +139,53 @@ $pagos = M_Pago::singleton()->listarPorPeriodo($mes, $anio);
                         </tr>
                     <?php endforeach; ?>
                     <?php if (empty($pagos)): ?>
-                        <tr><td colspan="8" class="text-muted text-center py-4">Sin pagos para <?php echo $mesesNombre[$mes] . ' ' . $anio; ?>.</td></tr>
+                        <tr><td colspan="8" class="text-muted text-center py-4">
+                            Sin comprobantes<?php
+                                $filtrosMsg = [];
+                                if ($anioFiltro !== null) $filtrosMsg[] = $anioFiltro;
+                                if ($mesFiltro !== null) $filtrosMsg[] = $mesesNombre[$mesFiltro] ?? '';
+                                if ($busqueda !== '') $filtrosMsg[] = '«' . $busqueda . '»';
+                                echo $filtrosMsg ? ' para ' . implode(' · ', $filtrosMsg) : ' registrados';
+                            ?>.
+                        </td></tr>
                     <?php endif; ?>
                 </tbody>
             </table>
         </div>
+
+        <?php if ($totalPaginas > 1): ?>
+            <nav class="d-flex justify-content-between align-items-center flex-wrap gap-2 px-1 pt-2 pb-1" style="font-size:13px;">
+                <span class="text-muted">
+                    Página <?php echo $pagina; ?> de <?php echo $totalPaginas; ?>
+                    (<?php echo $totalPagos; ?> comprobantes)
+                </span>
+                <ul class="pagination pagination-sm mb-0">
+                    <li class="page-item <?php echo $pagina <= 1 ? 'disabled' : ''; ?>">
+                        <a class="page-link" href="<?php echo urlPagina($paramsPagina, $pagina - 1); ?>">&laquo;</a>
+                    </li>
+                    <?php
+                    $rango = 2;
+                    $inicio = max(1, $pagina - $rango);
+                    $fin = min($totalPaginas, $pagina + $rango);
+                    if ($inicio > 1): ?>
+                        <li class="page-item"><a class="page-link" href="<?php echo urlPagina($paramsPagina, 1); ?>">1</a></li>
+                        <?php if ($inicio > 2): ?><li class="page-item disabled"><span class="page-link">…</span></li><?php endif; ?>
+                    <?php endif; ?>
+                    <?php for ($p = $inicio; $p <= $fin; $p++): ?>
+                        <li class="page-item <?php echo $p === $pagina ? 'active' : ''; ?>">
+                            <a class="page-link" href="<?php echo urlPagina($paramsPagina, $p); ?>"><?php echo $p; ?></a>
+                        </li>
+                    <?php endfor; ?>
+                    <?php if ($fin < $totalPaginas): ?>
+                        <?php if ($fin < $totalPaginas - 1): ?><li class="page-item disabled"><span class="page-link">…</span></li><?php endif; ?>
+                        <li class="page-item"><a class="page-link" href="<?php echo urlPagina($paramsPagina, $totalPaginas); ?>"><?php echo $totalPaginas; ?></a></li>
+                    <?php endif; ?>
+                    <li class="page-item <?php echo $pagina >= $totalPaginas ? 'disabled' : ''; ?>">
+                        <a class="page-link" href="<?php echo urlPagina($paramsPagina, $pagina + 1); ?>">&raquo;</a>
+                    </li>
+                </ul>
+            </nav>
+        <?php endif; ?>
     </div>
 </div>
 

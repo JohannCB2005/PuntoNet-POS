@@ -3,16 +3,27 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <?php
+    require_once dirname(__DIR__, 2) . '/config/settings.php';
+    require_once dirname(__DIR__, 2) . '/config/csrf.php';
+    require_once dirname(__DIR__, 2) . '/config/marca.php';
+    ?>
+    <meta name="csrf-token" content="<?php echo htmlspecialchars(csrfToken()); ?>">
     <!-- Título de página dinámico -->
-    <title><?php echo isset($title) ? $title : 'NISSI POS'; ?></title>
+    <title><?php echo isset($title) ? $title : marcaVar('nombre') . ' POS'; ?></title>
+    <?php
+    $faviconCfg = configuracion('LOGO_FAVICON', '');
+    $faviconUrl = $faviconCfg !== '' ? $faviconCfg : 'assets/favicons/favicon-64.png?v=3';
+    ?>
     <!-- Icono oficial de la aplicación -->
-    <link rel="icon" type="image/png" sizes="64x64" href="assets/favicons/favicon-64.png">
-    <link rel="icon" type="image/png" sizes="128x128" href="assets/favicons/favicon-128.png">
-    <link rel="apple-touch-icon" sizes="180x180" href="assets/favicons/apple-touch-icon.png">
+    <link rel="icon" type="image/svg+xml" href="<?php echo htmlspecialchars(marcaLogo('LOGO_FAVICON', 'assets/favicon-nissi.svg?v=3')); ?>">
+    <link rel="icon" type="image/png" sizes="64x64" href="<?php echo htmlspecialchars($faviconUrl); ?>">
+    <link rel="icon" type="image/png" sizes="128x128" href="assets/favicons/favicon-128.png?v=3">
+    <link rel="apple-touch-icon" sizes="180x180" href="assets/favicons/apple-touch-icon.png?v=3">
     <!-- Tipografía Google Fonts: Plus Jakarta Sans -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Fraunces:ital,opsz,wght@0,9..144,700;0,9..144,800&display=swap" rel="stylesheet">
     <!-- Framework de Estilo Bootstrap 5 -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <!-- Biblioteca de Iconos de Bootstrap -->
@@ -25,19 +36,24 @@
     <!-- Diseño Estético Premium e Identidad de Marca (Aesthetics) -->
     <style>
         :root {
-            --gp-primary: #1d4ed8;        /* Azul NISSI (Marca principal) */
-            --gp-primary-hover: #1e40af;
-            --gp-primary-light: #eff6ff;
-            --gp-background: #f0f4ff;     /* Fondo azulado suave */
+            --gp-primary: #23284E;          /* Navy NISSI (Marca principal) */
+            --gp-primary-hover: #31386b;
+            --gp-primary-light: #eef1f7;
+            --gp-accent: #BD1721;           /* Rojo NISSI (acento) */
+            --gp-background: #f2f4f9;       /* Fondo gris-navy suave */
             --gp-card: #ffffff;
-            --gp-sidebar: #0f172a;        /* Navy oscuro */
-            --gp-sidebar-hover: #1e293b;
-            --gp-sidebar-active: #1d4ed8;
+            --gp-sidebar: #ffffff;          /* Sidebar claro (tiende a blanco) */
+            --gp-sidebar-hover: #f1f3f8;
+            --gp-sidebar-active: #23284E;   /* Navy de la selección (botones) */
+            --gp-ink: #1d2136;              /* Tinta marina para títulos e ítems */
+            --gp-item-muted: #64748b;       /* Iconos en reposo */
+            --gp-scrollbar: #dbe0ea;
             --gp-text: #1f2937;
             --gp-text-muted: #6b7280;
-            --gp-border: #e2e8f0;
+            --gp-border: #e4e7ef;
             --font-sans: 'Plus Jakarta Sans', sans-serif;
         }
+        <?php echo marcaCssVars(); ?>
 
         body {
             font-family: var(--font-sans);
@@ -53,11 +69,14 @@
             position: fixed;
             top: 0;
             left: 0;
-            background-color: var(--gp-sidebar);
-            color: #ffffff;
+            background:
+                radial-gradient(120% 55% at 50% -10%, rgba(35, 40, 78, 0.10), transparent 62%),
+                linear-gradient(180deg, #ffffff 0%, #f6f9ff 100%);
+            color: var(--gp-text);
             z-index: 1000;
             transition: all 0.3s ease;
-            border-right: 1px solid rgba(255,255,255,0.05);
+            border-right: 1px solid var(--gp-border);
+            box-shadow: 1px 0 0 rgba(15, 23, 42, 0.03), 0 1px 0 rgba(15, 23, 42, 0.02);
             display: flex;
             flex-direction: column;
         }
@@ -67,7 +86,38 @@
             display: flex;
             align-items: center;
             gap: 12px;
-            border-bottom: 1px solid rgba(255,255,255,0.05);
+            border-bottom: 1px solid var(--gp-border);
+        }
+
+        .sb-brand-name {
+            font-family: 'Fraunces', Georgia, serif;
+            font-weight: 800;
+            font-size: 1.35rem;
+            letter-spacing: .02em;
+            color: var(--gp-primary);
+            line-height: 1;
+            display: block;
+        }
+
+        .sb-brand-name em {
+            font-style: normal;
+            color: var(--gp-accent);
+        }
+
+        .sb-brand-sub {
+            display: block;
+            font-size: .6rem;
+            font-weight: 700;
+            letter-spacing: .3em;
+            text-transform: uppercase;
+            color: var(--gp-text-muted);
+            margin-top: 4px;
+        }
+
+        .sb-brand-img {
+            max-height: 40px;
+            max-width: 180px;
+            object-fit: contain;
         }
 
         .sidebar-brand-icon {
@@ -80,12 +130,28 @@
             align-items: center;
             justify-content: center;
             font-size: 20px;
+            box-shadow: 0 6px 18px -6px rgba(35, 40, 78, 0.55);
         }
 
         .sidebar-menu {
             flex: 1;
             overflow-y: auto;
             padding: 20px 12px;
+            scrollbar-width: thin;
+            scrollbar-color: var(--gp-scrollbar) transparent;
+        }
+
+        .sidebar-menu::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .sidebar-menu::-webkit-scrollbar-thumb {
+            background: var(--gp-scrollbar);
+            border-radius: 999px;
+        }
+
+        .sidebar-menu::-webkit-scrollbar-thumb:hover {
+            background: #c3cfe3;
         }
 
         /* Grupos desplegables del menú: encabezado clicable + subíndices */
@@ -113,33 +179,40 @@
             font-size: 13px;
             font-weight: 700;
             text-transform: uppercase;
-            letter-spacing: 0.5px;
-            color: rgba(255,255,255,0.35);
+            letter-spacing: 0.08em;
+            color: var(--gp-ink);
             text-align: left;
             cursor: pointer;
-            transition: background-color 0.2s ease, color 0.2s ease;
+            transition: background-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
         }
 
         .menu-header:hover {
-            background-color: rgba(255,255,255,0.06);
-            color: rgba(255,255,255,0.8);
+            background-color: rgba(15, 23, 42, 0.04);
+            color: var(--gp-ink);
         }
 
         .menu-header-arrow {
             font-size: 13px;
             opacity: 0.7;
-            transition: transform 0.25s ease;
+            transition: transform 0.25s ease, color 0.25s ease;
         }
 
-        /* El grupo cuyo módulo está activo se sombrea para indicar la selección,
-           igual que resalta un elemento del menú. */
+        /* El grupo cuyo módulo está activo también se sombrea en azul vivo con
+           letras blancas, igual que el ítem seleccionado. */
         .sidebar-group.has-active > .menu-header {
-            background-color: rgba(29, 78, 216, 0.3);
+            background-color: var(--gp-sidebar-active);
             color: #ffffff;
+            box-shadow: inset 0 0 0 1px rgba(35, 40, 78, 0.35);
+        }
+
+        .sidebar-group.has-active > .menu-header .menu-header-arrow {
+            color: #ffffff;
+            opacity: 1;
         }
 
         .sidebar-group.has-active > .menu-header:hover {
-            background-color: rgba(29, 78, 216, 0.38);
+            background-color: var(--gp-primary-hover);
+            color: #ffffff;
         }
 
         /* Cuerpo del grupo: se pliega/despliega con transición de altura. */
@@ -157,44 +230,103 @@
             transform: rotate(180deg);
         }
 
+        /* Entrada en cascada del menú al cargar: un solo momento orquestado en
+           vez de micro-efectos dispersos. Se desactiva con motion reducido. */
+        @media (prefers-reduced-motion: no-preference) {
+            .sidebar-menu > * {
+                animation: nissi-fade 0.4s ease backwards;
+            }
+            .sidebar-menu > *:nth-child(1) { animation-delay: 0ms; }
+            .sidebar-menu > *:nth-child(2) { animation-delay: 45ms; }
+            .sidebar-menu > *:nth-child(3) { animation-delay: 90ms; }
+            .sidebar-menu > *:nth-child(4) { animation-delay: 135ms; }
+            .sidebar-menu > *:nth-child(5) { animation-delay: 180ms; }
+            .sidebar-menu > *:nth-child(6) { animation-delay: 225ms; }
+        }
+
+        @keyframes nissi-fade {
+            from {
+                opacity: 0;
+                transform: translateY(6px);
+            }
+            to {
+                opacity: 1;
+                transform: none;
+            }
+        }
+
         .menu-item {
             display: flex;
             align-items: center;
             gap: 10px;
             padding: 7px 12px;
             border-radius: 8px;
-            color: rgba(255,255,255,0.65);
+            color: var(--gp-ink);
             text-decoration: none;
             font-size: 13px;
-            font-weight: 500;
-            transition: all 0.2s ease;
+            font-weight: 600;
+            transition: background-color 0.2s ease, color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
             margin-bottom: 2px;
             border: none;
             background: none;
             width: 100%;
             text-align: left;
+            position: relative;
         }
 
         .menu-item:hover {
             background-color: var(--gp-sidebar-hover);
-            color: #ffffff;
-        }
-
-        /* El elemento seleccionado solo resalta las letras (el sombreado de la
-           selección lo lleva la categoría a la que pertenece). */
-        .menu-item.active {
-            background-color: transparent;
-            color: #60a5fa;
-            font-weight: 700;
-        }
-
-        .menu-item.active:hover {
-            background-color: var(--gp-sidebar-hover);
-            color: #60a5fa;
+            color: var(--gp-ink);
+            transform: translateX(2px);
         }
 
         .menu-item i {
             font-size: 16px;
+            color: var(--gp-item-muted);
+            transition: color 0.2s ease;
+        }
+
+        .menu-item:hover i,
+        .menu-item.active i {
+            color: inherit;
+        }
+
+        /* El elemento seleccionado es el único que queda sombreado: azul vivo con
+           letras blancas, y una "pista" vertical animada que marca la activación. */
+        .menu-item.active {
+            background-color: var(--gp-sidebar-active);
+            color: #ffffff;
+            font-weight: 700;
+            box-shadow: 0 8px 20px -8px rgba(35, 40, 78, 0.6);
+        }
+
+        .menu-item.active::before {
+            content: '';
+            position: absolute;
+            left: 6px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 3px;
+            height: 58%;
+            border-radius: 999px;
+            background: #c8cde4;
+            animation: nissi-rail 0.35s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+        }
+
+        @keyframes nissi-rail {
+            from {
+                transform: translateY(-50%) scaleY(0.2);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(-50%) scaleY(1);
+                opacity: 1;
+            }
+        }
+
+        .menu-item.active:hover {
+            background-color: var(--gp-primary-hover);
+            color: #ffffff;
         }
 
         /* Barra de navegación superior (Navbar) */
@@ -260,41 +392,51 @@
             }
         }
 
-        /* Tarjetas de diseño premium */
+        /* Tarjetas de diseño premium: borde azulado, acento superior de marca
+           (inset) y sombra en dos capas para dar profundidad real. */
         .gp-card {
             background-color: var(--gp-card);
-            border: 1px solid var(--gp-border);
-            border-radius: 12px;
+            border: 1px solid #e6ebf5;
+            border-radius: 14px;
             padding: 20px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.02), 0 1px 2px rgba(0,0,0,0.01);
-            transition: transform 0.2s, box-shadow 0.2s;
+            box-shadow: inset 0 2px 0 rgba(35, 40, 78, 0.12), 0 1px 2px rgba(15, 23, 42, 0.04), 0 8px 24px -12px rgba(15, 23, 42, 0.10);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
         }
 
         .gp-card:hover {
-            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.03);
+            transform: translateY(-2px);
+            box-shadow: inset 0 2px 0 rgba(35, 40, 78, 0.12), 0 2px 4px rgba(15, 23, 42, 0.05), 0 12px 32px -14px rgba(15, 23, 42, 0.16);
         }
 
         .gp-btn-primary {
             background-color: var(--gp-primary);
-            border-color: var(--gp-primary);
+            border: 1px solid var(--gp-primary);
             color: #ffffff;
             font-weight: 600;
             padding: 8px 16px;
-            border-radius: 8px;
-            transition: all 0.2s;
+            border-radius: 9px;
+            background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.10), rgba(255, 255, 255, 0));
+            box-shadow: 0 1px 2px rgba(35, 40, 78, 0.35);
+            transition: transform 0.15s ease, box-shadow 0.2s ease, background-color 0.2s ease, border-color 0.2s ease;
         }
 
         .gp-btn-primary:hover, .gp-btn-primary:focus {
             background-color: var(--gp-primary-hover);
             border-color: var(--gp-primary-hover);
             color: #ffffff;
-            box-shadow: 0 4px 12px rgba(29, 78, 216, 0.25);
+            transform: translateY(-1px);
+            box-shadow: 0 6px 16px -6px rgba(35, 40, 78, 0.55);
+        }
+
+        .gp-btn-primary:active {
+            transform: translateY(0);
+            box-shadow: 0 2px 6px -2px rgba(35, 40, 78, 0.5);
         }
 
         .gp-badge-success {
             background-color: var(--gp-primary-light);
             color: var(--gp-primary);
-            border: 1px solid rgba(29, 78, 216, 0.2);
+            border: 1px solid rgba(35, 40, 78, 0.2);
             padding: 4px 8px;
             border-radius: 20px;
             font-size: 11px;
@@ -314,6 +456,153 @@
             border-radius: 20px;
             font-size: 11px;
             font-weight: 600;
+        }
+
+        /* ── Sistema compartido de módulos ──────────────────────────────────────
+           Una sola piel para tablas, modales, campos y botones Bootstrap, con la
+           misma dirección estética del sidebar (blanco + azul NISSI + tinta). */
+
+        /* Tablas: cabecera con microtipografía y banda azulada; hover con tinte
+           de marca para que la fila leída salte a la vista. */
+        .table thead th {
+            text-transform: uppercase;
+            font-size: 11px;
+            letter-spacing: 0.06em;
+            font-weight: 700;
+            color: var(--gp-ink);
+            background: linear-gradient(180deg, #fafbff, #f1f5f9);
+            border-bottom: 1px solid var(--gp-border);
+            white-space: nowrap;
+        }
+
+        .table > :not(caption) > * > * {
+            padding: 10px 12px;
+        }
+
+        .table tbody tr {
+            transition: background-color 0.15s ease;
+        }
+
+        .table tbody tr:hover td {
+            background-color: #f5f8ff;
+        }
+
+        /* Modales: misma piel que las tarjetas, sin borde duro. */
+        .modal-content {
+            border: none;
+            border-radius: 14px;
+            box-shadow: 0 24px 60px -20px rgba(15, 23, 42, 0.35);
+        }
+
+        .modal-header {
+            background: linear-gradient(180deg, #fafbff, #f1f5f9);
+            border-bottom: 1px solid var(--gp-border);
+            border-radius: 14px 14px 0 0;
+        }
+
+        .modal-header.gp-bg-primary {
+            background: var(--gp-primary);
+            border-bottom: none;
+        }
+
+        .modal-footer {
+            border-top: 1px solid var(--gp-border);
+        }
+
+        /* Enfoque de campos con anillo de marca (no el azul genérico de Bootstrap). */
+        .form-control:focus, .form-select:focus {
+            border-color: var(--gp-primary);
+            box-shadow: 0 0 0 3px rgba(35, 40, 78, 0.12);
+        }
+
+        /* Los botones primary de Bootstrap (21 vistas los usan) toman el azul NISSI. */
+        .btn-primary {
+            --bs-btn-bg: var(--gp-primary);
+            --bs-btn-border-color: var(--gp-primary);
+            --bs-btn-hover-bg: var(--gp-primary-hover);
+            --bs-btn-hover-border-color: var(--gp-primary-hover);
+            --bs-btn-active-bg: var(--gp-primary-hover);
+            --bs-btn-active-border-color: var(--gp-primary-hover);
+            --bs-btn-disabled-bg: var(--gp-primary);
+            --bs-btn-disabled-border-color: var(--gp-primary);
+        }
+
+        /* Títulos de módulo en tinta marina, coherentes con el menú. */
+        .main-content h4, .main-content h5 {
+            color: var(--gp-ink);
+        }
+
+        /* Alertas con tinte de marca: pastel suave, borde fino, sin esquinas duras. */
+        .alert {
+            border-radius: 10px;
+        }
+
+        .alert-info {
+            color: #31386b;
+            background-color: #eef1f7;
+            border-color: #c8cde4;
+        }
+
+        .alert-success {
+            color: #166534;
+            background-color: #f0fdf4;
+            border-color: #bbf7d0;
+        }
+
+        .alert-warning {
+            color: #92400e;
+            background-color: #fffbeb;
+            border-color: #fde68a;
+        }
+
+        .alert-danger {
+            color: #b91c1c;
+            background-color: #fef2f2;
+            border-color: #fecaca;
+        }
+
+        /* Botones outline: mismo azul NISSI que los primarios. */
+        .btn-outline-primary {
+            --bs-btn-color: var(--gp-primary);
+            --bs-btn-border-color: var(--gp-primary);
+            --bs-btn-hover-bg: var(--gp-primary);
+            --bs-btn-hover-border-color: var(--gp-primary);
+            --bs-btn-active-bg: var(--gp-primary);
+            --bs-btn-active-border-color: var(--gp-primary);
+            --bs-btn-disabled-color: var(--gp-primary);
+            --bs-btn-disabled-border-color: var(--gp-primary);
+        }
+
+        /* Paginación coherente con la marca. */
+        .pagination .page-link {
+            color: var(--gp-primary);
+            border-color: var(--gp-border);
+        }
+
+        .pagination .page-link:focus {
+            box-shadow: 0 0 0 3px rgba(35, 40, 78, 0.12);
+        }
+
+        .pagination .page-item.active .page-link {
+            background-color: var(--gp-primary);
+            border-color: var(--gp-primary);
+            color: #ffffff;
+        }
+
+        /* Campos: borde consistente y checkbox/radio con acento de marca. */
+        .form-control, .form-select {
+            border-color: #cbd5e1;
+        }
+
+        .form-check-input:checked {
+            background-color: var(--gp-primary);
+            border-color: var(--gp-primary);
+        }
+
+        /* Estados vacíos: fila diseñada, no un dato más. */
+        .table td.text-muted.text-center {
+            font-size: 12.5px;
+            letter-spacing: 0.02em;
         }
 
         /* Barras de desplazamiento personalizadas */
@@ -491,9 +780,28 @@
                 padding: 10px 14px;
             }
         }
+
+        /* ── Modo "sin sidebar" (Configuración de la tienda) ────────────────────
+           Oculta la barra lateral y expande navbar/contenido a todo el ancho.
+           La X de cierre se pinta en la esquina superior derecha (V_configuracion). */
+        body.sin-sidebar .sidebar,
+        body.sin-sidebar .sidebar-backdrop {
+            display: none;
+        }
+        body.sin-sidebar .top-navbar {
+            left: 0;
+        }
+        body.sin-sidebar .main-content {
+            margin-left: 0;
+            width: 100%;
+        }
+        body.sin-sidebar #toggle-sidebar,
+        body.sin-sidebar #mobile-toggle-sidebar {
+            display: none !important;
+        }
     </style>
 </head>
-<body>
+<body class="<?php echo !empty($ocultarSidebar) ? 'sin-sidebar' : ''; ?>">
     <!-- Fondo oscuro del menú lateral en móvil (ver .sidebar-backdrop arriba). -->
     <div class="sidebar-backdrop" id="sidebar-backdrop" aria-hidden="true"></div>
     <div class="wrapper d-flex">

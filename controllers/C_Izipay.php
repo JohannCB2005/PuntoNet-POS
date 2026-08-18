@@ -11,7 +11,10 @@
  * la sesión de cliente — así un cliente autenticado tampoco puede pedir el token
  * de un pedido ajeno enumerando ids.
  */
-if (session_status() === PHP_SESSION_NONE) { session_start(); }
+if (session_status() === PHP_SESSION_NONE) {
+    require_once dirname(__DIR__) . '/config/sesion_segura.php';
+    session_start();
+}
 
 header('Content-Type: application/json; charset=utf-8');
 header('X-Content-Type-Options: nosniff');

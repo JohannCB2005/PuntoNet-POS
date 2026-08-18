@@ -79,7 +79,7 @@ if (!$izipay->estaConfigurado()) {
     $r = $izipay->crearFormToken(
         10.50,
         'TEST-' . date('YmdHis'),
-        ['email' => 'prueba@puntonet.pe', 'nombres' => 'Cliente', 'apellidos' => 'De Prueba'],
+        ['email' => 'prueba@nissi.pe', 'nombres' => 'Cliente', 'apellidos' => 'De Prueba'],
         'PEN',
         $forzar3ds ? 'CHALLENGE_REQUESTED' : ''
     );

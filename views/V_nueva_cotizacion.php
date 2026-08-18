@@ -103,7 +103,7 @@ $categorias = $modelCat->listar();
 
     .client-dropdown-item:hover, .client-dropdown-item:focus {
         background-color: #f0fdf4;
-        color: #0284c7;
+        color: #23284E;
         outline: none;
     }
 
@@ -112,7 +112,7 @@ $categorias = $modelCat->listar();
     }
 
     .client-dropdown-item:hover strong {
-        color: #0284c7;
+        color: #23284E;
     }
 
     .client-dropdown-divider {
@@ -156,8 +156,8 @@ $categorias = $modelCat->listar();
     }
     
     #clientTabs .nav-link.active {
-        color: #0284c7 !important;
-        border-bottom: 3px solid #0284c7 !important;
+        color: #23284E !important;
+        border-bottom: 3px solid #23284E !important;
         font-weight: 600;
     }
 
@@ -302,7 +302,7 @@ $categorias = $modelCat->listar();
                                                         data-stock="<?php echo $ilimitado ? 9999 : $ins['stock_piezas']; ?>"
                                                         data-stockilimitado="<?php echo $ilimitado ? 1 : 0; ?>"
                                                         data-unidad="<?php echo htmlspecialchars($ins['abreviatura']); ?>"
-                                                        style="width: 32px; height: 32px; border-radius: 8px; padding: 0; background-color: #0284c7;"
+                                                        style="width: 32px; height: 32px; border-radius: 8px; padding: 0; background-color: #23284E;"
                                                         <?php echo (!$ilimitado && $ins['stock_piezas'] <= 0) ? 'disabled' : ''; ?>>
                                                     <i class="bi bi-plus-lg"></i>
                                                 </button>
@@ -339,7 +339,7 @@ $categorias = $modelCat->listar();
                                                 <button class="btn open-talla-picker-btn"
                                                         data-padre-id="<?php echo $ins['id_producto']; ?>"
                                                         data-nombre="<?php echo htmlspecialchars($ins['nombre']); ?>"
-                                                        style="height: 32px; border-radius: 8px; padding: 0 10px; font-size: 12px; background: #eff6ff; border: 1.5px solid #0284c7; color: #0284c7; white-space: nowrap;">
+                                                        style="height: 32px; border-radius: 8px; padding: 0 10px; font-size: 12px; background: #eef1f7; border: 1.5px solid #23284E; color: #23284E; white-space: nowrap;">
                                                     <i class="bi bi-rulers me-1"></i>Elegir talla
                                                 </button>
                                             </div>
@@ -401,7 +401,7 @@ $categorias = $modelCat->listar();
                     </div>
 
                     <!-- Confirmar Cotización -->
-                    <button class="gp-btn-primary w-100 border-0 py-2.5 d-flex align-items-center justify-content-center gap-2" id="submitSaleBtn" style="background-color: #0284c7;" disabled>
+                    <button class="gp-btn-primary w-100 border-0 py-2.5 d-flex align-items-center justify-content-center gap-2" id="submitSaleBtn" disabled>
                         <span>Generar Cotización</span>
                     </button>
                 </div>
@@ -415,8 +415,8 @@ $categorias = $modelCat->listar();
 <!-- Modal: Selector de Talla para Productos con Variantes (POS) -->
 <div class="modal fade" id="tallaPosModal" tabindex="-1" aria-labelledby="tallaPosModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered" style="max-width: 480px;">
-        <div class="modal-content border-0 shadow-lg" style="border-radius: 16px;">
-            <div class="modal-header border-0 py-3 px-4" style="background: #1d4ed8; border-radius: 16px 16px 0 0;">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 15px;">
+            <div class="modal-header gp-bg-primary border-0 py-3 px-4" style="border-radius: 15px 15px 0 0;">
                 <div>
                     <h6 class="modal-title fw-bold text-white mb-0" id="tallaPosModalLabel">Seleccionar Talla</h6>
                     <small class="text-white opacity-75" id="tallaPosNombreProducto">Producto</small>
@@ -457,8 +457,8 @@ $categorias = $modelCat->listar();
             </div>
             <div class="modal-footer border-0 px-4 pb-4 pt-0">
                 <button type="button" class="btn btn-light fw-semibold" data-bs-dismiss="modal" style="border-radius:10px;">Cancelar</button>
-                <button type="button" class="btn fw-semibold" id="tallaPosAddBtn" disabled
-                        style="border-radius:10px; background:#1d4ed8; color:#fff; border:none; padding: 8px 20px;">
+                <button type="button" class="gp-btn-primary border-0 fw-semibold" id="tallaPosAddBtn" disabled
+                        style="border-radius:10px; padding: 8px 20px;">
                     <i class="bi bi-cart-plus-fill me-1"></i> Agregar al carrito
                 </button>
             </div>
@@ -469,10 +469,10 @@ $categorias = $modelCat->listar();
 <!-- Modal: Registro de Nuevo Cliente en caliente -->
 <div class="modal fade" id="nuevoClienteModal" tabindex="-1" aria-labelledby="nuevoClienteModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-centered">
-        <div class="modal-content border-0 shadow-lg" style="border-radius: 12px;">
-            <div class="modal-header bg-light border-bottom py-3">
-                <h5 class="modal-title fw-bold text-dark" id="nuevoClienteModalLabel" style="font-size: 16px;">Nuevo Cliente</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" style="box-shadow: none;"></button>
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 15px;">
+            <div class="modal-header gp-bg-primary text-white border-0 py-3" style="border-radius: 15px 15px 0 0;">
+                <h6 class="modal-title fw-bold" id="nuevoClienteModalLabel">Nuevo Cliente</h6>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close" style="box-shadow: none;"></button>
             </div>
             <div class="modal-body p-4">
                 <!-- Inputs ocultos para compatibilidad de base de datos -->
@@ -497,7 +497,7 @@ $categorias = $modelCat->listar();
                         <label class="form-label text-muted fw-semibold mb-1">Número <span class="text-danger">*</span></label>
                         <div class="input-group input-group-sm">
                             <input type="text" class="form-control" id="modalNumDoc" placeholder="Ej. 78945612" style="box-shadow: none; height: 38px; font-size: 13.5px;">
-                            <button type="button" class="btn btn-primary fw-semibold d-flex align-items-center gap-1 px-3" id="modalSearchApiBtn" style="height: 38px; border: none; background-color: #0284c7;">
+                            <button type="button" class="btn gp-bg-primary text-white fw-semibold d-flex align-items-center gap-1 px-3" id="modalSearchApiBtn" style="height: 38px; border: none;">
                                 <i class="bi bi-search"></i> <span id="modalSearchApiBtnText">RENIEC</span>
                             </button>
                         </div>
@@ -521,9 +521,9 @@ $categorias = $modelCat->listar();
                     </div>
                 </div>
             </div>
-            <div class="modal-footer border-top bg-light py-3 d-flex justify-content-end gap-2" style="border-radius: 0 0 12px 12px;">
+            <div class="modal-footer border-0 p-4 pt-0 d-flex justify-content-end gap-2" style="border-radius: 0 0 15px 15px;">
                 <button type="button" class="btn btn-light fw-semibold px-4" data-bs-dismiss="modal" style="font-size: 13.5px; height: 38px;">Cancelar</button>
-                <button type="button" class="btn btn-primary fw-semibold px-4" id="modalSaveClientBtn" style="font-size: 13.5px; height: 38px; background-color: #0284c7; border: none;">Guardar</button>
+                <button type="button" class="gp-btn-primary border-0 fw-semibold px-4" id="modalSaveClientBtn" style="font-size: 13.5px; height: 38px;">Guardar</button>
             </div>
         </div>
     </div>
@@ -543,13 +543,13 @@ $categorias = $modelCat->listar();
 
             <!-- Selector de formato de papel -->
             <div class="d-flex justify-content-center gap-2 py-2 bg-light border-bottom" style="flex-shrink: 0;">
-                <button class="btn btn-primary btn-sm px-3 ticket-format-btn active" data-format="80mm" style="background-color: #0284c7; border: none;">
+                <button class="btn btn-primary btn-sm px-3 ticket-format-btn active" data-format="80mm" style="background-color: #23284E; border: none;">
                     <i class="bi bi-receipt"></i> Ticket 80mm
                 </button>
-                <button class="btn btn-outline-primary btn-sm px-3 ticket-format-btn" data-format="58mm" style="border-color: #0284c7; color: #0284c7;">
+                <button class="btn btn-outline-primary btn-sm px-3 ticket-format-btn" data-format="58mm" style="border-color: #23284E; color: #23284E;">
                     <i class="bi bi-receipt"></i> Ticket 58mm
                 </button>
-                <button class="btn btn-outline-primary btn-sm px-3 ticket-format-btn" data-format="a4" style="border-color: #0284c7; color: #0284c7;">
+                <button class="btn btn-outline-primary btn-sm px-3 ticket-format-btn" data-format="a4" style="border-color: #23284E; color: #23284E;">
                     <i class="bi bi-file-earmark-text"></i> A4
                 </button>
             </div>
@@ -569,14 +569,14 @@ $categorias = $modelCat->listar();
 
             <!-- Botones de Acción -->
             <div class="modal-footer border-top bg-white py-2 px-4 d-flex justify-content-between align-items-center" style="flex-shrink: 0; border-radius: 0 0 12px 12px;">
-                <button class="btn btn-primary d-flex align-items-center gap-2 px-4" onclick="printCurrentIframe()" style="background-color: #0284c7; border: none;">
+                <button class="btn btn-primary d-flex align-items-center gap-2 px-4" onclick="printCurrentIframe()" style="background-color: #23284E; border: none;">
                     <i class="bi bi-printer-fill"></i> Imprimir
                 </button>
                 <div class="d-flex gap-2">
                     <button class="btn btn-outline-secondary px-4" onclick="window.location.href='/cotizaciones'">
                         <i class="bi bi-list-ul"></i> Ir al listado
                     </button>
-                    <button class="btn btn-primary px-4" onclick="window.location.reload()" style="background-color: #0284c7; border: none;">
+                    <button class="btn btn-primary px-4" onclick="window.location.reload()" style="background-color: #23284E; border: none;">
                         <i class="bi bi-plus-lg"></i> Nueva cotización
                     </button>
                 </div>
@@ -862,17 +862,17 @@ $categorias = $modelCat->listar();
             const docType = modalTipoDoc.value;
 
             if (docNum === '') {
-                Swal.fire({ icon: 'warning', title: 'Número requerido', text: 'Debe ingresar el número de documento para realizar la consulta.', confirmButtonColor: '#0284c7' });
+                Swal.fire({ icon: 'warning', title: 'Número requerido', text: 'Debe ingresar el número de documento para realizar la consulta.', confirmButtonColor: '#23284E' });
                 return;
             }
 
             if (docType === '1' && docNum.length !== 8) {
-                Swal.fire({ icon: 'warning', title: 'DNI Inválido', text: 'El DNI debe tener exactamente 8 dígitos.', confirmButtonColor: '#0284c7' });
+                Swal.fire({ icon: 'warning', title: 'DNI Inválido', text: 'El DNI debe tener exactamente 8 dígitos.', confirmButtonColor: '#23284E' });
                 return;
             }
 
             if (docType === '2' && docNum.length !== 11) {
-                Swal.fire({ icon: 'warning', title: 'RUC Inválido', text: 'El RUC debe tener exactamente 11 dígitos.', confirmButtonColor: '#0284c7' });
+                Swal.fire({ icon: 'warning', title: 'RUC Inválido', text: 'El RUC debe tener exactamente 11 dígitos.', confirmButtonColor: '#23284E' });
                 return;
             }
 
@@ -896,10 +896,10 @@ $categorias = $modelCat->listar();
 
                     Swal.fire({ icon: 'success', title: '¡Datos Obtenidos!', text: 'Los datos del cliente se cargaron exitosamente.', showConfirmButton: false, timer: 1500 });
                 } else {
-                    Swal.fire({ icon: 'error', title: 'Error de consulta', text: res.mensaje, confirmButtonColor: '#0284c7' });
+                    Swal.fire({ icon: 'error', title: 'Error de consulta', text: res.mensaje, confirmButtonColor: '#23284E' });
                 }
             } catch (err) {
-                Swal.fire({ icon: 'error', title: 'Error de red', text: 'No se pudo conectar con el servidor para la consulta de API.', confirmButtonColor: '#0284c7' });
+                Swal.fire({ icon: 'error', title: 'Error de red', text: 'No se pudo conectar con el servidor para la consulta de API.', confirmButtonColor: '#23284E' });
             } finally {
                 modalSearchApiBtn.disabled = false;
                 modalSearchApiBtnText.innerText = originalText;
@@ -929,7 +929,7 @@ $categorias = $modelCat->listar();
             }
 
             if (numero_documento === '' || nombres_razon_social === '') {
-                Swal.fire({ icon: 'warning', title: 'Campos obligatorios', text: 'Debe ingresar el Número de documento y el Nombre / Razón Social.', confirmButtonColor: '#0284c7' });
+                Swal.fire({ icon: 'warning', title: 'Campos obligatorios', text: 'Debe ingresar el Número de documento y el Nombre / Razón Social.', confirmButtonColor: '#23284E' });
                 return;
             }
 
@@ -968,10 +968,10 @@ $categorias = $modelCat->listar();
                         modalInstance.hide();
                     }
                 } else {
-                    Swal.fire({ icon: 'error', title: 'Error al registrar', text: res.mensaje, confirmButtonColor: '#0284c7' });
+                    Swal.fire({ icon: 'error', title: 'Error al registrar', text: res.mensaje, confirmButtonColor: '#23284E' });
                 }
             } catch (err) {
-                Swal.fire({ icon: 'error', title: 'Error de red', text: 'No se pudo contactar al servidor para registrar el cliente.', confirmButtonColor: '#0284c7' });
+                Swal.fire({ icon: 'error', title: 'Error de red', text: 'No se pudo contactar al servidor para registrar el cliente.', confirmButtonColor: '#23284E' });
             } finally {
                 modalSaveClientBtn.disabled = false;
             }
@@ -1001,15 +1001,15 @@ $categorias = $modelCat->listar();
                 catFilterBtns.forEach(b => {
                     b.classList.remove('btn-primary', 'active');
                     b.classList.add('btn-outline-primary');
-                    b.style.borderColor = '#0284c7';
-                    b.style.color = '#0284c7';
+                    b.style.borderColor = '#23284E';
+                    b.style.color = '#23284E';
                     b.style.backgroundColor = 'transparent';
                 });
                 btn.classList.add('btn-primary', 'active');
                 btn.classList.remove('btn-outline-primary');
                 btn.style.borderColor = '';
                 btn.style.color = '#fff';
-                btn.style.backgroundColor = '#0284c7';
+                btn.style.backgroundColor = '#23284E';
                 
                 currentCategory = btn.dataset.cat;
                 filterCatalog();
@@ -1043,9 +1043,9 @@ $categorias = $modelCat->listar();
                 p.style.fontWeight   = '500';
             });
             pillEl.classList.add('active');
-            pillEl.style.background  = '#1d4ed8';
+            pillEl.style.background  = '#23284E';
             pillEl.style.color       = '#fff';
-            pillEl.style.borderColor = '#1d4ed8';
+            pillEl.style.borderColor = '#23284E';
             pillEl.style.fontWeight  = '700';
             // Actualizar info
             tallaPosPrec.textContent = 'S/ ' + parseFloat(variante.precio).toFixed(2);
@@ -1110,7 +1110,7 @@ $categorias = $modelCat->listar();
             if (existing) {
                 const newQty = existing.cantidad + cantidad;
                 if (newQty > stock) {
-                    Swal.fire({ icon: 'warning', title: 'Stock insuficiente', text: `Solo hay ${stock} unidades de esta talla.`, confirmButtonColor: '#1d4ed8' });
+                    Swal.fire({ icon: 'warning', title: 'Stock insuficiente', text: `Solo hay ${stock} unidades de esta talla.`, confirmButtonColor: '#23284E' });
                     return;
                 }
                 existing.cantidad = newQty;
@@ -1135,7 +1135,7 @@ $categorias = $modelCat->listar();
                 const existing = cart.find(item => item.id_producto === id);
                 if (existing) {
                     if (existing.cantidad + 1 > stock) {
-                        Swal.fire({ icon: 'warning', title: 'Stock Insuficiente', text: `Solo hay ${stock} unidades disponibles de este producto.`, confirmButtonColor: '#0284c7' });
+                        Swal.fire({ icon: 'warning', title: 'Stock Insuficiente', text: `Solo hay ${stock} unidades disponibles de este producto.`, confirmButtonColor: '#23284E' });
                         return;
                     }
                     existing.cantidad += 1;
@@ -1173,7 +1173,7 @@ $categorias = $modelCat->listar();
             if (newQty <= 0) {
                 cart = cart.filter(i => i.id_producto !== id);
             } else if (newQty > item.stock) {
-                Swal.fire({ icon: 'warning', title: 'Stock Insuficiente', text: `El stock disponible es de ${item.stock} ${item.unidad}.`, confirmButtonColor: '#0284c7' });
+                Swal.fire({ icon: 'warning', title: 'Stock Insuficiente', text: `El stock disponible es de ${item.stock} ${item.unidad}.`, confirmButtonColor: '#23284E' });
                 item.cantidad = item.stock;
                 item.subtotal = item.cantidad * item.precio;
             } else {
@@ -1333,7 +1333,7 @@ $categorias = $modelCat->listar();
                     text: `Se generará una cotización por un total de S/ ${totalGeneral.toFixed(2)}`,
                     icon: 'question',
                     showCancelButton: true,
-                    confirmButtonColor: '#0284c7',
+                    confirmButtonColor: '#23284E',
                     cancelButtonColor: '#6b7280',
                     confirmButtonText: 'Generar',
                     cancelButtonText: 'Cancelar'
@@ -1363,7 +1363,7 @@ $categorias = $modelCat->listar();
                                     openPrintModal(result.id_cotizacion);
                                 });
                             } else {
-                                Swal.fire({ icon: 'error', title: 'Error', text: result.mensaje, confirmButtonColor: '#0284c7' });
+                                Swal.fire({ icon: 'error', title: 'Error', text: result.mensaje, confirmButtonColor: '#23284E' });
                                 submitSaleBtn.disabled = false;
                             }
                         } catch (err) {

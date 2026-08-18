@@ -89,7 +89,7 @@ $phpOk = version_compare(PHP_VERSION, '8.1.0', '>=');
 </style>
 </head>
 <body>
-<h1>Verificación de hosting — Tienda NISSI / PuntoNet POS</h1>
+<h1>Verificación de hosting — Tienda NISSI</h1>
 <p class="detalle">Generado el <?php echo date('Y-m-d H:i:s'); ?> — PHP <?php echo PHP_VERSION; ?> en <?php echo php_uname('s'); ?></p>
 
 <h2>1. Versión de PHP</h2>

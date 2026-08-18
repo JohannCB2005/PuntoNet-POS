@@ -1,0 +1,353 @@
+/* ═══════════════════════════════════════════════════════════════
+   NISSI — Sistema de diseño de la tienda pública
+   Dirección: "Lienzo blanco" (fondo blanco + azul noche #23284E
+   como peso + rojo #BD1721 como acento; blanco solo en detalle).
+   Display: Fraunces · Cuerpo: Archivo.
+   Complementa Bootstrap 5.3; lo sobreescribe vía variables.
+   ═══════════════════════════════════════════════════════════════ */
+
+:root {
+  /* Paleta */
+  --paper:        #ffffff;   /* fondo principal, blanco puro */
+  --paper-2:      #f6f6f8;   /* gris azulado muy claro */
+  --paper-3:      #ecebf0;   /* borde claro */
+  --card:         #ffffff;   /* superficies de tarjeta */
+  --ink:          #1d2136;   /* texto principal (azul noche) */
+  --ink-soft:     #434a67;   /* texto secundario */
+  --muted:        #838aa3;   /* texto terciario */
+  --navy:         #23284E;   /* azul noche (primario, peso) */
+  --navy-700:     #1a1f3d;
+  --navy-900:     #12152b;
+  --accent:       #BD1721;   /* rojo carmesí (acento) */
+  --accent-600:   #9e121b;
+  --accent-100:   #f9dcde;
+  --sage:         #2d7168;   /* verde azulado (éxito) */
+  --sage-100:     #e0f1ef;
+  --sage-700:     #2d7168;
+  --amber:        #e0a32e;
+  --amber-100:    #f9eed6;
+  --danger:       #BD1721;
+  --danger-100:   #fbe7e9;
+  --line:         #ececf0;   /* hairlines */
+  --line-strong:  #d6d8e2;
+
+  /* Bootstrap: primary y utilidades alineados a la paleta */
+  --bs-primary: #BD1721;
+  --bs-primary-rgb: 189, 23, 33;
+  --bs-link-color: #BD1721;
+  --bs-link-hover-color: #9e121b;
+  --bs-success: #2d7168;
+  --bs-success-rgb: 45, 113, 104;
+  --bs-body-bg: #ffffff;
+  --bs-body-color: #1d2136;
+
+  /* Tipografía */
+  --font-display: 'Fraunces', Georgia, 'Times New Roman', serif;
+  --font-body:    'Archivo', system-ui, -apple-system, sans-serif;
+
+  /* Radios y sombras */
+  --radius:       18px;
+  --radius-sm:    12px;
+  --shadow:       0 1px 2px rgba(29,33,54,.05), 0 10px 30px rgba(29,33,54,.07);
+  --shadow-lg:    0 4px 8px rgba(29,33,54,.06), 0 24px 60px rgba(29,33,54,.12);
+}
+
+/* ── Base ─────────────────────────────────────────────────── */
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: var(--font-body);
+  background-color: var(--paper);
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+h1, h2, h3, h4, h5, .font-display {
+  font-family: var(--font-display);
+  font-optical-sizing: auto;
+}
+
+::selection { background: var(--accent); color: #fff; }
+
+/* Kicker: micro-etiqueta en mayúsculas (estilo editorial) */
+.n-kicker {
+  font-size: .72rem;
+  font-weight: 700;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+/* ── Fondo con textura de grano (decorativo, opcional) ───── */
+.n-grain::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  opacity: .5;
+  background-image: radial-gradient(rgba(29,33,54,.045) 1px, transparent 1px);
+  background-size: 4px 4px;
+}
+
+/* ── Navbar editorial ─────────────────────────────────────── */
+.n-nav {
+  background: rgba(251,253,255,.86);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+  border-bottom: 1px solid var(--line);
+  box-shadow: none;
+}
+.n-nav .nav-container { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+
+.n-brand {
+  display: flex; align-items: center; gap: 12px;
+  text-decoration: none; color: var(--ink);
+}
+.n-brand img { height: 34px; width: auto; }
+.n-brand .n-brand-name {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 1.35rem;
+  letter-spacing: .02em;
+  color: var(--navy);
+  line-height: 1;
+}
+.n-brand .n-brand-name em { font-style: normal; color: var(--accent); }
+.n-brand .n-brand-sub {
+  display: block;
+  font-family: var(--font-body);
+  font-size: .6rem;
+  font-weight: 700;
+  letter-spacing: .3em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-top: 3px;
+}
+
+/* ── Botones NISSI ────────────────────────────────────────── */
+.n-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-radius: 999px;
+  font-weight: 600;
+  font-size: .95rem;
+  padding: 12px 22px;
+  border: 1.5px solid transparent;
+  cursor: pointer;
+  text-decoration: none;
+  transition: transform .15s ease, box-shadow .2s ease, background .2s ease, color .2s ease, border-color .2s ease;
+  white-space: nowrap;
+  line-height: 1.2;
+}
+.n-btn:active { transform: translateY(1px) scale(.99); }
+.n-btn:disabled { opacity: .55; cursor: not-allowed; }
+
+.n-btn-primary { background: var(--navy); color: #fff; box-shadow: 0 6px 18px rgba(var(--navy-rgb),.28); }
+.n-btn-primary:hover:not(:disabled) { background: var(--navy-700); color: #fff; transform: translateY(-1px); box-shadow: 0 8px 22px rgba(var(--navy-rgb),.34); }
+
+.n-btn-accent { background: var(--accent); color: #fff; box-shadow: 0 6px 18px rgba(var(--accent-rgb),.28); }
+.n-btn-accent:hover:not(:disabled) { background: var(--accent-600); color: #fff; transform: translateY(-1px); }
+
+.n-btn-outline { background: transparent; border-color: var(--line-strong); color: var(--ink); }
+.n-btn-outline:hover:not(:disabled) { border-color: var(--navy); color: var(--navy); background: var(--card); }
+
+.n-btn-ghost { background: transparent; color: var(--muted); }
+.n-btn-ghost:hover:not(:disabled) { color: var(--navy); background: var(--paper-2); }
+
+.n-btn-sm { padding: 8px 16px; font-size: .85rem; }
+.n-btn-lg { padding: 15px 28px; font-size: 1rem; }
+
+/* Botones de Bootstrap alineados al tema */
+.btn { border-radius: 999px; font-weight: 600; }
+.btn-primary { background-color: var(--navy); border-color: var(--navy); }
+.btn-primary:hover { background-color: var(--navy-700); border-color: var(--navy-700); }
+.btn-outline-primary { color: var(--navy); border-color: var(--navy); }
+.btn-outline-primary:hover { background-color: var(--navy); border-color: var(--navy); color: #fff; }
+.btn-outline-secondary:hover { background-color: var(--paper-2); }
+.btn-outline-accent { color: var(--accent); border-color: var(--accent); }
+.btn-outline-accent:hover { background-color: var(--accent); border-color: var(--accent); color: #fff; }
+.btn-dark { background-color: var(--navy); border-color: var(--navy); }
+.btn-danger { background-color: var(--danger); border-color: var(--danger); }
+.btn-outline-danger:hover { background-color: var(--danger); border-color: var(--danger); }
+
+/* ── Tarjetas ─────────────────────────────────────────────── */
+.n-card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+
+/* ── Formularios ──────────────────────────────────────────── */
+.n-label {
+  display: block;
+  font-size: .72rem;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  margin-bottom: 7px;
+}
+.n-input {
+  width: 100%;
+  padding: 12px 15px;
+  border: 1.5px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: #fff;
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: .95rem;
+  transition: border-color .18s ease, box-shadow .18s ease, background .18s ease;
+}
+.n-input:focus {
+  outline: none;
+  border-color: var(--navy);
+  box-shadow: 0 0 0 3px rgba(var(--navy-rgb),.14);
+}
+.n-input.is-invalid { border-color: var(--danger); box-shadow: 0 0 0 3px rgba(214,69,80,.14); }
+.n-input:disabled { background: var(--paper-2); color: var(--muted); cursor: not-allowed; }
+
+/* Bootstrap: inputs heredan el tema */
+.form-control, .form-select {
+  border-radius: var(--radius-sm);
+  border-color: var(--line-strong);
+  font-family: var(--font-body);
+}
+.form-control:focus, .form-select:focus {
+  border-color: var(--navy);
+  box-shadow: 0 0 0 3px rgba(var(--navy-rgb),.14);
+}
+.form-control:disabled { background: var(--paper-2); color: var(--muted); }
+
+.form-check-input:checked { background-color: var(--navy); border-color: var(--navy); }
+.form-check-input:focus { box-shadow: 0 0 0 3px rgba(var(--navy-rgb),.14); }
+
+/* Radio-tarjeta (btn-check): opciones seleccionables del checkout */
+.btn-check + .btn {
+  border-radius: var(--radius-sm);
+  border: 1.5px solid var(--line-strong);
+  background: #fff;
+  color: var(--ink-soft);
+  font-weight: 600;
+  padding: 12px 8px;
+  transition: border-color .18s ease, background .18s ease, color .18s ease, box-shadow .18s ease;
+}
+.btn-check + .btn:hover { border-color: var(--navy); color: var(--navy); }
+.btn-check:checked + .btn {
+  border-color: var(--navy);
+  background: var(--navy);
+  color: #fff;
+  box-shadow: 0 6px 16px rgba(var(--navy-rgb),.24);
+}
+.btn-check:checked + .btn-outline-accent {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #fff;
+  box-shadow: 0 6px 16px rgba(var(--accent-rgb),.24);
+}
+
+/* ── Pills / etiquetas ────────────────────────────────────── */
+.n-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: .78rem;
+  font-weight: 600;
+  padding: 5px 12px;
+  border-radius: 999px;
+  background: var(--paper-2);
+  color: var(--ink-soft);
+  border: 1px solid var(--line);
+}
+.n-chip--accent { background: var(--accent-100); color: var(--accent-600); border-color: transparent; }
+.n-chip--sage { background: var(--sage-100); color: var(--sage-700); border-color: transparent; }
+.n-chip--navy { background: rgba(var(--navy-rgb),.12); color: var(--navy); border-color: transparent; }
+
+.badge.rounded-pill { font-weight: 600; letter-spacing: .02em; }
+.badge.bg-success { background-color: var(--sage) !important; }
+.badge.bg-warning { background-color: var(--amber) !important; }
+.badge.bg-info { background-color: #d6d8e2 !important; }
+.badge.bg-danger { background-color: var(--danger) !important; }
+.badge.bg-secondary { background-color: #838aa3 !important; }
+.badge.bg-dark { background-color: var(--navy-900) !important; }
+
+/* ── Offcanvas / modal / dropdown heredan el tema ─────────── */
+.offcanvas, .modal-content {
+  background: var(--card);
+}
+.offcanvas-header { border-bottom: 1px solid var(--line); }
+.offcanvas-title { font-family: var(--font-display); font-weight: 700; color: var(--navy); }
+.dropdown-menu {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-lg);
+}
+.dropdown-item:hover { background: var(--paper-2); }
+
+.modal-content { border-radius: var(--radius); box-shadow: var(--shadow-lg); border: none; }
+
+/* ── Spinner ──────────────────────────────────────────────── */
+.spinner-border { color: var(--navy) !important; }
+
+/* ── Animaciones ──────────────────────────────────────────── */
+@keyframes n-fade-up {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes n-pop {
+  0%   { transform: scale(.6); opacity: 0; }
+  70%  { transform: scale(1.05); }
+  100% { transform: scale(1); opacity: 1; }
+}
+@keyframes n-float {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-6px); }
+}
+.n-reveal { animation: n-fade-up .5s cubic-bezier(.16,1,.3,1) both; }
+.n-reveal-1 { animation-delay: .06s; }
+.n-reveal-2 { animation-delay: .14s; }
+.n-reveal-3 { animation-delay: .22s; }
+.n-reveal-4 { animation-delay: .30s; }
+
+/* ── Utilidades ───────────────────────────────────────────── */
+.n-link-underline {
+  position: relative;
+  text-decoration: none;
+  color: var(--navy);
+  font-weight: 600;
+}
+.n-link-underline::after {
+  content: '';
+  position: absolute;
+  left: 0; bottom: -3px;
+  width: 100%; height: 2px;
+  background: var(--accent);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform .25s ease;
+}
+.n-link-underline:hover { color: var(--navy); }
+.n-link-underline:hover::after { transform: scaleX(1); }
+
+@media (max-width: 576px) {
+  .n-btn-lg { padding: 13px 22px; }
+}
+
+/* Evita el auto-zoom de iOS al enfocar inputs en móvil */
+@media (max-width: 576px) {
+  input[type="text"],
+  input[type="email"],
+  input[type="password"],
+  input[type="tel"],
+  input[type="number"],
+  input[type="search"],
+  input[type="date"],
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}

@@ -7,22 +7,42 @@ if (session_status() === PHP_SESSION_NONE) {
 if (empty($_SESSION['csrf_token'])) {
     $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 }
+require_once dirname(__DIR__) . '/config/settings.php';
+require_once dirname(__DIR__) . '/config/marca.php';
+$loginMarcaNombre = marcaVar('nombre');
+$loginMarcaLogo   = marcaLogo('LOGO_CLARO', 'assets/logo-nissi.svg');
 ?>
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Iniciar Sesión — NISSI POS</title>
-    <link rel="icon" type="image/png" sizes="64x64" href="assets/favicons/favicon-64.png">
-    <link rel="icon" type="image/png" sizes="128x128" href="assets/favicons/favicon-128.png">
-    <link rel="apple-touch-icon" sizes="180x180" href="assets/favicons/apple-touch-icon.png">
+    <title>Iniciar Sesión — <?php echo htmlspecialchars($loginMarcaNombre); ?> POS</title>
+    <link rel="icon" type="image/svg+xml" href="<?php echo htmlspecialchars(configuracion('LOGO_FAVICON', 'assets/favicon-nissi.svg?v=3')); ?>">
+    <link rel="icon" type="image/png" sizes="64x64" href="assets/favicons/favicon-64.png?v=3">
+    <link rel="icon" type="image/png" sizes="128x128" href="assets/favicons/favicon-128.png?v=3">
+    <link rel="apple-touch-icon" sizes="180x180" href="assets/favicons/apple-touch-icon.png?v=3">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,600;0,9..144,700;1,9..144,600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <style>
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --navy: #23284E;
+            --navy-700: #31386b;
+            --navy-900: #191d3a;
+            --accent: #BD1721;
+            --accent-hover: #e03440;
+            --ink: #1d2136;
+            --muted: #838aa3;
+            --line: #ececf0;
+            --paper: #f6f6f8;
+        }
+        <?php echo marcaCssVars(); ?>
 
         body {
             font-family: 'Inter', sans-serif;
@@ -30,30 +50,30 @@ if (empty($_SESSION['csrf_token'])) {
             display: flex;
             align-items: center;
             justify-content: center;
-            background: #e8eeff;
+            background: #eef0f7;
         }
 
         /* ── Contenedor principal ── */
         .login-wrapper {
             display: flex;
-            width: 900px;
+            width: 960px;
             max-width: 96vw;
-            min-height: 540px;
-            border-radius: 22px;
+            min-height: 580px;
+            border-radius: 24px;
             overflow: hidden;
-            box-shadow: 0 24px 64px -12px rgba(0,0,0,0.22), 0 8px 24px -6px rgba(0,0,0,0.10);
+            box-shadow: 0 30px 80px -20px rgba(18,21,43,.35), 0 10px 30px -8px rgba(18,21,43,.12);
             background: #fff;
         }
 
         /* ── Panel izquierdo (Héroe) ── */
         .login-hero {
-            flex: 0 0 42%;
+            flex: 0 0 44%;
             position: relative;
             background: url('assets/Login Cajera.jpeg') center center / cover no-repeat;
             display: flex;
             flex-direction: column;
             justify-content: flex-end;
-            padding: 36px 32px;
+            padding: 40px 34px;
         }
 
         .login-hero::before {
@@ -62,9 +82,17 @@ if (empty($_SESSION['csrf_token'])) {
             inset: 0;
             background: linear-gradient(
                 180deg,
-                rgba(0,0,0,0.08) 0%,
-                rgba(10,30,80,0.78) 100%
+                rgba(var(--navy-rgb),0.05) 0%,
+                rgba(25,29,58,0.82) 100%
             );
+        }
+
+        .login-hero::after {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 5px;
+            background: linear-gradient(90deg, var(--accent), #e03440);
         }
 
         .hero-text {
@@ -73,22 +101,31 @@ if (empty($_SESSION['csrf_token'])) {
             color: #fff;
         }
 
+        .hero-kicker {
+            display: inline-flex; align-items: center; gap: 8px;
+            font-size: .68rem; font-weight: 700; letter-spacing: .22em; text-transform: uppercase;
+            color: #f0a3a8; margin-bottom: 14px;
+        }
+
         .hero-text h2 {
-            font-size: 26px;
-            font-weight: 800;
-            line-height: 1.2;
-            margin-bottom: 10px;
+            font-family: 'Fraunces', Georgia, serif;
+            font-size: 30px;
+            font-weight: 700;
+            line-height: 1.18;
+            margin-bottom: 12px;
             letter-spacing: -0.5px;
         }
 
         .hero-text h2 span {
-            color: #93c5fd;
+            color: #f0a3a8;
+            font-style: italic;
         }
 
         .hero-text p {
             font-size: 13.5px;
             color: rgba(255,255,255,0.80);
-            line-height: 1.6;
+            line-height: 1.65;
+            max-width: 300px;
         }
 
         /* ── Panel derecho (Formulario) ── */
@@ -97,116 +134,125 @@ if (empty($_SESSION['csrf_token'])) {
             display: flex;
             flex-direction: column;
             justify-content: center;
-            padding: 52px 48px;
+            padding: 56px 56px;
         }
 
-        .brand-name {
-            font-size: 32px;
-            font-weight: 800;
-            color: #1d4ed8;
-            letter-spacing: -1px;
-            margin-bottom: 28px;
-            text-transform: uppercase;
+        .brand-logo {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 30px;
         }
 
-        .brand-name span {
-            color: #1e3a8a;
+        .brand-logo img {
+            max-height: 96px;
+            max-width: 100%;
+            object-fit: contain;
         }
 
         .login-title {
-            font-size: 26px;
+            font-family: 'Fraunces', Georgia, serif;
+            font-size: 30px;
             font-weight: 700;
-            color: #111827;
-            margin-bottom: 6px;
+            color: var(--navy);
+            letter-spacing: -0.5px;
+            margin-bottom: 8px;
+            text-align: center;
         }
 
         .login-subtitle {
             font-size: 13.5px;
-            color: #6b7280;
-            margin-bottom: 32px;
-            line-height: 1.55;
+            color: var(--muted);
+            margin-bottom: 34px;
+            line-height: 1.6;
+            text-align: center;
+            max-width: 330px;
+            margin-left: auto;
+            margin-right: auto;
         }
 
         .form-label {
-            font-size: 13px;
+            font-size: 12.5px;
             font-weight: 600;
-            color: #374151;
-            margin-bottom: 6px;
+            color: var(--ink);
+            margin-bottom: 7px;
         }
 
         .form-control {
-            height: 46px;
-            border-radius: 10px;
-            border: 1.5px solid #d1d5db;
-            font-size: 14px;
-            color: #111827;
-            transition: border-color 0.15s, box-shadow 0.15s;
+            height: 50px;
+            border-radius: 12px;
+            border: 1.5px solid var(--line);
+            font-size: 14.5px;
+            color: var(--ink);
+            background: var(--paper);
+            transition: border-color 0.18s, box-shadow 0.18s, background 0.18s;
             box-shadow: none !important;
         }
 
+        .form-control::placeholder { color: #aab0c4; }
+
         .form-control:focus {
-            border-color: #1d4ed8;
-            box-shadow: 0 0 0 3px rgba(29,78,216,0.12) !important;
+            border-color: var(--navy);
+            background: #fff;
+            box-shadow: 0 0 0 4px rgba(var(--navy-rgb),0.10) !important;
         }
 
         .input-group .form-control {
             border-right: none;
-            border-radius: 10px 0 0 10px;
+            border-radius: 12px 0 0 12px;
         }
 
         .input-group .btn-toggle-pass {
-            border: 1.5px solid #d1d5db;
+            border: 1.5px solid var(--line);
             border-left: none;
-            border-radius: 0 10px 10px 0;
-            background: #fff;
-            color: #9ca3af;
-            padding: 0 14px;
-            transition: color 0.15s;
+            border-radius: 0 12px 12px 0;
+            background: var(--paper);
+            color: var(--muted);
+            padding: 0 16px;
+            transition: color 0.15s, background 0.15s;
         }
 
-        .input-group .btn-toggle-pass:hover { color: #1d4ed8; }
+        .input-group .btn-toggle-pass:hover { color: var(--navy); background: #fff; }
 
         .input-group:focus-within .form-control,
         .input-group:focus-within .btn-toggle-pass {
-            border-color: #1d4ed8;
+            border-color: var(--navy);
         }
 
-        .input-group:focus-within .btn-toggle-pass {
-            box-shadow: 0 0 0 3px rgba(29,78,216,0.12);
-        }
+        .input-group:focus-within .btn-toggle-pass { background: #fff; }
 
         .btn-login {
-            height: 48px;
-            border-radius: 10px;
-            background: #1d4ed8;
+            height: 50px;
+            border-radius: 12px;
+            background: var(--navy);
             border: none;
             color: #fff;
             font-size: 14px;
             font-weight: 700;
-            letter-spacing: 0.5px;
+            letter-spacing: 0.6px;
             text-transform: uppercase;
-            transition: background 0.18s, transform 0.1s;
+            transition: background 0.18s, transform 0.1s, box-shadow 0.2s;
             width: 100%;
-            margin-top: 24px;
+            margin-top: 26px;
         }
 
-        .btn-login:hover { background: #1e40af; }
+        .btn-login:hover { background: var(--navy-700); box-shadow: 0 10px 24px -8px rgba(var(--navy-rgb),.5); }
         .btn-login:active { transform: scale(0.985); }
 
         .btn-login:disabled {
-            background: #d1d5db;
+            background: #c6c9d4;
             cursor: not-allowed;
+            box-shadow: none;
         }
 
         .login-footer {
-            margin-top: 18px;
+            margin-top: 20px;
             text-align: center;
             font-size: 13px;
-            color: #6b7280;
+            color: var(--muted);
         }
 
         .login-footer a {
-            color: #1d4ed8;
+            color: var(--accent);
             font-weight: 600;
             text-decoration: none;
         }
@@ -214,9 +260,9 @@ if (empty($_SESSION['csrf_token'])) {
         .login-footer a:hover { text-decoration: underline; }
 
         /* Diseño Responsivo */
-        @media (max-width: 650px) {
+        @media (max-width: 700px) {
             .login-hero { display: none; }
-            .login-form-panel { padding: 36px 28px; }
+            .login-form-panel { padding: 40px 28px; }
         }
     </style>
 </head>
@@ -226,6 +272,7 @@ if (empty($_SESSION['csrf_token'])) {
     <!-- PANEL IZQUIERDO: Héroe Visual -->
     <div class="login-hero">
         <div class="hero-text">
+            <span class="hero-kicker"><span style="width:6px;height:6px;border-radius:50%;background:var(--accent);display:inline-block"></span> NISSI POS</span>
             <h2>Tu tienda de uniformes<br>en <span>un solo lugar</span></h2>
             <p>Gestiona ventas, inventario de uniformes y módulos escolares de forma rápida y profesional.</p>
         </div>
@@ -234,12 +281,12 @@ if (empty($_SESSION['csrf_token'])) {
     <!-- PANEL DERECHO: Formulario de Credenciales -->
     <div class="login-form-panel">
         <div class="brand-logo mb-4">
-            <img src="assets/logo.svg" alt="PuntoNet" style="max-height: 65px; max-width: 100%; object-fit: contain;">
+            <img src="<?php echo htmlspecialchars($loginMarcaLogo); ?>" alt="<?php echo htmlspecialchars($loginMarcaNombre); ?>" style="max-height: 65px; max-width: 100%; object-fit: contain;">
         </div>
 
-        <h1 class="login-title">Iniciar Sesión 👋</h1>
+        <h1 class="login-title">Iniciar Sesión</h1>
         <p class="login-subtitle">
-            Bienvenido al sistema de gestión de uniforms y módulos escolares.<br>
+            Bienvenido al sistema de gestión de uniformes y módulos escolares.<br>
             Ingresa tus credenciales para continuar.
         </p>
 
@@ -312,7 +359,7 @@ if (empty($_SESSION['csrf_token'])) {
                 icon: 'warning',
                 title: 'Campos requeridos',
                 text: 'Por favor ingresa tu usuario y contraseña.',
-                confirmButtonColor: '#0284c7'
+                confirmButtonColor: '#23284E'
             });
             return;
         }
@@ -345,7 +392,7 @@ if (empty($_SESSION['csrf_token'])) {
                     icon: 'error',
                     title: 'Acceso denegado',
                     text: data.mensaje,
-                    confirmButtonColor: '#1d4ed8'
+                    confirmButtonColor: '#BD1721'
                 });
                 btn.disabled = false;
                 btn.innerHTML = 'Iniciar Sesión';
@@ -355,7 +402,7 @@ if (empty($_SESSION['csrf_token'])) {
                 icon: 'error',
                 title: 'Error de conexión',
                 text: 'No se pudo contactar al servidor.',
-                confirmButtonColor: '#0284c7'
+                confirmButtonColor: '#23284E'
             });
             btn.disabled = false;
             btn.innerHTML = 'Iniciar Sesión';

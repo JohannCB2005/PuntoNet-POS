@@ -78,11 +78,17 @@ class M_Sunat {
 
             // 1. Reservar serie/correlativo la primera vez (no hay red de por medio,
             //    así que esto siempre se completa aunque SUNAT esté caído).
-            if (empty($venta['serie'])) {
+            //    Si el POS ya fijó la serie, se reserva el correlativo de ESA serie
+            //    específica; si no, se toma la primera serie activa del tipo.
+            if (empty($venta['correlativo'])) {
                 $tipoComprobanteSunat = (int) $venta['tipo_comprobante']; // 1=Boleta, 2=Factura
                 $this->conexion->beginTransaction();
                 try {
-                    $reserva = M_Serie::singleton()->reservarSiguiente($this->conexion, $tipoComprobanteSunat);
+                    $reserva = M_Serie::singleton()->reservarSiguiente(
+                        $this->conexion,
+                        $tipoComprobanteSunat,
+                        $venta['serie'] ?: null
+                    );
                     $this->conexion->prepare(
                         "UPDATE ventas SET serie = ?, correlativo = ?, estado_sunat = 1 WHERE id_venta = ?"
                     )->execute([$reserva['serie'], $reserva['correlativo'], $id_venta]);
@@ -315,7 +321,7 @@ class M_Sunat {
      * @param array $pagos [{metodo_pago, monto, referencia}, ...] — cómo se
      *   devuelve el dinero (debe sumar exactamente el total del comprobante).
      */
-    public function emitirNotaCredito(int $idVentaOriginal, string $motivo, int $idUsuario, int $idCaja, array $pagos): array {
+    public function emitirNotaCredito(int $idVentaOriginal, string $motivo, int $idUsuario, int $idCaja, array $pagos, array $items = []): array {
         try {
             $stmt = $this->conexion->prepare(
                 "SELECT v.id_venta, v.tipo_comprobante, v.serie, v.correlativo, v.estado, v.id_cliente,
@@ -332,15 +338,10 @@ class M_Sunat {
                 return ['ok' => false, 'mensaje' => 'Venta no encontrada o nunca fue emitida ante SUNAT.'];
             }
 
-            $sumaPagos = round(array_sum(array_column($pagos, 'monto')), 2);
-            if (abs($sumaPagos - (float) $venta['total']) > 0.01) {
-                return ['ok' => false, 'mensaje' => "El monto a devolver (S/ " . number_format($sumaPagos, 2) . ") no coincide con el total del comprobante (S/ " . number_format((float) $venta['total'], 2) . ")."];
-            }
-
             require_once dirname(__DIR__) . '/models/M_Kardex.php';
 
             $stmtDetalles = $this->conexion->prepare(
-                "SELECT dv.id_producto, dv.cantidad, dv.precio_venta, dv.valor_unitario, dv.igv_linea, dv.tipo_afectacion_igv, dv.subtotal,
+                "SELECT dv.id_detalle, dv.id_producto, dv.cantidad, dv.precio_venta, dv.valor_unitario, dv.igv_linea, dv.tipo_afectacion_igv, dv.subtotal,
                         i.nombre AS producto_nombre, um.codigo_sunat, i.stock_ilimitado
                  FROM detalle_ventas dv
                  INNER JOIN productos i ON dv.id_producto = i.id_producto
@@ -353,6 +354,83 @@ class M_Sunat {
                 return ['ok' => false, 'mensaje' => 'La venta original no tiene mercadería que revertir.'];
             }
 
+            // --- Alcance de la devolución: total (sin $items) o parcial (con $items) ---
+            $esTotal = empty($items);
+            $detallesNC = $detalles;
+
+            if (!$esTotal) {
+                $mapaLineas = [];
+                foreach ($detalles as $d) {
+                    $mapaLineas[(int) $d['id_detalle']] = $d;
+                }
+                $detallesNC = [];
+                foreach ($items as $it) {
+                    $idDetalle = intval($it['id_detalle'] ?? 0);
+                    $cantidad = floatval($it['cantidad'] ?? 0);
+                    if (!isset($mapaLineas[$idDetalle])) {
+                        return ['ok' => false, 'mensaje' => 'Hay una línea que no pertenece a esta venta.'];
+                    }
+                    $linea = $mapaLineas[$idDetalle];
+                    if ($cantidad <= 0 || $cantidad > (float) $linea['cantidad']) {
+                        $maxTexto = rtrim(rtrim(number_format((float) $linea['cantidad'], 2, '.', ''), '0'), '.');
+                        return ['ok' => false, 'mensaje' => 'Cantidad inválida para ' . $linea['producto_nombre'] . ' (máx. ' . $maxTexto . ').'];
+                    }
+                    // Prorratear la línea: se devuelve solo lo que se selecciona,
+                    // conservando el precio unitario pagado en la venta original.
+                    $linea['cantidad'] = $cantidad;
+                    $linea['subtotal'] = round((float) $linea['precio_venta'] * $cantidad, 2);
+                    $linea['igv_linea'] = round($linea['subtotal'] - round($linea['subtotal'] / 1.18, 2), 2);
+                    $detallesNC[] = $linea;
+                }
+
+                // Si la selección cubre TODO el detalle a cantidades plenas, es una
+                // NC total (mismo camino que hoy: motivo 01, venta a estado 0).
+                if (count($detallesNC) === count($detalles)) {
+                    $cubreTodo = true;
+                    $mapaCompleto = [];
+                    foreach ($detalles as $d) {
+                        $mapaCompleto[(int) $d['id_detalle']] = $d;
+                    }
+                    foreach ($detallesNC as $d) {
+                        $completo = $mapaCompleto[(int) $d['id_detalle']] ?? null;
+                        if (!$completo || abs((float) $d['cantidad'] - (float) $completo['cantidad']) > 0.001) {
+                            $cubreTodo = false;
+                            break;
+                        }
+                    }
+                    if ($cubreTodo) {
+                        $esTotal = true;
+                        $detallesNC = $detalles;
+                    }
+                }
+            }
+
+            // --- Totales de la NC, derivados SIEMPRE del detalle que se devuelve ---
+            if ($esTotal) {
+                $baseNC = (float) $venta['subtotal'];
+                $igvNC = (float) $venta['igv'];
+                $totalNC = (float) $venta['total'];
+            } else {
+                $baseNC = 0;
+                $igvNC = 0;
+                $totalNC = 0;
+                foreach ($detallesNC as $d) {
+                    $sub = (float) $d['subtotal'];
+                    $igv = (float) $d['igv_linea'];
+                    $baseNC += $sub - $igv;
+                    $igvNC += $igv;
+                    $totalNC += $sub;
+                }
+                $baseNC = round($baseNC, 2);
+                $igvNC = round($igvNC, 2);
+                $totalNC = round($totalNC, 2);
+            }
+
+            $sumaPagos = round(array_sum(array_column($pagos, 'monto')), 2);
+            if (abs($sumaPagos - $totalNC) > 0.01) {
+                return ['ok' => false, 'mensaje' => "El monto a devolver (S/ " . number_format($sumaPagos, 2) . ") no coincide con el total de la devolución (S/ " . number_format($totalNC, 2) . ")."];
+            }
+
             $this->conexion->beginTransaction();
 
             // 1. Reservar serie de la NC (4=NC de Boleta, 5=NC de Factura). A
@@ -363,12 +441,13 @@ class M_Sunat {
             $reserva = M_Serie::singleton()->reservarSiguiente($this->conexion, $tipoComprobanteNC);
             $codigoNC = $reserva['serie'] . '-' . str_pad((string) $reserva['correlativo'], 6, '0', STR_PAD_LEFT);
 
-            // 2. Revertir stock + kardex explícito (solo si la venta seguía activa;
-            //    si ya se había anulado localmente antes de vencer los 7 días, el
-            //    stock ya volvió entonces y no hay que devolverlo dos veces).
+            // 2. Revertir stock + kardex explícito (solo si la venta seguía activa y
+            //    únicamente por las líneas/cantidades devueltas; si ya se había
+            //    anulado localmente antes de vencer los 7 días, el stock ya volvió
+            //    entonces y no hay que devolverlo dos veces).
             if ((int) $venta['estado'] === 1) {
                 $kardex = M_Kardex::singleton();
-                foreach ($detalles as $d) {
+                foreach ($detallesNC as $d) {
                     if ((int) ($d['stock_ilimitado'] ?? 0) === 1) {
                         continue;
                     }
@@ -376,7 +455,11 @@ class M_Sunat {
                         ->execute([$d['cantidad'], $d['id_producto']]);
                     $kardex->registrarMovimiento($d['id_producto'], 'entrada', $d['cantidad'], $d['precio_venta'], $codigoNC, 'Nota de crédito — devolución', $idUsuario);
                 }
-                $this->conexion->prepare("UPDATE ventas SET estado = 0 WHERE id_venta = ?")->execute([$idVentaOriginal]);
+                // Solo una NC TOTAL anula la venta; una parcial la deja activa
+                // (el resto de la mercadería sigue vendida).
+                if ($esTotal) {
+                    $this->conexion->prepare("UPDATE ventas SET estado = 0 WHERE id_venta = ?")->execute([$idVentaOriginal]);
+                }
             }
 
             // 3. Venta-efecto: el dinero que sale de caja HOY. tipo_comprobante=3
@@ -385,13 +468,10 @@ class M_Sunat {
             //    movimiento de caja. Sin detalle_ventas: así M_Kardex no la ve (ya
             //    quedó el movimiento explícito arriba), mismo patrón que un abono
             //    de separación.
-            $totalNC = -round((float) $venta['total'], 2);
-            $subtotalNC = -round((float) $venta['subtotal'], 2);
-            $igvNC = -round((float) $venta['igv'], 2);
             $this->conexion->prepare(
                 "INSERT INTO ventas (id_usuario, id_caja, id_cliente, tipo_comprobante, total, subtotal, igv, metodo_pago, estado, origen)
                  VALUES (?, ?, ?, 3, ?, ?, ?, ?, 1, 5)"
-            )->execute([$idUsuario, $idCaja, $venta['id_cliente'], $totalNC, $subtotalNC, $igvNC, (int) $pagos[0]['metodo_pago']]);
+            )->execute([$idUsuario, $idCaja, $venta['id_cliente'], -$totalNC, -$baseNC, -$igvNC, (int) $pagos[0]['metodo_pago']]);
             $idVentaNC = (int) $this->conexion->lastInsertId();
 
             foreach ($pagos as $p) {
@@ -400,10 +480,13 @@ class M_Sunat {
             }
 
             // 4. Cabecera de la Nota de Crédito (el documento SUNAT en sí).
+            //    Catálogo 09: '01' = Anulación de la operación (NC total),
+            //    '07' = Devolución por ítem (NC parcial).
+            $codMotivo = $esTotal ? '01' : '07';
             $this->conexion->prepare(
                 "INSERT INTO notas_credito (id_venta_original, id_venta_nc, serie, correlativo, tipo_motivo, total, estado_sunat, id_usuario)
-                 VALUES (?, ?, ?, ?, '01', ?, 1, ?)"
-            )->execute([$idVentaOriginal, $idVentaNC, $reserva['serie'], $reserva['correlativo'], $venta['total'], $idUsuario]);
+                 VALUES (?, ?, ?, ?, ?, ?, 1, ?)"
+            )->execute([$idVentaOriginal, $idVentaNC, $reserva['serie'], $reserva['correlativo'], $codMotivo, $totalNC, $idUsuario]);
             $idNotaCredito = (int) $this->conexion->lastInsertId();
 
             $this->conexion->commit();
@@ -412,7 +495,7 @@ class M_Sunat {
             //    aquí no revierte lo anterior — la NC queda registrada como
             //    pendiente (estado_sunat=1) y se reintenta desde el barrido.
             $tipoDocSunat = '07'; // 07 = Nota de Crédito (mismo código de documento para ambos casos)
-            $note = $this->construirNotaCredito($venta, $detalles, $reserva, $motivo);
+            $note = $this->construirNotaCredito($venta, $detallesNC, $reserva, $motivo, $codMotivo, ['base' => $baseNC, 'igv' => $igvNC, 'total' => $totalNC]);
 
             $builder = new NoteBuilder();
             $xml = $builder->build($note);
@@ -451,7 +534,7 @@ class M_Sunat {
         }
     }
 
-    private function construirNotaCredito(array $venta, array $detalles, array $reserva, string $motivo): Note {
+    private function construirNotaCredito(array $venta, array $detalles, array $reserva, string $motivo, string $codMotivo, array $totales): Note {
         $address = (new Address())->setUbigueo(SUNAT_UBIGEO)->setDepartamento(SUNAT_DEPARTAMENTO)
             ->setProvincia(SUNAT_PROVINCIA)->setDistrito(SUNAT_DISTRITO)->setDireccion(SUNAT_DIRECCION);
         $company = (new Company())->setRuc(SUNAT_RUC)->setRazonSocial(SUNAT_RAZON_SOCIAL)
@@ -486,6 +569,11 @@ class M_Sunat {
 
         $tipoDocAfectado = (int) $venta['tipo_comprobante'] === 2 ? '01' : '03';
 
+        // Montos de la NC = los de la devolución (parciales si es una NC parcial).
+        $baseNC = (float) $totales['base'];
+        $igvNC = (float) $totales['igv'];
+        $totalNC = (float) $totales['total'];
+
         return (new Note())
             ->setUblVersion('2.1')
             ->setTipoDoc('07')
@@ -495,19 +583,19 @@ class M_Sunat {
             ->setTipoMoneda('PEN')
             ->setCompany($company)
             ->setClient($client)
-            ->setCodMotivo('01') // Catálogo 09: 01 = Anulación de la operación
+            ->setCodMotivo($codMotivo) // Catálogo 09: 01=Anulación, 07=Devolución por ítem
             ->setDesMotivo($motivo ?: 'Anulación de la operación')
             ->setTipDocAfectado($tipoDocAfectado)
             ->setNumDocfectado($venta['serie'] . '-' . $venta['correlativo'])
-            ->setMtoOperGravadas((float) $venta['subtotal'])
-            ->setMtoIGV((float) $venta['igv'])
-            ->setTotalImpuestos((float) $venta['igv'])
-            ->setValorVenta((float) $venta['subtotal'])
-            ->setSubTotal((float) $venta['total'])
-            ->setMtoImpVenta((float) $venta['total'])
+            ->setMtoOperGravadas($baseNC)
+            ->setMtoIGV($igvNC)
+            ->setTotalImpuestos($igvNC)
+            ->setValorVenta($baseNC)
+            ->setSubTotal($totalNC)
+            ->setMtoImpVenta($totalNC)
             ->setDetails($items)
             ->setLegends([
-                (new Legend())->setCode('1000')->setValue($this->montoEnLetras((float) $venta['total'])),
+                (new Legend())->setCode('1000')->setValue($this->montoEnLetras($totalNC)),
             ]);
     }
 

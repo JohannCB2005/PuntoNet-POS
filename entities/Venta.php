@@ -10,6 +10,8 @@ class Venta {
     public $estado;
     public $id_caja;  // Caja física que recibió el dinero. NULL = sin caja (ej. pedido online).
     public $origen;   // 1=POS presencial, 2=Pedido online
+    public $serie = '';               // Serie del comprobante (opcional en POS; vacía = automática)
+    public $fecha_vencimiento = '';   // Fecha de vencimiento Y-m-d (opcional)
     public $detalles = [];
     // Líneas de pago (pago mixto): [{metodo_pago, monto, referencia}, ...]. Si viene
     // vacío, M_Venta::registrar() asume una sola línea con $metodo_pago y $total,

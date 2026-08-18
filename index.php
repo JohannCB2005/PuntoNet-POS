@@ -20,8 +20,8 @@ $modulos = [
     'dashboard', 'categorias', 'productos', 'kardex', 'usuarios', 'clientes',
     'nueva-venta', 'historial', 'reportes', 'pedidos-online', 'cotizaciones',
     'nueva-cotizacion', 'separaciones', 'caja', 'control-cajas', 'comisiones',
-    'sunat-series', 'carga', 'alumnos', 'pagos', 'conciliacion', 'promociones',
-    'entregas',
+    'sunat-series', 'configuracion', 'carga', 'alumnos', 'pagos', 'conciliacion',
+    'promociones', 'entregas',
 ];
 
 $path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
@@ -41,6 +41,46 @@ if ($path === 'login') {
 
 if ($path === 'logout') {
     require __DIR__ . '/logout.php';
+    return;
+}
+
+// Tienda en línea pública: /Tienda (y /tienda) sirve store.php como ruta limpia.
+// No requiere sesión ni módulo del POS. La barra final se normaliza porque
+// rompería las rutas relativas (assets/, controllers/, views/public/).
+if (strtolower($path) === 'tienda') {
+    if (substr($_SERVER['REQUEST_URI'], -1) === '/') {
+        header('Location: /Tienda', true, 301);
+        exit;
+    }
+    require __DIR__ . '/store.php';
+    return;
+}
+
+// Tienda: /compra (checkout) y /confirmacion (éxito) como rutas limpias.
+if (strtolower($path) === 'compra') {
+    require __DIR__ . '/views/public/V_checkout.php';
+    return;
+}
+if (strtolower($path) === 'confirmacion') {
+    require __DIR__ . '/views/public/V_checkout_success.php';
+    return;
+}
+if (strtolower($path) === 'cuenta') {
+    require __DIR__ . '/views/public/V_cuenta.php';
+    return;
+}
+if (strtolower($path) === 'mi-cuenta') {
+    require __DIR__ . '/views/public/V_mi_cuenta.php';
+    return;
+}
+if (strtolower($path) === 'mis-pedidos') {
+    require __DIR__ . '/views/public/V_mis_pedidos.php';
+    return;
+}
+
+// Comprobante público por enlace: /comprobante?id=<venta>&t=<token>.
+if (strtolower($path) === 'comprobante') {
+    require __DIR__ . '/controllers/C_ComprobantePublico.php';
     return;
 }
 

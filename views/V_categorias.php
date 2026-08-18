@@ -211,7 +211,7 @@ $categorias = $modelCat->listar();
                             icon: 'error',
                             title: 'Error',
                             text: data.mensaje,
-                            confirmButtonColor: '#0284c7'
+                            confirmButtonColor: '#23284E'
                         });
                     }
                 } catch (error) {
@@ -262,7 +262,7 @@ $categorias = $modelCat->listar();
                             icon: 'error',
                             title: 'Error',
                             text: data.mensaje,
-                            confirmButtonColor: '#0284c7'
+                            confirmButtonColor: '#23284E'
                         });
                     }
                 } catch (error) {
@@ -309,7 +309,7 @@ $categorias = $modelCat->listar();
                                     icon: 'error',
                                     title: 'Error',
                                     text: data.mensaje,
-                                    confirmButtonColor: '#0284c7'
+                                    confirmButtonColor: '#23284E'
                                 });
                             }
                         } catch (error) {

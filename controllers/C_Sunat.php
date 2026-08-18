@@ -1,4 +1,5 @@
 <?php
+require_once dirname(__DIR__) . '/config/sesion_segura.php';
 session_start();
 header('Content-Type: application/json');
 
@@ -6,6 +7,9 @@ if (!isset($_SESSION['id_usuario'])) {
     echo json_encode(["success" => false, "mensaje" => "No autorizado."]);
     exit;
 }
+
+require_once dirname(__DIR__) . '/config/csrf.php';
+csrfRequerir();
 
 require_once dirname(__DIR__) . '/models/M_Sunat.php';
 require_once dirname(__DIR__) . '/models/M_Serie.php';
@@ -104,6 +108,7 @@ switch ($action) {
         $id_venta = intval($input['id_venta'] ?? 0);
         $motivo = trim((string) ($input['motivo'] ?? ''));
         $pagosInput = isset($input['pagos']) && is_array($input['pagos']) ? $input['pagos'] : [];
+        $itemsInput = isset($input['items']) && is_array($input['items']) ? $input['items'] : [];
 
         if ($id_venta <= 0 || $motivo === '') {
             echo json_encode(["success" => false, "mensaje" => "Debes indicar la venta y el motivo de la Nota de Crédito."]);
@@ -118,6 +123,14 @@ switch ($action) {
             $monto = floatval($p['monto'] ?? 0);
             if (!in_array($mp, [1, 2, 3], true) || $monto <= 0) {
                 echo json_encode(["success" => false, "mensaje" => "Hay una línea de devolución inválida."]);
+                exit;
+            }
+        }
+        foreach ($itemsInput as $it) {
+            $idDetalle = intval($it['id_detalle'] ?? 0);
+            $cantidad = floatval($it['cantidad'] ?? 0);
+            if ($idDetalle <= 0 || $cantidad <= 0) {
+                echo json_encode(["success" => false, "mensaje" => "Hay una línea de devolución de mercadería inválida."]);
                 exit;
             }
         }
@@ -137,7 +150,7 @@ switch ($action) {
             ];
         }, $pagosInput);
 
-        $r = $mSunat->emitirNotaCredito($id_venta, $motivo, $_SESSION['id_usuario'], (int) $cajaAbierta['id_caja'], $pagos);
+        $r = $mSunat->emitirNotaCredito($id_venta, $motivo, $_SESSION['id_usuario'], (int) $cajaAbierta['id_caja'], $pagos, $itemsInput);
         echo json_encode(["success" => $r['ok'], "mensaje" => $r['mensaje'], "codigo" => $r['codigo'] ?? null]);
         break;
 

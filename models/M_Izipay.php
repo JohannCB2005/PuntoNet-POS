@@ -26,9 +26,12 @@ class M_Izipay {
         return self::$instancia;
     }
 
-    /** ¿Están las credenciales cargadas? Permite degradar sin romper el checkout. */
+    /** ¿Están las credenciales cargadas Y la pasarela habilitada en el panel? */
     public function estaConfigurado(): bool {
-        return IZIPAY_SHOP_ID !== '' && IZIPAY_PASSWORD !== '' && IZIPAY_PUBLIC_KEY !== '';
+        return IZIPAY_HABILITADO !== 'NO'
+            && IZIPAY_SHOP_ID !== ''
+            && IZIPAY_PASSWORD !== ''
+            && IZIPAY_PUBLIC_KEY !== '';
     }
 
     /**

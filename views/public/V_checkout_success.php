@@ -11,7 +11,14 @@
  * aunque el cliente cierre el navegador. Aun así se confirma también aquí para que el
  * pedido quede al día de inmediato, y confirmarPagoPedido() es idempotente.
  */
+require_once dirname(__DIR__, 2) . '/config/sesion_segura.php';
 session_start();
+// Nunca cachear esta página: refleja el estado en vivo del pago y contiene el JS
+// de monitoreo (SSE + polling). Si un proxy o el navegador sirvieran una copia
+// vieja, el cliente vería "Verificando..." para siempre aunque el pago ya se
+// haya confirmado — lo que pasaba antes: solo se arreglaba con F5.
+header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+header('Pragma: no-cache');
 require_once dirname(dirname(__DIR__)) . '/models/M_Ecommerce.php';
 require_once dirname(dirname(__DIR__)) . '/models/M_Izipay.php';
 
@@ -62,147 +69,146 @@ if (!empty($_POST['kr-answer'])) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Pedido Confirmado — PuntoNet</title>
-    <link rel="icon" type="image/svg+xml" href="../../assets/logo.svg">
+    <title>Pedido Confirmado — NISSI</title>
+    <link rel="icon" type="image/svg+xml" href="../../assets/favicon-nissi.svg?v=3">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700;9..144,800&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <!-- Tema NISSI -->
+    <link rel="stylesheet" href="../../assets/css/tienda.css?v=4">
+    <?php require_once dirname(__DIR__, 2) . '/config/marca.php'; echo marcaCss(); ?>
 
     <style>
-        :root {
-            --primary:      #0284c7;
-            --primary-dark: #0369a1;
-            --primary-light:#f0f9ff;
-            --surface:      #ffffff;
-            --bg:           #f8fafc;
-            --border:       #e2e8f0;
-            --text:         #0f172a;
-            --muted:        #64748b;
-            --success:      #16a34a;
-        }
-        body {
-            background-color: var(--bg);
-            color: var(--text);
-            font-family: 'Inter', system-ui, -apple-system, sans-serif;
-        }
+        body { background: var(--paper); color: var(--ink); }
 
-        /* ─── Navbar (mismo patrón que V_mis_pedidos.php / V_cuenta.php) ── */
-        .navbar { background: rgba(255,255,255,.95); box-shadow: 0 1px 3px rgba(0,0,0,.05); }
-        .navbar-brand { font-weight: 800; color: var(--primary) !important; }
+        /* ─── Navbar (mismo patrón que el resto de la tienda) ── */
+        .navbar { background: rgba(255,255,255,.9); backdrop-filter: blur(14px); }
+        .navbar-brand { font-family: var(--font-display); font-weight: 800; color: var(--navy) !important; letter-spacing: .02em; }
+        .navbar-brand em { font-style: normal; color: var(--accent); }
+        @media (max-width: 576px) { .nav-label { display: none; } }
 
-        .page-wrap { padding-top: 90px; padding-bottom: 60px; max-width: 780px; margin: 0 auto; }
+        .page-wrap { padding-top: 96px; padding-bottom: 60px; max-width: 780px; margin: 0 auto; }
 
         /* ─── Encabezado de confirmación ─────────────────── */
-        .confirm-header { text-align: center; padding: 8px 16px 32px; }
+        .confirm-header { text-align: center; padding: 8px 16px 34px; }
         .confirm-icon {
-            width: 76px; height: 76px; border-radius: 50%;
-            background: #f0fdf4; display: flex; align-items: center; justify-content: center;
-            margin: 0 auto 18px;
-            animation: pop .5s cubic-bezier(.16,1,.3,1) both;
+            width: 84px; height: 84px; border-radius: 50%;
+            background: var(--sage-100); display: flex; align-items: center; justify-content: center;
+            margin: 0 auto 20px;
+            box-shadow: 0 12px 30px rgba(46,107,79,.25);
+            animation: n-pop .55s cubic-bezier(.16,1,.3,1) both;
         }
-        .confirm-icon i { font-size: 2.3rem; color: var(--success); }
-        @keyframes pop {
-            0%   { transform: scale(0); opacity: 0; }
-            80%  { transform: scale(1.08); }
-            100% { transform: scale(1); opacity: 1; }
+        .confirm-icon i { font-size: 2.5rem; color: var(--sage); }
+        .confirm-header h1 {
+            font-family: var(--font-display); font-weight: 700;
+            font-size: clamp(1.6rem, 4vw, 2.1rem); margin: 0 0 8px; color: var(--navy);
+            letter-spacing: -.01em;
         }
-        .confirm-header h1 { font-size: 1.6rem; font-weight: 800; margin: 0 0 6px; }
         .confirm-header p { color: var(--muted); margin: 0; font-size: .95rem; }
-        .confirm-header .pedido-ref { font-weight: 700; color: var(--text); }
+        .confirm-header .pedido-ref { font-weight: 700; color: var(--accent); }
+        .confirm-kicker { margin-bottom: 14px; }
 
         /* ─── Tarjetas ────────────────────────────────────── */
         .card-block {
-            background: var(--surface);
-            border: 1px solid var(--border);
-            border-radius: 16px;
+            background: var(--card);
+            border: 1px solid var(--line);
+            border-radius: var(--radius);
             padding: 24px 28px;
             margin-bottom: 20px;
+            box-shadow: var(--shadow);
         }
         @media (max-width: 480px) { .card-block { padding: 20px; } }
         .card-block h2 {
-            font-size: .78rem; font-weight: 700; text-transform: uppercase; letter-spacing: .5px;
-            color: var(--muted); margin: 0 0 18px; display: flex; align-items: center; gap: 7px;
+            font-family: var(--font-body);
+            font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .14em;
+            color: var(--muted); margin: 0 0 18px; display: flex; align-items: center; gap: 8px;
         }
+        .card-block h2 i { color: var(--accent); }
 
         /* ─── Timeline de estado (pagado → preparado → entregado) ── */
         .status-steps { display: flex; align-items: flex-start; }
         .status-step { flex: 1; text-align: center; position: relative; }
         .status-step .dot {
-            width: 34px; height: 34px; border-radius: 50%;
-            background: var(--border); color: #fff;
+            width: 36px; height: 36px; border-radius: 50%;
+            background: var(--paper-3); color: var(--muted);
             display: flex; align-items: center; justify-content: center;
             margin: 0 auto 8px; font-size: .95rem; position: relative; z-index: 1;
+            border: 1.5px solid var(--line-strong);
         }
-        .status-step.done .dot { background: var(--success); }
-        .status-step.current .dot { background: var(--primary); box-shadow: 0 0 0 4px var(--primary-light); }
+        .status-step.done .dot { background: var(--sage); border-color: var(--sage); color: #fff; }
+        .status-step.current .dot { background: var(--navy); border-color: var(--navy); color: #fff; box-shadow: 0 0 0 5px rgba(var(--navy-rgb),.12); }
         .status-step .label { font-size: .74rem; font-weight: 600; color: var(--muted); }
-        .status-step.done .label, .status-step.current .label { color: var(--text); }
+        .status-step.done .label, .status-step.current .label { color: var(--ink); }
         .status-step:not(:last-child)::after {
             content: '';
-            position: absolute; top: 17px; left: 50%; width: 100%; height: 2px;
-            background: var(--border); z-index: 0;
+            position: absolute; top: 18px; left: 50%; width: 100%; height: 2px;
+            background: var(--line-strong); z-index: 0;
         }
-        .status-step.done:not(:last-child)::after { background: var(--success); }
+        .status-step.done:not(:last-child)::after { background: var(--sage); }
         .status-rejected {
             display: flex; align-items: flex-start; gap: 10px;
-            background: #fef2f2; border: 1px solid #fecaca; border-radius: 12px;
-            padding: 14px 16px; font-size: .88rem; color: #7f1d1d;
+            background: var(--danger-100); border: 1px solid #f5d6d9; border-radius: var(--radius-sm);
+            padding: 14px 16px; font-size: .88rem; color: #9e121b;
         }
 
         /* ─── Info grid (cliente / entrega) ──────────────── */
-        .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+        .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
         @media (max-width: 480px) { .info-grid { grid-template-columns: 1fr; } }
         .info-item .info-label {
-            font-size: .72rem; color: var(--muted); font-weight: 600;
-            text-transform: uppercase; letter-spacing: .4px; margin-bottom: 3px;
+            font-size: .68rem; color: var(--muted); font-weight: 700;
+            text-transform: uppercase; letter-spacing: .12em; margin-bottom: 3px;
         }
-        .info-item .info-value { font-size: .92rem; font-weight: 600; }
+        .info-item .info-value { font-size: .94rem; font-weight: 600; }
 
         /* ─── Items de compra ─────────────────────────────── */
-        .items-table { width: 100%; border-collapse: collapse; font-size: .88rem; }
+        .items-table { width: 100%; border-collapse: collapse; font-size: .9rem; }
         .items-table th {
-            font-size: .72rem; font-weight: 700; color: var(--muted);
-            text-transform: uppercase; letter-spacing: .4px;
-            padding: 0 0 10px; border-bottom: 1px solid var(--border); text-align: left;
+            font-size: .7rem; font-weight: 700; color: var(--muted);
+            text-transform: uppercase; letter-spacing: .12em;
+            padding: 0 0 10px; border-bottom: 1px solid var(--line-strong); text-align: left;
         }
         .items-table th:last-child, .items-table td:last-child { text-align: right; }
-        .items-table td { padding: 10px 0; border-bottom: 1px solid #f1f5f9; vertical-align: top; }
+        .items-table td { padding: 11px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
         .items-table tr:last-child td { border-bottom: none; }
         .item-name { font-weight: 600; }
         .item-sub { font-size: .78rem; color: var(--muted); }
 
-        .totals-block { border-top: 2px solid var(--border); padding-top: 14px; margin-top: 8px; }
-        .total-row { display: flex; justify-content: space-between; font-size: .88rem; color: var(--muted); margin-bottom: 8px; }
-        .total-row.grand { font-size: 1.1rem; font-weight: 800; color: var(--text); margin-top: 6px; }
-        .total-row.grand .amount { color: var(--primary); }
+        .totals-block { border-top: 2px solid var(--line-strong); padding-top: 14px; margin-top: 8px; }
+        .total-row { display: flex; justify-content: space-between; font-size: .9rem; color: var(--muted); margin-bottom: 8px; }
+        .total-row.grand {
+            font-family: var(--font-display);
+            font-size: 1.2rem; font-weight: 700; color: var(--ink); margin-top: 8px;
+        }
+        .total-row.grand .amount { color: var(--accent); }
 
         /* ─── Aviso de entrega ────────────────────────────── */
         .delivery-box {
             display: flex; align-items: flex-start; gap: 12px;
-            background: var(--primary-light); border-radius: 12px; padding: 16px 18px;
+            background: var(--paper-2); border: 1px solid var(--line);
+            border-radius: var(--radius-sm); padding: 16px 18px;
         }
-        .delivery-box i { color: var(--primary); font-size: 1.25rem; flex-shrink: 0; margin-top: 1px; }
-        .delivery-box p { margin: 0; font-size: .88rem; color: var(--primary-dark); font-weight: 500; }
-        .delivery-box strong { color: var(--text); }
+        .delivery-box i { color: var(--accent); font-size: 1.25rem; flex-shrink: 0; margin-top: 1px; }
+        .delivery-box p { margin: 0; font-size: .88rem; color: var(--ink-soft); }
+        .delivery-box strong { color: var(--ink); }
 
         /* ─── Botones ─────────────────────────────────────── */
         .action-row { display: flex; gap: 12px; flex-wrap: wrap; }
         .btn-main {
             flex: 1; min-width: 180px; padding: 13px;
-            background: var(--primary); color: #fff; border: none; border-radius: 12px;
+            background: var(--navy); color: #fff; border: none; border-radius: 999px;
             font-weight: 700; font-size: .95rem; text-align: center; text-decoration: none;
             display: flex; align-items: center; justify-content: center; gap: 7px;
-            transition: background .2s, transform .15s;
+            transition: background .2s, transform .15s, box-shadow .2s;
         }
-        .btn-main:hover { background: var(--primary-dark); color: #fff; transform: translateY(-1px); }
+        .btn-main:hover { background: var(--navy-700); color: #fff; transform: translateY(-1px); box-shadow: 0 8px 18px rgba(var(--navy-rgb),.26); }
         .btn-secondary {
-            padding: 13px 20px; background: #fff; border: 1.5px solid var(--border); border-radius: 12px;
-            font-weight: 600; font-size: .95rem; color: var(--text); text-decoration: none;
-            display: flex; align-items: center; gap: 7px; transition: border-color .2s, background .2s;
+            padding: 13px 20px; background: var(--card); border: 1.5px solid var(--line-strong); border-radius: 999px;
+            font-weight: 600; font-size: .95rem; color: var(--ink); text-decoration: none;
+            display: flex; align-items: center; gap: 7px; transition: border-color .2s, background .2s, color .2s;
         }
-        .btn-secondary:hover { border-color: var(--primary); background: var(--primary-light); color: var(--text); }
+        .btn-secondary:hover { border-color: var(--navy); background: var(--paper-2); color: var(--navy); }
 
         .loading-placeholder { text-align: center; padding: 80px 20px; color: var(--muted); }
 
@@ -217,12 +223,11 @@ if (!empty($_POST['kr-answer'])) {
 
     <nav class="navbar navbar-expand-lg fixed-top">
         <div class="container justify-content-between">
-            <a class="navbar-brand d-flex align-items-center gap-2" href="../../store.php">
-                <img src="../../assets/logo.svg" alt="PuntoNet" height="30">
-                <span>PuntoNet</span>
+            <a class="navbar-brand d-flex align-items-center gap-2" href="/tienda">
+                <span>NISSI<em>.</em></span>
             </a>
-            <a href="../../store.php" class="btn btn-outline-primary rounded-pill btn-sm">
-                <i class="bi bi-shop me-1"></i> Volver a la tienda
+            <a href="/tienda" class="btn btn-outline-primary rounded-pill btn-sm">
+                <i class="bi bi-shop"></i><span class="nav-label"> Volver a la tienda</span>
             </a>
         </div>
     </nav>
@@ -238,6 +243,7 @@ if (!empty($_POST['kr-answer'])) {
         <div id="ticketContent" style="display:none">
 
             <div class="confirm-header" id="confirmHeader">
+                <div class="n-kicker confirm-kicker">Comprobante de compra</div>
                 <div class="confirm-icon"><i class="bi bi-check-lg"></i></div>
                 <h1 id="confirmTitulo">¡Gracias por tu compra!</h1>
                 <p id="confirmSubtitulo">Tu pedido <span class="pedido-ref" id="ticketNum">#—</span> fue registrado correctamente.</p>
@@ -305,10 +311,10 @@ if (!empty($_POST['kr-answer'])) {
 
             <!-- Acciones -->
             <div class="action-row">
-                <a href="V_mis_pedidos.php" class="btn-main">
+                <a href="/mis-pedidos" class="btn-main">
                     <i class="bi bi-receipt"></i> Ver mis pedidos
                 </a>
-                <a href="../../store.php" class="btn-secondary">
+                <a href="/tienda" class="btn-secondary">
                     <i class="bi bi-shop"></i> Seguir comprando
                 </a>
                 <button class="btn-secondary" onclick="window.print()">
@@ -324,7 +330,7 @@ if (!empty($_POST['kr-answer'])) {
                 <i class="bi bi-exclamation-triangle-fill text-warning" style="font-size:3rem;"></i>
                 <h2 class="mt-3 fw-bold" id="errorTitulo" style="text-transform:none;letter-spacing:normal;font-size:1.3rem;">Pedido no encontrado</h2>
                 <p class="text-muted" id="errorMensaje">No pudimos recuperar los datos de tu pedido.</p>
-                <a href="../../store.php" class="btn btn-primary rounded-pill px-4 mt-2">Volver a la Tienda</a>
+                <a href="/tienda" class="btn btn-primary rounded-pill px-4 mt-2">Volver a la Tienda</a>
             </div>
         </div>
 
@@ -332,8 +338,10 @@ if (!empty($_POST['kr-answer'])) {
 
     <script>
     (async function() {
-        // El pago ya se validó y confirmó en servidor (ver la cabecera PHP de este
-        // archivo). Aquí solo queda pintar el comprobante.
+        // El pago se confirma en servidor vía el webhook (TAYPI) o la IPN (Izipay).
+        // Esta página pinta el comprobante y, si el pedido aún figura "verificando"
+        // (estado 3/4), consulta de nuevo cada pocos segundos hasta que la pasarela
+        // confirme el cobro en background — sin obligar al cliente a recargar.
         const id_pedido = <?php echo (int) $idPedido; ?>;
         const token     = <?php echo json_encode($token); ?>;
         const errorPago = <?php echo json_encode($errorPago); ?>;
@@ -347,19 +355,89 @@ if (!empty($_POST['kr-answer'])) {
             return;
         }
 
-        try {
-            // Traer el comprobante (requiere el token público del pedido).
-            const res  = await fetch(`../../controllers/C_Ecommerce.php?action=get_pedido&id=${id_pedido}&t=${encodeURIComponent(token)}`);
-            const json = await res.json();
+        let pollTimer = null;
+        let pintado   = false;
+        let source    = null;
 
+        // Carga el comprobante una vez. Si sigue "verificando", se queda esperando:
+        // primero via SSE (notificación en tiempo real) y, si SSE no está disponible
+        // o se corta, con polling cada 4 s. Nunca se recarga la página.
+        async function cargarPedido() {
+            // Mientras el pedido esté pendiente, se consulta TAYPI directamente
+            // (verificar_pago): el webhook puede tardar ~50 s y no queremos que el
+            // cliente espere tanto para ver su pago confirmado. El webhook queda como
+            // respaldo/fuente de verdad. Idempotente: si ya está pagado, no hace nada.
+            const pedido = await getPedido();
+            const estadoActual = parseInt(pedido.estado);
+            if (estadoActual === 3 || estadoActual === 4) {
+                await fetch(`../../controllers/C_Taypi.php?action=verificar_pago&id=${id_pedido}&t=${encodeURIComponent(token)}`, { cache: 'no-store' })
+                    .then(r => r.json())
+                    .catch(() => null);
+            }
+            const json = await getPedido();
             if (!json.success || !json.data) {
-                showError();
+                if (!pintado) showError();
+                return;
+            }
+            const estado = parseInt(json.data.estado);
+            render(json.data);
+
+            if (estado === 3 || estado === 4) {
+                if (!source) iniciarSSE();
+            } else {
+                detenerMonitoreo();
+            }
+        }
+
+        async function getPedido() {
+            const res  = await fetch(`../../controllers/C_Ecommerce.php?action=get_pedido&id=${id_pedido}&t=${encodeURIComponent(token)}`, {
+                cache: 'no-store',
+            });
+            return res.json();
+        }
+
+        function iniciarSSE() {
+            if (!('EventSource' in window)) return;
+            try {
+                source = new EventSource(`../../controllers/C_PagoStatus.php?id=${id_pedido}&t=${encodeURIComponent(token)}&_=${Date.now()}`);
+            } catch (e) {
+                iniciarPolling();
                 return;
             }
 
-            render(json.data);
+            source.addEventListener('pago_confirmado', (ev) => {
+                try {
+                    const data = JSON.parse(ev.data);
+                    if (data && data.estado !== undefined) {
+                        render(data);
+                    }
+                } catch (e) { /* payload inválido: el polling lo corregirá */ }
+                detenerMonitoreo();
+            });
+
+            source.onerror = () => {
+                // SSE cortado o agotado el tiempo (timeout): se cae al polling.
+                if (source) { source.close(); source = null; }
+                iniciarPolling();
+            };
+        }
+
+        function iniciarPolling() {
+            if (pollTimer) return;
+            pollTimer = setInterval(async () => {
+                try { await cargarPedido(); } catch (e) { /* reintenta en el siguiente tick */ }
+            }, 4000);
+        }
+
+        function detenerMonitoreo() {
+            if (source) { source.close(); source = null; }
+            if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+        }
+
+        try {
+            await cargarPedido();
         } catch (e) {
-            showError();
+            if (!pintado) showError();
         }
 
         function escapeHtml(str) {
@@ -393,6 +471,7 @@ if (!empty($_POST['kr-answer'])) {
         function render(d) {
             const esColegio = parseInt(d.tipo_entrega) === 2;
             const estado = parseInt(d.estado);
+            pintado = true;
 
             document.getElementById('ticketNum').textContent = '#' + String(d.id_pedido).padStart(6, '0');
 
@@ -400,17 +479,26 @@ if (!empty($_POST['kr-answer'])) {
             // nada que agradecer ni "total pagado" que mostrar como si fuera a entregarse.
             const iconoEl = document.querySelector('.confirm-icon');
             if (estado === 0) {
-                iconoEl.style.background = '#fef2f2';
-                iconoEl.innerHTML = '<i class="bi bi-x-lg" style="color:#dc2626"></i>';
+                iconoEl.style.background = 'var(--danger-100)';
+                iconoEl.innerHTML = '<i class="bi bi-x-lg" style="color:var(--danger)"></i>';
                 document.getElementById('confirmTitulo').textContent = 'Tu pedido no pudo procesarse';
                 document.getElementById('confirmSubtitulo').innerHTML =
                     `El pedido <span class="pedido-ref">#${String(d.id_pedido).padStart(6, '0')}</span> fue rechazado.`;
                 document.getElementById('totalLabel').textContent = 'Monto a devolver';
             } else if (estado === 3 || estado === 4) {
-                iconoEl.style.background = '#fefce8';
-                iconoEl.innerHTML = '<i class="bi bi-hourglass-split" style="color:#a16207"></i>';
+                iconoEl.style.background = 'var(--amber-100)';
+                iconoEl.innerHTML = '<i class="bi bi-hourglass-split" style="color:var(--amber)"></i>';
                 document.getElementById('confirmTitulo').textContent = 'Verificando tu pago';
                 document.getElementById('confirmSubtitulo').textContent = 'Estamos confirmando tu pago con la pasarela.';
+            } else {
+                // Confirmado (1 pagado, 5 preparado, 2 entregado): se restaura el
+                // encabezado de éxito por si antes se pintó el de "verificando".
+                iconoEl.style.background = 'var(--sage-100)';
+                iconoEl.innerHTML = '<i class="bi bi-check-lg" style="color:var(--sage-700)"></i>';
+                document.getElementById('confirmTitulo').textContent = '¡Gracias por tu compra!';
+                document.getElementById('confirmSubtitulo').innerHTML =
+                    `Tu pedido <span class="pedido-ref">#${String(d.id_pedido).padStart(6, '0')}</span> fue registrado correctamente.`;
+                document.getElementById('totalLabel').textContent = 'Total Pagado';
             }
 
             // La caja de entrega no aplica si el pedido no se va a entregar.
@@ -460,11 +548,15 @@ if (!empty($_POST['kr-answer'])) {
                     ${d.observaciones ? `<br><span class="text-muted">${escapeHtml(d.observaciones)}</span>` : ''}</p>
                 `;
             } else {
+                const recoge = (d.quien_recoge === 'otra' && (d.recoge_nombre || d.recoge_dni))
+                    ? `Lo recogerá <strong>${escapeHtml(d.recoge_nombre || '—')}</strong>${d.recoge_dni ? ` (DNI ${escapeHtml(d.recoge_dni)})` : ''}.`
+                    : (d.recoge_nombre ? `Lo recogerá <strong>${escapeHtml(d.recoge_nombre)}</strong>${d.recoge_dni ? ` (DNI ${escapeHtml(d.recoge_dni)})` : ''}.` : null);
                 deliveryBox.innerHTML = `
                     <i class="bi bi-shop"></i>
                     <p><strong>Recojo en tienda</strong><br>
-                    Acércate a las instalaciones de <strong>PuntoNet</strong> con tu número de pedido una vez que
+                    Acércate a las instalaciones de <strong>NISSI</strong> con tu número de pedido una vez que
                     te avisemos que está listo.
+                    ${recoge ? `<br>${recoge}` : ''}
                     ${d.observaciones ? `<br><span class="text-muted">${escapeHtml(d.observaciones)}</span>` : ''}</p>
                 `;
             }
@@ -491,6 +583,7 @@ if (!empty($_POST['kr-answer'])) {
             document.getElementById('ticketContent').style.display = 'block';
 
             // Clear cart from session after successful display
+            sessionStorage.removeItem('nissi_cart');
             sessionStorage.removeItem('puntonet_cart');
         }
 

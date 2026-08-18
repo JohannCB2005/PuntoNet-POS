@@ -33,7 +33,7 @@ $clientesRaw = $modelCliente->listarClientes();
     }
 
     /* Botones acción estilo Historial */
-    .hover-text-primary:hover { color: #0284c7 !important; }
+    .hover-text-primary:hover { color: #23284E !important; }
     .hover-text-danger:hover  { color: #ef4444 !important; }
 </style>
 
@@ -177,7 +177,7 @@ $clientesRaw = $modelCliente->listarClientes();
                                         <span class="fw-bold fs-4 text-primary" id="cot_lbl_total">S/ 0.00</span>
                                     </div>
                                     
-                                    <button class="btn btn-primary w-100 py-3 fw-bold rounded-3 shadow-sm d-flex justify-content-center align-items-center gap-2" id="btnGuardarCotizacion">
+                                    <button class="gp-btn-primary w-100 border-0 py-3 fw-bold rounded-3 shadow-sm d-flex justify-content-center align-items-center gap-2" id="btnGuardarCotizacion">
                                         <i class="bi bi-save"></i> Generar Cotización
                                     </button>
                                 </div>
@@ -218,7 +218,7 @@ $clientesRaw = $modelCliente->listarClientes();
                         <option value="3">💳 Tarjeta POS</option>
                     </select>
                 </div>
-                <button class="btn btn-primary w-100 py-2 fw-bold" id="btnConfirmarConversion">Procesar Venta</button>
+                <button class="gp-btn-primary w-100 border-0 py-2 fw-bold" id="btnConfirmarConversion">Procesar Venta</button>
             </div>
         </div>
     </div>
@@ -238,13 +238,13 @@ $clientesRaw = $modelCliente->listarClientes();
 
             <!-- Selector de formato -->
             <div class="d-flex justify-content-center gap-2 py-2 bg-light border-bottom" style="flex-shrink: 0;">
-                <button class="btn btn-primary btn-sm px-3 cot-format-btn active" data-format="80mm" style="background-color: #0284c7; border: none;">
+                <button class="btn btn-primary btn-sm px-3 cot-format-btn active" data-format="80mm" style="background-color: #23284E; border: none;">
                     <i class="bi bi-receipt"></i> Ticket 80mm
                 </button>
-                <button class="btn btn-outline-primary btn-sm px-3 cot-format-btn" data-format="58mm" style="border-color: #0284c7; color: #0284c7;">
+                <button class="btn btn-outline-primary btn-sm px-3 cot-format-btn" data-format="58mm" style="border-color: #23284E; color: #23284E;">
                     <i class="bi bi-receipt"></i> Ticket 58mm
                 </button>
-                <button class="btn btn-outline-primary btn-sm px-3 cot-format-btn" data-format="a4" style="border-color: #0284c7; color: #0284c7;">
+                <button class="btn btn-outline-primary btn-sm px-3 cot-format-btn" data-format="a4" style="border-color: #23284E; color: #23284E;">
                     <i class="bi bi-file-earmark-text"></i> A4
                 </button>
             </div>
@@ -261,8 +261,8 @@ $clientesRaw = $modelCliente->listarClientes();
             </div>
 
             <!-- Footer -->
-            <div class="modal-footer border-top bg-white py-2 px-4 d-flex justify-content-between" style="flex-shrink: 0; border-radius: 0 0 12px 12px;">
-                <button class="btn btn-primary d-flex align-items-center gap-2 px-4" id="cotPrintBtn" style="background-color: #0284c7; border: none;">
+            <div class="modal-footer border-top bg-white py-2 px-4 d-flex justify-content-between align-items-center" style="flex-shrink: 0; border-radius: 0 0 12px 12px;">
+                <button class="btn btn-primary d-flex align-items-center gap-2 px-4" id="cotPrintBtn" style="background-color: #23284E; border: none;">
                     <i class="bi bi-printer-fill"></i> Imprimir
                 </button>
                 <button class="btn btn-outline-secondary px-4" data-bs-dismiss="modal">Cerrar</button>
@@ -445,11 +445,11 @@ document.addEventListener('DOMContentLoaded', () => {
             b.classList.remove('btn-primary', 'active');
             b.classList.add('btn-outline-primary');
             b.style.backgroundColor = 'transparent';
-            b.style.color = '#0284c7';
+            b.style.color = '#23284E';
         });
         cotFormatBtns[0].classList.add('btn-primary', 'active');
         cotFormatBtns[0].classList.remove('btn-outline-primary');
-        cotFormatBtns[0].style.backgroundColor = '#0284c7';
+        cotFormatBtns[0].style.backgroundColor = '#23284E';
         cotFormatBtns[0].style.color = '#fff';
 
         cotPrintModal.show();
@@ -462,11 +462,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 b.classList.remove('btn-primary', 'active');
                 b.classList.add('btn-outline-primary');
                 b.style.backgroundColor = 'transparent';
-                b.style.color = '#0284c7';
+                b.style.color = '#23284E';
             });
             btn.classList.add('btn-primary', 'active');
             btn.classList.remove('btn-outline-primary');
-            btn.style.backgroundColor = '#0284c7';
+            btn.style.backgroundColor = '#23284E';
             btn.style.color = '#fff';
             cotCurrentFormat = btn.dataset.format;
             loadCotIframe();

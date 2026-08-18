@@ -1,5 +1,6 @@
 <?php
 // Iniciar sesión PHP para el control de identidad y roles de usuario
+require_once dirname(__DIR__) . '/config/sesion_segura.php';
 session_start();
 
 // Configurar cabecera para responder en formato JSON
@@ -11,11 +12,15 @@ if (!isset($_SESSION['id_usuario'])) {
     exit;
 }
 
+require_once dirname(__DIR__) . '/config/csrf.php';
+csrfRequerir();
+
 // Cargar entidades y modelos requeridos para procesar ventas
 require_once dirname(__DIR__) . '/entities/Venta.php';
 require_once dirname(__DIR__) . '/entities/DetalleVenta.php';
 require_once dirname(__DIR__) . '/models/M_Venta.php';
 require_once dirname(__DIR__) . '/models/M_Caja.php';
+require_once dirname(__DIR__) . '/models/M_Serie.php';
 require_once dirname(__DIR__) . '/config/sunat.php';
 
 // Obtener la acción a realizar
@@ -81,6 +86,44 @@ switch ($action) {
             }
         }
 
+        // Serie del comprobante: opcional en el POS ("Automática" = el sistema
+        // reserva la siguiente activa). Si viene, debe existir, estar activa y
+        // pertenecer al tipo de comprobante elegido.
+        $serieElegida = trim((string) ($input['serie'] ?? ''));
+        if ($serieElegida !== '') {
+            $serieActiva = null;
+            foreach (M_Serie::singleton()->listar() as $s) {
+                if ($s['serie'] === strtoupper($serieElegida) && (int) $s['estado'] === 1) {
+                    $serieActiva = $s;
+                    break;
+                }
+            }
+            if (!$serieActiva || (int) $serieActiva['tipo_comprobante'] !== $tipo_comprobante) {
+                echo json_encode(["success" => false, "mensaje" => "La serie seleccionada no existe, está inactiva o no corresponde al tipo de comprobante."]);
+                exit;
+            }
+        }
+
+        // Fechas del comprobante: emisión y vencimiento, con hoy como tope.
+        // Formato Y-m-d; si faltan o son inválidas se descartan (se usará la
+        // fecha/hora actual del servidor al registrar).
+        $fechaHoy = date('Y-m-d');
+        $fechaEmisionStr = '';
+        $fechaVencimientoStr = '';
+        foreach ([
+            'fecha_emision'      => &$fechaEmisionStr,
+            'fecha_vencimiento'  => &$fechaVencimientoStr,
+        ] as $campo => &$destino) {
+            $valor = trim((string) ($input[$campo] ?? ''));
+            if ($valor !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $valor)) {
+                $ts = strtotime($valor);
+                if ($ts && $ts <= strtotime($fechaHoy)) {
+                    $destino = $valor;
+                }
+            }
+        }
+        unset($destino);
+
         // CONTROL DE CAJA: Validar obligatoriamente que el usuario tenga una sesión de caja abierta
         $modelCaja = M_Caja::singleton();
         $cajaAbierta = $modelCaja->obtenerCajaAbierta($id_usuario);
@@ -134,6 +177,11 @@ switch ($action) {
             exit;
         }
         $venta->total = $totalCalculado;
+
+        // Serie y fechas elegidas en el POS (vaciías = comportamiento por defecto).
+        $venta->serie = $serieElegida !== '' ? strtoupper($serieElegida) : '';
+        $venta->fecha = $fechaEmisionStr !== '' ? $fechaEmisionStr . ' ' . date('H:i:s') : '';
+        $venta->fecha_vencimiento = $fechaVencimientoStr !== '' ? $fechaVencimientoStr : '';
 
         // Intentar registrar la venta de manera transaccional en la DB (afectará stock e inventario)
         $resultado = $model->registrar($venta);

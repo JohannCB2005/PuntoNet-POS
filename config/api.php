@@ -4,6 +4,8 @@
 $_envFile = dirname(__DIR__) . '/.env';
 $_env     = file_exists($_envFile) ? parse_ini_file($_envFile) : [];
 
+require_once dirname(__DIR__) . '/config/settings.php';
+
 return [
-    'apiperu_token' => $_env['APIPERU_TOKEN'] ?? ''
+    'apiperu_token' => configuracion('APIPERU_TOKEN', $_env['APIPERU_TOKEN'] ?? '')
 ];

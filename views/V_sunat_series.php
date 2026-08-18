@@ -9,7 +9,7 @@ if (!isset($_SESSION['id_usuario']) || $_SESSION['rol'] !== 'Administrador') {
 ?>
 
 <style>
-    .hover-text-primary:hover { color: #0284c7 !important; }
+    .hover-text-primary:hover { color: #23284E !important; }
 </style>
 
 <div class="container-fluid px-0">
@@ -113,7 +113,7 @@ async function crearSerie() {
         `,
         focusConfirm: false,
         showCancelButton: true,
-        confirmButtonColor: '#0284c7',
+        confirmButtonColor: '#23284E',
         confirmButtonText: 'Crear serie',
         cancelButtonText: 'Cancelar',
         preConfirm: () => {
@@ -137,7 +137,7 @@ async function crearSerie() {
             Swal.fire({ icon: 'success', title: 'Serie creada', showConfirmButton: false, timer: 1200 });
             cargarSeries();
         } else {
-            Swal.fire({ icon: 'error', title: 'No se pudo crear', text: json.mensaje, confirmButtonColor: '#0284c7' });
+            Swal.fire({ icon: 'error', title: 'No se pudo crear', text: json.mensaje, confirmButtonColor: '#23284E' });
         }
     } catch (e) {
         Swal.fire({ icon: 'error', title: 'Error de red', text: 'No se pudo contactar al servidor.' });
@@ -155,7 +155,7 @@ async function cambiarEstadoSerie(id_serie, activa) {
         if (json.success) {
             cargarSeries();
         } else {
-            Swal.fire({ icon: 'error', title: 'No se pudo actualizar', text: json.mensaje || 'Intenta de nuevo.', confirmButtonColor: '#0284c7' });
+            Swal.fire({ icon: 'error', title: 'No se pudo actualizar', text: json.mensaje || 'Intenta de nuevo.', confirmButtonColor: '#23284E' });
         }
     } catch (e) {
         Swal.fire({ icon: 'error', title: 'Error de red', text: 'No se pudo contactar al servidor.' });
@@ -175,10 +175,10 @@ async function procesarPendientes() {
                 icon: 'success',
                 title: 'Barrido completado',
                 text: `${d.emitidos} emitidos, ${d.bajas_consultadas} bajas consultadas, ${d.notas_credito} notas de crédito reintentadas.`,
-                confirmButtonColor: '#0284c7'
+                confirmButtonColor: '#23284E'
             });
         } else {
-            Swal.fire({ icon: 'error', title: 'No se pudo procesar', text: json.mensaje, confirmButtonColor: '#0284c7' });
+            Swal.fire({ icon: 'error', title: 'No se pudo procesar', text: json.mensaje, confirmButtonColor: '#23284E' });
         }
     } catch (e) {
         Swal.fire({ icon: 'error', title: 'Error de red', text: 'No se pudo contactar al servidor.' });

@@ -138,11 +138,11 @@ $clientes = $modelCliente->listarClientes();
 
 <!-- Modal: Nuevo Cliente -->
 <div class="modal fade" id="nuevoClienteModal" tabindex="-1" aria-labelledby="nuevoClienteModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content border-0 shadow-lg" style="border-radius: 12px;">
-            <div class="modal-header bg-light border-bottom py-3" style="border-radius: 12px 12px 0 0;">
-                <h5 class="modal-title fw-bold text-dark" id="nuevoClienteModalLabel" style="font-size: 16px;">Nuevo Cliente</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" style="box-shadow: none;"></button>
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 15px;">
+            <div class="modal-header gp-bg-primary text-white border-0 py-3" style="border-radius: 15px 15px 0 0;">
+                <h6 class="modal-title fw-bold" id="nuevoClienteModalLabel">Nuevo Cliente</h6>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close" style="box-shadow: none;"></button>
             </div>
             <div class="modal-body p-4" style="font-size: 13px;">
                 <!-- Campo oculto requerido para compatibilidad de registro -->
@@ -160,7 +160,7 @@ $clientes = $modelCliente->listarClientes();
                         <label class="form-label text-muted fw-semibold mb-1">Número <span class="text-danger">*</span></label>
                         <div class="input-group">
                             <input type="text" class="form-control" id="new_num_doc" placeholder="Ej. 78945612" style="box-shadow: none; height: 38px; font-size: 13.5px;" autocomplete="off">
-                            <button type="button" class="btn btn-primary fw-semibold d-flex align-items-center gap-1 px-3" id="new_searchApiBtn" style="height: 38px; border: none; background-color: #0284c7;">
+                            <button type="button" class="btn gp-bg-primary text-white fw-semibold d-flex align-items-center gap-1 px-3" id="new_searchApiBtn" style="height: 38px; border: none;">
                                 <i class="bi bi-search"></i> <span id="new_searchApiBtnText">RENIEC</span>
                             </button>
                         </div>
@@ -188,9 +188,9 @@ $clientes = $modelCliente->listarClientes();
                     </div>
                 </div>
             </div>
-            <div class="modal-footer border-top bg-light py-3" style="border-radius: 0 0 12px 12px;">
+            <div class="modal-footer border-0 p-4 pt-0 d-flex justify-content-end gap-2" style="border-radius: 0 0 15px 15px;">
                 <button type="button" class="btn btn-light fw-semibold px-4" data-bs-dismiss="modal" style="font-size: 13.5px; height: 38px;">Cancelar</button>
-                <button type="button" class="btn btn-primary fw-semibold px-4" id="new_saveClientBtn" style="font-size: 13.5px; height: 38px; background-color: #0284c7; border: none;">Guardar</button>
+                <button type="button" class="gp-btn-primary border-0 fw-semibold px-4" id="new_saveClientBtn" style="font-size: 13.5px; height: 38px;">Guardar</button>
             </div>
         </div>
     </div>
@@ -321,15 +321,15 @@ $clientes = $modelCliente->listarClientes();
             const docType = new_tipoDoc.value;
 
             if (!docNum) {
-                Swal.fire({ icon:'warning', title:'Número requerido', text:'Ingrese el número de documento.', confirmButtonColor:'#0284c7' });
+                Swal.fire({ icon:'warning', title:'Número requerido', text:'Ingrese el número de documento.', confirmButtonColor:'#23284E' });
                 return;
             }
             if (docType === '1' && docNum.length !== 8) {
-                Swal.fire({ icon:'warning', title:'DNI inválido', text:'El DNI debe tener exactamente 8 dígitos.', confirmButtonColor:'#0284c7' });
+                Swal.fire({ icon:'warning', title:'DNI inválido', text:'El DNI debe tener exactamente 8 dígitos.', confirmButtonColor:'#23284E' });
                 return;
             }
             if (docType === '2' && docNum.length !== 11) {
-                Swal.fire({ icon:'warning', title:'RUC inválido', text:'El RUC debe tener exactamente 11 dígitos.', confirmButtonColor:'#0284c7' });
+                Swal.fire({ icon:'warning', title:'RUC inválido', text:'El RUC debe tener exactamente 11 dígitos.', confirmButtonColor:'#23284E' });
                 return;
             }
 
@@ -352,10 +352,10 @@ $clientes = $modelCliente->listarClientes();
                     new_tipoCli.value   = data.data.tipo_cliente || '1';
                     Swal.fire({ icon:'success', title:'¡Datos obtenidos!', text:'Se cargaron los datos automáticamente.', showConfirmButton:false, timer:1400 });
                 } else {
-                    Swal.fire({ icon:'error', title:'No encontrado', text: data.mensaje, confirmButtonColor:'#0284c7' });
+                    Swal.fire({ icon:'error', title:'No encontrado', text: data.mensaje, confirmButtonColor:'#23284E' });
                 }
             } catch (err) {
-                Swal.fire({ icon:'error', title:'Error de red', text:'No se pudo conectar al servidor.', confirmButtonColor:'#0284c7' });
+                Swal.fire({ icon:'error', title:'Error de red', text:'No se pudo conectar al servidor.', confirmButtonColor:'#23284E' });
             } finally {
                 new_searchBtn.disabled = false;
                 new_searchTxt.innerText = orig;
@@ -378,7 +378,7 @@ $clientes = $modelCliente->listarClientes();
             const direccion            = new_direccion.value.trim();
             
             if (!numero_documento || !nombres_razon_social) {
-                Swal.fire({ icon:'warning', title:'Campos obligatorios', text:'El número de documento y el nombre son requeridos.', confirmButtonColor:'#0284c7' });
+                Swal.fire({ icon:'warning', title:'Campos obligatorios', text:'El número de documento y el nombre son requeridos.', confirmButtonColor:'#23284E' });
                 return;
             }
 
@@ -398,7 +398,7 @@ $clientes = $modelCliente->listarClientes();
                     Swal.fire({ icon:'success', title:'¡Creado!', text: data.mensaje, showConfirmButton:false, timer:1500 })
                         .then(() => window.location.reload());
                 } else {
-                    Swal.fire({ icon:'error', title:'Error', text: data.mensaje, confirmButtonColor:'#0284c7' });
+                    Swal.fire({ icon:'error', title:'Error', text: data.mensaje, confirmButtonColor:'#23284E' });
                 }
             } catch (error) {
                 Swal.fire({ icon:'error', title:'Error', text:'No se pudo conectar al servidor.' });
@@ -484,7 +484,7 @@ $clientes = $modelCliente->listarClientes();
                             icon: 'error',
                             title: 'Error',
                             text: data.mensaje,
-                            confirmButtonColor: '#0284c7'
+                            confirmButtonColor: '#23284E'
                         });
                     }
                 } catch (error) {
@@ -504,7 +504,7 @@ $clientes = $modelCliente->listarClientes();
                     text: `Deseas eliminar al cliente "${nombre}"`,
                     icon: 'warning',
                     showCancelButton: true,
-                    confirmButtonColor: '#0284c7',
+                    confirmButtonColor: '#23284E',
                     cancelButtonColor: '#6b7280',
                     confirmButtonText: 'Sí, eliminar',
                     cancelButtonText: 'Cancelar'
@@ -531,7 +531,7 @@ $clientes = $modelCliente->listarClientes();
                                     icon: 'error',
                                     title: 'Error',
                                     text: data.mensaje,
-                                    confirmButtonColor: '#0284c7'
+                                    confirmButtonColor: '#23284E'
                                 });
                             }
                         } catch (error) {

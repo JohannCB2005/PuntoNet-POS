@@ -1,7 +1,8 @@
 <?php
+require_once dirname(__DIR__, 2) . '/config/sesion_segura.php';
 session_start();
 if (!isset($_SESSION['id_cliente'])) {
-    header('Location: V_cuenta.php?volver=mis_pedidos');
+    header('Location: /cuenta?volver=mis_pedidos');
     exit;
 }
 require_once dirname(dirname(__DIR__)) . '/config/soporte.php';
@@ -12,62 +13,63 @@ $clienteNombre = $_SESSION['cliente_nombre'] ?? '';
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mis Pedidos — PuntoNet</title>
-    <link rel="icon" type="image/svg+xml" href="../../assets/logo.svg">
+    <title>Mis Pedidos — NISSI</title>
+    <link rel="icon" type="image/svg+xml" href="../../assets/favicon-nissi.svg?v=3">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700;9..144,800&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <link rel="stylesheet" href="../../assets/css/tienda.css?v=4">
+    <?php require_once dirname(__DIR__, 2) . '/config/marca.php'; echo marcaCss(); ?>
 
     <style>
-        :root {
-            --primary: #1d4ed8;
-            --bg-main: #f0f4ff;
-            --text-dark: #1f2937;
-            --text-muted: #6b7280;
-        }
-        body { font-family: 'Inter', sans-serif; background: var(--bg-main); color: var(--text-dark); }
-        .navbar { background: rgba(255,255,255,.95); box-shadow: 0 1px 3px rgba(0,0,0,.05); }
-        .navbar-brand { font-weight: 800; color: var(--primary) !important; }
+        body { background: var(--paper); color: var(--ink); }
+        .navbar { background: rgba(255,255,255,.9); backdrop-filter: blur(14px); }
+        .navbar-brand { font-family: var(--font-display); font-weight: 800; color: var(--navy) !important; }
+        .navbar-brand em { font-style: normal; color: var(--accent); }
+        @media (max-width: 576px) { .nav-label { display: none; } }
+        .page-title { font-family: var(--font-display); font-weight: 700; color: var(--navy); }
         .pedido-card {
-            background: #fff;
-            border-radius: 16px;
-            border: 1px solid #e5e7eb;
-            padding: 20px 24px;
+            background: var(--card);
+            border: 1px solid var(--line);
+            border-radius: var(--radius);
+            padding: 22px 26px;
             margin-bottom: 16px;
+            box-shadow: var(--shadow);
+            transition: transform .25s ease, box-shadow .25s ease, border-color .25s ease;
         }
-        .pedido-numero { font-weight: 800; font-size: 1.05rem; }
-        .pedido-fecha { color: var(--text-muted); font-size: 0.85rem; }
-        .pedido-total { font-weight: 800; color: var(--primary); font-size: 1.1rem; }
-        .entrega-info { font-size: 0.85rem; color: var(--text-muted); margin-top: 6px; }
-        .item-row { display:flex; justify-content:space-between; font-size:0.88rem; padding:4px 0; border-bottom:1px dashed #e5e7eb; }
+        .pedido-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-lg); border-color: var(--line-strong); }
+        .pedido-numero { font-family: var(--font-display); font-weight: 700; font-size: 1.15rem; color: var(--navy); }
+        .pedido-fecha { color: var(--muted); font-size: .85rem; }
+        .pedido-total { font-family: var(--font-display); font-weight: 700; color: var(--accent); font-size: 1.2rem; }
+        .entrega-info { font-size: .85rem; color: var(--muted); margin-top: 8px; }
+        .item-row { display:flex; justify-content:space-between; font-size:.88rem; padding:6px 0; border-bottom:1px dashed var(--line); }
         .item-row:last-child { border-bottom:none; }
-        .empty-state { text-align:center; padding:60px 20px; color: var(--text-muted); }
+        .empty-state { text-align:center; padding:60px 20px; color: var(--muted); }
     </style>
 </head>
 <body>
 
     <nav class="navbar navbar-expand-lg fixed-top">
         <div class="container justify-content-between">
-            <a class="navbar-brand d-flex align-items-center gap-2" href="../../store.php">
-                <img src="../../assets/logo.svg" alt="PuntoNet" height="30">
-                <span>PuntoNet</span>
+            <a class="navbar-brand d-flex align-items-center gap-2" href="/tienda">
+                <span>NISSI<em>.</em></span>
             </a>
             <div class="d-flex gap-2">
-                <a href="V_mi_cuenta.php" class="btn btn-outline-primary rounded-pill btn-sm">
-                    <i class="bi bi-person-gear me-1"></i> Mi Cuenta
+                <a href="/mi-cuenta" class="btn btn-outline-primary rounded-pill btn-sm">
+                    <i class="bi bi-person-gear"></i><span class="nav-label"> Mi Cuenta</span>
                 </a>
-                <a href="../../store.php" class="btn btn-outline-primary rounded-pill btn-sm">
-                    <i class="bi bi-shop me-1"></i> Volver a la tienda
+                <a href="/tienda" class="btn btn-outline-primary rounded-pill btn-sm">
+                    <i class="bi bi-shop"></i><span class="nav-label"> Volver a la tienda</span>
                 </a>
             </div>
         </div>
     </nav>
 
     <div class="container" style="padding-top:90px; padding-bottom:60px; max-width:760px;">
-        <h3 class="fw-bold mb-1">Mis Pedidos</h3>
+        <h3 class="page-title mb-1">Mis Pedidos</h3>
         <p class="text-muted mb-2">Hola<?php echo $clienteNombre ? ', ' . htmlspecialchars($clienteNombre) : ''; ?>. Aquí puedes ver el estado de tus compras.</p>
         <p class="text-muted mb-4" style="font-size: 0.85rem;">
             <i class="bi bi-info-circle"></i>
@@ -111,7 +113,7 @@ $clienteNombre = $_SESSION['cliente_nombre'] ?? '';
                     <div class="empty-state">
                         <i class="bi bi-bag-x fs-1 mb-3 d-block"></i>
                         <p class="fw-semibold">Todavía no tienes pedidos.</p>
-                        <a href="../../store.php" class="btn btn-primary rounded-pill px-4">Ir a la tienda</a>
+                        <a href="/tienda" class="btn btn-primary rounded-pill px-4">Ir a la tienda</a>
                     </div>
                 `;
                 return;

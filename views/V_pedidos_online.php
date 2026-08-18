@@ -53,11 +53,11 @@ if (!isset($_SESSION['id_usuario'])) {
 
 <!-- Modal Detalles de Pedido -->
 <div class="modal fade" id="modalDetallePedido" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content rounded-4 border-0 shadow">
-            <div class="modal-header border-bottom px-4 py-3">
-                <h5 class="modal-title fw-bold text-dark">Detalle del Pedido #<span id="detIdPedido"></span></h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 15px;">
+            <div class="modal-header gp-bg-primary text-white border-0 py-3" style="border-radius: 15px 15px 0 0;">
+                <h6 class="modal-title fw-bold">Detalle del Pedido #<span id="detIdPedido"></span></h6>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" style="box-shadow: none;"></button>
             </div>
             <div class="modal-body px-4 py-3">
                 <div class="table-responsive">
@@ -73,8 +73,8 @@ if (!isset($_SESSION['id_usuario'])) {
                     </table>
                 </div>
             </div>
-            <div class="modal-footer border-top px-4 py-3 bg-light">
-                <button type="button" class="btn btn-outline-secondary fw-semibold" data-bs-dismiss="modal">Cerrar</button>
+            <div class="modal-footer border-0 p-4 pt-0">
+                <button type="button" class="btn btn-light fw-semibold" data-bs-dismiss="modal" style="border-radius: 8px;">Cerrar</button>
             </div>
         </div>
     </div>
@@ -178,6 +178,15 @@ document.addEventListener('DOMContentLoaded', () => {
                                 <div class="small text-muted mt-1">
                                     ${escapeHtml(p.estudiante_nombre)}<br>
                                     ${escapeHtml(p.nivel_nombre || '')} ${escapeHtml(p.grado_nombre || '')}
+                                </div>
+                            `;
+                        } else if (p.recoge_dni || p.recoge_nombre) {
+                            entregaHtml += `
+                                <div class="small text-muted mt-1">
+                                    <i class="bi bi-person-check"></i> Recoge:
+                                    ${escapeHtml(p.recoge_nombre || '—')}
+                                    <span class="text-nowrap">· DNI ${escapeHtml(p.recoge_dni || '—')}</span>
+                                    ${p.quien_recoge === 'yo' ? '<span class="badge ms-1" style="background:#1f86c6;color:#fff;">el comprador</span>' : '<span class="badge ms-1" style="background:#3aa0dc;color:#fff;">otra persona</span>'}
                                 </div>
                             `;
                         }

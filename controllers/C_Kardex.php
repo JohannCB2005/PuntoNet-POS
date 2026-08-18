@@ -1,5 +1,6 @@
 <?php
 // Iniciar la sesión PHP para verificar la identidad del usuario
+require_once dirname(__DIR__) . '/config/sesion_segura.php';
 session_start();
 
 // Definir cabecera de respuesta JSON
@@ -10,6 +11,9 @@ if (!isset($_SESSION['id_usuario']) || $_SESSION['rol'] !== 'Administrador') {
     echo json_encode(['success' => false, 'mensaje' => 'No autorizado.']);
     exit;
 }
+
+require_once dirname(__DIR__) . '/config/csrf.php';
+csrfRequerir();
 
 // Cargar el modelo del Kardex
 require_once dirname(__DIR__) . '/models/M_Kardex.php';
