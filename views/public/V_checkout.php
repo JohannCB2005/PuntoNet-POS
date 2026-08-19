@@ -1219,7 +1219,6 @@ $grados = M_Producto::singleton()->obtenerGrados();
         } else {
             if (contenedor) { contenedor.classList.add('d-none'); contenedor.innerHTML = ''; }
             document.getElementById('btn-pay').style.display = '';
-            document.getElementById('reservaNota').style.display = 'none';
         }
         // Con pedido ya reservado, el método elegido se persiste en servidor sin
         // tocar la ventana de reserva (el contador no se reinicia).

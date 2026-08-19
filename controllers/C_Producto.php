@@ -107,6 +107,9 @@ switch ($action) {
         $id_grado           = isset($input['id_grado']) && $input['id_grado'] !== '' ? intval($input['id_grado']) : null;
         $id_area            = isset($input['id_area']) && $input['id_area'] !== '' ? intval($input['id_area']) : null;
         $id_bimestre        = isset($input['id_bimestre']) && $input['id_bimestre'] !== '' ? intval($input['id_bimestre']) : null;
+        $categorias         = isset($input['categorias']) && is_array($input['categorias']) ? array_map('intval', $input['categorias']) : [];
+        $tipo_variante      = isset($input['tipo_variante']) ? trim($input['tipo_variante']) : '';
+        $nombre_variante    = isset($input['nombre_variante']) ? trim($input['nombre_variante']) : '';
 
         // Validaciones básicas de integridad de datos
         if ($id_categoria <= 0 || $id_unidad <= 0 || empty($nombre) || $precio_unitario < 0 || $stock_piezas < 0) {
@@ -118,8 +121,8 @@ switch ($action) {
         $imagen_db = guardarImagenProducto();
 
         // Crear entidad producto y guardar en DB
-        $producto = new Producto($id_categoria, $id_unidad, $nombre, $precio_unitario, $costo_produccion, $stock_piezas, null, $imagen_db, $id_talla, $id_tipo_corbata, $id_nivel, $id_grado, $id_area, $id_bimestre, 0, null, $comision, $stock_ilimitado);
-        if ($model->registrar($producto)) {
+        $producto = new Producto($id_categoria, $id_unidad, $nombre, $precio_unitario, $costo_produccion, $stock_piezas, null, $imagen_db, $id_talla, $id_tipo_corbata, $id_nivel, $id_grado, $id_area, $id_bimestre, 0, null, $comision, $stock_ilimitado, $tipo_variante ?: null, $nombre_variante ?: null);
+        if ($model->registrar($producto, $categorias)) {
             echo json_encode(["success" => true, "mensaje" => "Producto registrado con éxito."]);
         } else {
             echo json_encode(["success" => false, "mensaje" => "Error al registrar el producto."]);
@@ -137,6 +140,11 @@ switch ($action) {
         $id_unidad    = isset($input['id_unidad'])    ? intval($input['id_unidad'])    : 0;
         $nombre       = isset($input['nombre'])       ? trim($input['nombre'])         : '';
         $variantes    = isset($input['variantes'])    ? $input['variantes']            : [];
+        $tipo_variante = isset($input['tipo_variante']) ? trim($input['tipo_variante']) : 'talla';
+        $categorias   = isset($input['categorias']) && is_array($input['categorias']) ? array_map('intval', $input['categorias']) : [];
+        $id_nivel     = isset($input['id_nivel']) && $input['id_nivel'] !== '' ? intval($input['id_nivel']) : null;
+        $id_grado     = isset($input['id_grado']) && $input['id_grado'] !== '' ? intval($input['id_grado']) : null;
+        $id_area      = isset($input['id_area']) && $input['id_area'] !== '' ? intval($input['id_area']) : null;
 
         if ($id_categoria <= 0 || $id_unidad <= 0 || empty($nombre) || empty($variantes)) {
             echo json_encode(["success" => false, "mensaje" => "Datos incompletos para crear producto con variantes."]);
@@ -151,9 +159,12 @@ switch ($action) {
             'id_unidad'    => $id_unidad,
             'nombre'       => $nombre,
             'imagen'       => $imagen_db,
+            'id_nivel'     => $id_nivel,
+            'id_grado'     => $id_grado,
+            'id_area'      => $id_area,
         ];
 
-        $resultado = $model->registrarConVariantes($datosPadre, $variantes);
+        $resultado = $model->registrarConVariantes($datosPadre, $variantes, $tipo_variante, $categorias);
         echo json_encode([
             'success' => $resultado['ok'],
             'mensaje' => $resultado['mensaje'],
@@ -173,6 +184,11 @@ switch ($action) {
         $id_unidad    = isset($input['id_unidad'])    ? intval($input['id_unidad'])    : 0;
         $nombre       = isset($input['nombre'])       ? trim($input['nombre'])         : '';
         $variantes    = isset($input['variantes'])    ? $input['variantes']            : [];
+        $tipo_variante = isset($input['tipo_variante']) ? trim($input['tipo_variante']) : 'talla';
+        $categorias   = isset($input['categorias']) && is_array($input['categorias']) ? array_map('intval', $input['categorias']) : [];
+        $id_nivel     = isset($input['id_nivel']) && $input['id_nivel'] !== '' ? intval($input['id_nivel']) : null;
+        $id_grado     = isset($input['id_grado']) && $input['id_grado'] !== '' ? intval($input['id_grado']) : null;
+        $id_area      = isset($input['id_area']) && $input['id_area'] !== '' ? intval($input['id_area']) : null;
 
         if ($id_padre <= 0 || $id_categoria <= 0 || $id_unidad <= 0 || empty($nombre) || empty($variantes)) {
             echo json_encode(["success" => false, "mensaje" => "Datos incompletos para actualizar producto con variantes."]);
@@ -187,9 +203,12 @@ switch ($action) {
             'id_unidad'    => $id_unidad,
             'nombre'       => $nombre,
             'imagen'       => $imagen_db,
+            'id_nivel'     => $id_nivel,
+            'id_grado'     => $id_grado,
+            'id_area'      => $id_area,
         ];
 
-        $resultado = $model->actualizarConVariantes($id_padre, $datosPadre, $variantes);
+        $resultado = $model->actualizarConVariantes($id_padre, $datosPadre, $variantes, $tipo_variante, $categorias);
         echo json_encode([
             'success' => $resultado['ok'],
             'mensaje' => $resultado['mensaje']
@@ -217,6 +236,9 @@ switch ($action) {
         $id_grado           = isset($input['id_grado']) && $input['id_grado'] !== '' ? intval($input['id_grado']) : null;
         $id_area            = isset($input['id_area']) && $input['id_area'] !== '' ? intval($input['id_area']) : null;
         $id_bimestre        = isset($input['id_bimestre']) && $input['id_bimestre'] !== '' ? intval($input['id_bimestre']) : null;
+        $categorias         = isset($input['categorias']) && is_array($input['categorias']) ? array_map('intval', $input['categorias']) : [];
+        $tipo_variante      = isset($input['tipo_variante']) ? trim($input['tipo_variante']) : '';
+        $nombre_variante    = isset($input['nombre_variante']) ? trim($input['nombre_variante']) : '';
 
         // Validaciones de integridad
         if ($id_producto <= 0 || $id_categoria <= 0 || $id_unidad <= 0 || empty($nombre) || $precio_unitario < 0 || $stock_piezas < 0) {
@@ -241,9 +263,9 @@ switch ($action) {
         }
 
         // Actualizar datos del producto
-        $producto = new Producto($id_categoria, $id_unidad, $nombre, $precio_unitario, $costo_produccion, $stock_piezas, $id_producto, $imagen_db, $id_talla, $id_tipo_corbata, $id_nivel, $id_grado, $id_area, $id_bimestre, 0, null, $comision, $stock_ilimitado);
+        $producto = new Producto($id_categoria, $id_unidad, $nombre, $precio_unitario, $costo_produccion, $stock_piezas, $id_producto, $imagen_db, $id_talla, $id_tipo_corbata, $id_nivel, $id_grado, $id_area, $id_bimestre, 0, null, $comision, $stock_ilimitado, $tipo_variante ?: null, $nombre_variante ?: null);
 
-        if ($model->actualizar($producto)) {
+        if ($model->actualizar($producto, $categorias)) {
             echo json_encode(["success" => true, "mensaje" => "Producto actualizado con éxito."]);
         } else {
             echo json_encode(["success" => false, "mensaje" => "Error al actualizar el producto."]);

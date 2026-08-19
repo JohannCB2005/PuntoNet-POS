@@ -22,6 +22,7 @@ $routes = [
     'dashboard'      => ['Administrador'],
     'categorias'     => ['Administrador'],
     'productos'        => ['Administrador'],
+    'tipos-variante'   => ['Administrador'],
     'kardex'         => ['Administrador'],
     'usuarios'       => ['Administrador'],
     'clientes'       => ['Administrador', 'Vendedor'],
@@ -61,6 +62,7 @@ $titles = [
     'dashboard'      => 'Dashboard - NISSI POS',
     'categorias'     => 'Categorías - NISSI POS',
     'productos'        => 'Productos - NISSI POS',
+    'tipos-variante'   => 'Tipos de Variante - NISSI POS',
     'kardex'         => 'Kardex - NISSI POS',
     'usuarios'       => 'Usuarios - NISSI POS',
     'clientes'       => 'Clientes - NISSI POS',
@@ -105,6 +107,9 @@ switch ($modulo) {
         break;
     case 'productos':
         require_once 'views/V_productos.php';
+        break;
+    case 'tipos-variante':
+        require_once 'views/V_tipos_variante.php';
         break;
     case 'kardex':
         require_once 'views/V_kardex.php';

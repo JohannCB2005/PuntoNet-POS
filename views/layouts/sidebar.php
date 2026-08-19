@@ -72,7 +72,7 @@ $marcaSidebarLogo   = configuracion('LOGO_OSCURO', '');
 
         <!-- Grupo de Mantenimiento de Inventario (Solo Administrador) -->
         <?php if ($rol === 'Administrador'): ?>
-            <div class="sidebar-group<?php echo in_array($moduloActual, ['categorias', 'productos', 'kardex']) ? ' open has-active' : ''; ?>" data-group="inventario">
+            <div class="sidebar-group<?php echo in_array($moduloActual, ['categorias', 'productos', 'tipos-variante', 'kardex']) ? ' open has-active' : ''; ?>" data-group="inventario">
                 <button class="menu-header" type="button" aria-expanded="true" aria-controls="grupo-inventario">
                     <span>Inventario</span>
                     <i class="bi bi-chevron-down menu-header-arrow"></i>
@@ -85,6 +85,10 @@ $marcaSidebarLogo   = configuracion('LOGO_OSCURO', '');
                     <a href="/productos" class="menu-item <?php echo $moduloActual === 'productos' ? 'active' : ''; ?>">
                         <i class="bi bi-box-seam-fill"></i>
                         <span>Productos</span>
+                    </a>
+                    <a href="/tipos-variante" class="menu-item <?php echo $moduloActual === 'tipos-variante' ? 'active' : ''; ?>">
+                        <i class="bi bi-grid-3x3-gap-fill"></i>
+                        <span>Tipos de Variante</span>
                     </a>
                     <a href="/kardex" class="menu-item <?php echo $moduloActual === 'kardex' ? 'active' : ''; ?>">
                         <i class="bi bi-journal-bookmark-fill"></i>

@@ -9,6 +9,7 @@ if (!isset($_SESSION['id_usuario']) || $_SESSION['rol'] !== 'Administrador') {
 require_once dirname(__DIR__) . '/models/M_Producto.php';
 require_once dirname(__DIR__) . '/models/M_Categoria.php';
 require_once dirname(__DIR__) . '/models/M_Unidad.php';
+require_once dirname(__DIR__) . '/models/M_TipoVariante.php';
 
 $modelProducto = M_Producto::singleton();
 $productos = $modelProducto->listar();
@@ -21,10 +22,10 @@ $unidades = $modelUni->listar();
 
 $tallas = $modelProducto->obtenerTallas();
 $tiposCorbata = $modelProducto->obtenerTiposCorbata();
-$niveles = $modelProducto->obtenerNiveles();
-$grados = $modelProducto->obtenerGrados();
-$areas = $modelProducto->obtenerAreas();
 $bimestres = $modelProducto->obtenerBimestres();
+
+$modelTipoVar = M_TipoVariante::singleton();
+$tiposVariante = $modelTipoVar->listarActivos();
 
 $isAdmin = ($_SESSION['rol'] === 'Administrador');
 ?>
@@ -78,14 +79,14 @@ $isAdmin = ($_SESSION['rol'] === 'Administrador');
         <!-- Tabla del Inventario de Productos -->
         <div class="table-responsive">
             <?php
-            // Pre-calcular tallas por padre para los tooltips
-            $tallasPorPadre = [];
+            // Pre-calcular etiquetas de variantes por padre para los tooltips
+            $etiquetasPorPadre = [];
             foreach ($productos as $ins) {
                 if ($ins['id_producto_padre']) {
                     $id_padre = $ins['id_producto_padre'];
-                    if (!isset($tallasPorPadre[$id_padre])) $tallasPorPadre[$id_padre] = [];
-                    if (!empty($ins['talla'])) {
-                        $tallasPorPadre[$id_padre][] = $ins['talla'];
+                    if (!isset($etiquetasPorPadre[$id_padre])) $etiquetasPorPadre[$id_padre] = [];
+                    if (!empty($ins['etiqueta_variante'])) {
+                        $etiquetasPorPadre[$id_padre][] = $ins['etiqueta_variante'];
                     }
                 }
             }
@@ -144,19 +145,25 @@ $isAdmin = ($_SESSION['rol'] === 'Administrador');
                                 <td class="text-muted">
                                     <?php if (!$esHijo): ?>
                                         <span class="badge <?php echo $esPadre ? 'bg-primary' : 'bg-secondary'; ?> mb-1"><?php echo htmlspecialchars($ins['categoria']); ?></span><br>
-                                    <?php endif; ?>
-                                    <?php if ($esPadre): 
-                                        $listaTallas = isset($tallasPorPadre[$ins['id_producto']]) ? implode(', ', $tallasPorPadre[$ins['id_producto']]) : 'Sin tallas';
-                                    ?>
-                                        <span class="text-primary fw-bold" style="cursor:pointer;" data-bs-toggle="tooltip" title="Tallas: <?php echo htmlspecialchars($listaTallas); ?>">
-                                            <i class="bi bi-info-circle-fill me-1"></i>Ver Tallas
-                                        </span>
-                                    <?php elseif ($ins['categoria'] === 'Uniformes' || $esHijo): ?>
-                                        <small>Talla: <strong class="<?php echo $esHijo ? 'text-primary' : ''; ?>"><?php echo htmlspecialchars($ins['talla'] ?? '-'); ?></strong></small>
-                                        <?php if ($ins['tipo_corbata']): ?>
-                                            <br><small>Corbata: <?php echo htmlspecialchars($ins['tipo_corbata']); ?></small>
+                                        <?php if (!empty($ins['categorias_ids'])): ?>
+                                            <?php $totalCats = count(array_filter(explode(',', $ins['categorias_ids']), 'strlen')); ?>
+                                            <?php if ($totalCats > 1): ?>
+                                                <span class="badge bg-light text-dark border mb-1" style="font-size:10px;">+<?php echo $totalCats - 1; ?> etiqueta<?php echo $totalCats - 1 > 1 ? 's' : ''; ?></span><br>
+                                            <?php endif; ?>
                                         <?php endif; ?>
-                                    <?php elseif ($ins['categoria'] === 'Módulos'): ?>
+                                    <?php endif; ?>
+                                    <?php if ($esPadre):
+                                        $listaEtiquetas = isset($etiquetasPorPadre[$ins['id_producto']]) ? implode(', ', $etiquetasPorPadre[$ins['id_producto']]) : 'Sin variantes';
+                                    ?>
+                                        <span class="text-primary fw-bold" style="cursor:pointer;" data-bs-toggle="tooltip" title="Variantes: <?php echo htmlspecialchars($listaEtiquetas); ?>">
+                                            <i class="bi bi-info-circle-fill me-1"></i>Ver Variantes
+                                        </span>
+                                    <?php elseif ($esHijo): ?>
+                                        <small>Variante: <strong class="text-primary"><?php echo htmlspecialchars($ins['etiqueta_variante'] ?? '-'); ?></strong></small>
+                                        <?php if ($ins['tipo_variante'] === 'bimestre'): ?>
+                                            <br><small><?php echo htmlspecialchars($ins['nivel'] ?? '-'); ?> / <?php echo htmlspecialchars($ins['grado'] ?? '-'); ?> · <?php echo htmlspecialchars($ins['area'] ?? '-'); ?></small>
+                                        <?php endif; ?>
+                                    <?php elseif ($ins['tipo_variante'] === 'bimestre'): ?>
                                         <small><?php echo htmlspecialchars($ins['nivel'] ?? '-'); ?> / <?php echo htmlspecialchars($ins['grado'] ?? '-'); ?></small><br>
                                         <small><?php echo htmlspecialchars($ins['area'] ?? '-'); ?> - <?php echo htmlspecialchars($ins['bimestre'] ?? '-'); ?></small>
                                     <?php endif; ?>
@@ -196,6 +203,7 @@ $isAdmin = ($_SESSION['rol'] === 'Administrador');
                                                     data-id="<?php echo $ins['id_producto']; ?>"
                                                     data-nombre="<?php echo htmlspecialchars($ins['nombre']); ?>"
                                                     data-categoria="<?php echo $ins['categoria']; ?>"
+                                                    data-categorias="<?php echo htmlspecialchars($ins['categorias_ids'] ?? ''); ?>"
                                                     data-unidad="<?php echo $ins['unidad']; ?>"
                                                     data-precio="<?php echo $ins['precio_unitario']; ?>"
                                                     data-costo="<?php echo $ins['costo_produccion']; ?>"
@@ -209,6 +217,8 @@ $isAdmin = ($_SESSION['rol'] === 'Administrador');
                                                     data-grado="<?php echo $ins['id_grado'] ?? ''; ?>"
                                                     data-area="<?php echo $ins['id_area'] ?? ''; ?>"
                                                     data-bimestre="<?php echo $ins['id_bimestre'] ?? ''; ?>"
+                                                    data-tipo="<?php echo $ins['tipo_variante'] ?? ''; ?>"
+                                                    data-etiqueta="<?php echo htmlspecialchars($ins['etiqueta_variante'] ?? ''); ?>"
                                                     data-espadre="<?php echo $ins['es_agrupador']; ?>"
                                                     data-padreid="<?php echo $ins['id_producto_padre'] ?? ''; ?>"
                                                     title="Editar">
@@ -222,7 +232,8 @@ $isAdmin = ($_SESSION['rol'] === 'Administrador');
                                                     data-precio="<?php echo $ins['precio_unitario']; ?>"
                                                     data-espadre="<?php echo $ins['es_agrupador']; ?>"
                                                     data-padreid="<?php echo $ins['id_producto_padre'] ?? ''; ?>"
-                                                    data-talla="<?php echo htmlspecialchars($ins['talla'] ?? '-'); ?>"
+                                                    data-etiqueta="<?php echo htmlspecialchars($ins['etiqueta_variante'] ?? '-'); ?>"
+                                                    data-dimension="<?php echo $ins['id_talla'] ?? ($ins['id_tipo_corbata'] ?? ($ins['id_bimestre'] ?? '')); ?>"
                                                     title="Actualizar Stock">
                                                 <i class="bi bi-box-seam"></i>
                                             </button>
@@ -340,7 +351,7 @@ $isAdmin = ($_SESSION['rol'] === 'Administrador');
         <div class="modal-content border-0 shadow-lg" style="border-radius: 15px;">
             <div class="modal-header gp-bg-primary text-white border-0 py-3 px-4" id="stockMasivoModalHeader" style="border-radius: 15px 15px 0 0;">
                 <div>
-                    <h6 class="modal-title fw-bold text-white mb-0" id="stockMasivoModalLabel">Actualizar Stock por Tallas</h6>
+                    <h6 class="modal-title fw-bold text-white mb-0" id="stockMasivoModalLabel">Actualizar Stock por Variantes</h6>
                     <small class="text-white opacity-75" id="stockMasivoSubtitle">Producto Padre</small>
                 </div>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" style="box-shadow:none;"></button>
@@ -383,13 +394,13 @@ $isAdmin = ($_SESSION['rol'] === 'Administrador');
                         </select>
                     </div>
 
-                    <!-- Tabla de Tallas -->
-                    <label class="form-label fw-semibold" style="font-size:13px;">Cantidades por Talla</label>
+                    <!-- Tabla de Variantes -->
+                    <label class="form-label fw-semibold" style="font-size:13px;">Cantidades por Variante</label>
                     <div class="table-responsive" style="border: 1px solid #e5e7eb; border-radius: 10px;">
                         <table class="table table-borderless align-middle mb-0 text-sm">
                             <thead style="background: #f9fafb; border-bottom: 1px solid #e5e7eb;">
                                 <tr>
-                                    <th class="py-3 px-3 text-muted">Talla</th>
+                                    <th class="py-3 px-3 text-muted">Variante</th>
                                     <th class="py-3 px-3 text-end text-muted">Stock Actual</th>
                                     <th class="py-3 px-3 text-end text-muted" style="width: 140px;">Cantidad a <span id="masivoAccionTexto">Sumar</span></th>
                                 </tr>
@@ -415,7 +426,7 @@ $isAdmin = ($_SESSION['rol'] === 'Administrador');
 <!-- Modal: Nuevo Producto -->
 
 <div class="modal fade" id="nuevoProductoModal" tabindex="-1" aria-labelledby="nuevoProductoModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-dialog modal-dialog-centered" style="max-width: 600px;">
         <div class="modal-content border-0 shadow-lg" style="border-radius: 15px;">
             <div class="modal-header gp-bg-primary text-white border-0 py-3" style="border-radius: 15px 15px 0 0;">
                 <h6 class="modal-title fw-bold" id="nuevoProductoModalLabel">Nuevo Producto</h6>
@@ -429,13 +440,22 @@ $isAdmin = ($_SESSION['rol'] === 'Administrador');
                     </div>
                     <div class="row mb-3">
                         <div class="col-6">
-                            <label for="new_categoria" class="form-label fw-semibold" style="font-size: 13px;">Categoría</label>
-                            <select class="form-select" id="new_categoria" required onchange="toggleGroups('new')">
-                                <option value="" disabled selected>Seleccionar</option>
+                            <label for="new_categoria" class="form-label fw-semibold" style="font-size: 13px;">Categorías</label>
+                            <input type="hidden" id="new_id_categoria" value="">
+                            <input type="text" class="form-control form-control-sm mb-2" id="new_buscar_cat" placeholder="Buscar categoría…" autocomplete="off" style="font-size:12.5px;">
+                            <div class="border rounded-3 p-2" id="new_cat_lista" style="max-height:180px; overflow-y:auto; background:#fafbfc;">
                                 <?php foreach ($categorias as $cat): ?>
-                                    <option value="<?php echo $cat['id_categoria']; ?>" data-name="<?php echo htmlspecialchars($cat['nombre']); ?>"><?php echo htmlspecialchars($cat['nombre']); ?></option>
+                                    <div class="form-check cat-item" data-nombre="<?php echo htmlspecialchars($cat['nombre']); ?>">
+                                        <input class="form-check-input cat-check" type="checkbox" id="new_cat_<?php echo $cat['id_categoria']; ?>"
+                                               value="<?php echo $cat['id_categoria']; ?>" data-nombre="<?php echo htmlspecialchars($cat['nombre']); ?>"
+                                               data-prefix="new">
+                                        <label class="form-check-label fw-semibold" style="font-size:12.5px; cursor:pointer;" for="new_cat_<?php echo $cat['id_categoria']; ?>">
+                                            <?php echo htmlspecialchars($cat['nombre']); ?>
+                                        </label>
+                                    </div>
                                 <?php endforeach; ?>
-                            </select>
+                            </div>
+                            <small class="text-muted" style="font-size:11px;">La primera marcada es la categoría principal.</small>
                         </div>
                         <div class="col-6">
                             <label for="new_unidad" class="form-label fw-semibold" style="font-size: 13px;">Unidad de medida</label>
@@ -479,21 +499,25 @@ $isAdmin = ($_SESSION['rol'] === 'Administrador');
                         </div>
                     </div>
 
-                    <!-- Toggle: Variantes de Talla -->
+                    <!-- Tipo de variante -->
                     <div class="mt-3 p-3 rounded-3" style="background:#f8fafc; border:1.5px solid #e2e8f0;">
-                        <div class="form-check form-switch mb-0">
-                            <input class="form-check-input" type="checkbox" id="new_tiene_variantes" role="switch" style="cursor:pointer;">
-                            <label class="form-check-label fw-semibold" for="new_tiene_variantes" style="font-size:13px; cursor:pointer;">
-                                <i class="bi bi-rulers me-1 text-primary"></i> Este producto se vende en múltiples tallas
-                            </label>
-                        </div>
-                        <small class="text-muted d-block mt-1" style="font-size:11px;">Al activar esta opción, los campos de precio y stock se configuran por talla.</small>
+                        <label for="new_tipo_variante" class="form-label fw-semibold mb-1" style="font-size:13px;">
+                            <i class="bi bi-grid-3x3-gap me-1 text-primary"></i> Tipo de variante
+                        </label>
+                        <select class="form-select" id="new_tipo_variante" onchange="updateForm('new')">
+                            <option value="">Sin variantes (producto simple)</option>
+                            <?php foreach ($tiposVariante as $tv): ?>
+                                <?php $desc = ($tv['modo'] === 'libre') ? ' (se escribe la etiqueta)' : ''; ?>
+                                <option value="<?php echo htmlspecialchars($tv['codigo']); ?>"><?php echo htmlspecialchars($tv['nombre'] . $desc); ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                        <small class="text-muted d-block mt-1" style="font-size:11px;">Al elegir un tipo de variante, precio, costo, comisión y stock se configuran por variante (igual que tallas).</small>
                     </div>
 
-                    <!-- Panel de Variantes por Talla (oculto por defecto) -->
+                    <!-- Panel de Variantes (oculto por defecto) -->
                     <div id="new_grupo_variantes" class="mt-3 d-none">
                         <div class="d-flex align-items-center justify-content-between mb-2">
-                            <h6 class="fw-bold mb-0" style="font-size:13px;">Configurar Tallas</h6>
+                            <h6 class="fw-bold mb-0" id="new_grupo_variantes_titulo" style="font-size:13px;">Configurar Variantes</h6>
                             <div class="d-flex gap-2 align-items-center">
                                 <input type="number" id="new_precio_base_variante" class="form-control form-control-sm" step="0.01" min="0" placeholder="Precio base" style="width:110px;">
                                 <input type="number" id="new_costo_base_variante" class="form-control form-control-sm" step="0.01" min="0" placeholder="Costo base" style="width:110px;">
@@ -501,23 +525,7 @@ $isAdmin = ($_SESSION['rol'] === 'Administrador');
                                 <button type="button" class="btn btn-sm btn-outline-primary" id="new_aplicar_precio_todos" style="font-size:12px; white-space:nowrap;">Aplicar a todos</button>
                             </div>
                         </div>
-                        <div id="new_tallas_container" class="d-flex flex-column gap-2">
-                            <?php foreach ($tallas as $t): ?>
-                            <div class="d-flex align-items-center gap-2 p-2 rounded-3" style="background:#f9fafb; border:1px solid #e5e7eb;">
-                                <input type="checkbox" class="form-check-input new-talla-check flex-shrink-0"
-                                       id="new_talla_check_<?= $t['id_talla'] ?>"
-                                       value="<?= $t['id_talla'] ?>"
-                                       data-nombre="<?= htmlspecialchars($t['nombre']) ?>">
-                                <label class="fw-semibold mb-0 flex-shrink-0" style="font-size:13px; min-width:50px;" for="new_talla_check_<?= $t['id_talla'] ?>">
-                                    <?= htmlspecialchars($t['nombre']) ?>
-                                </label>
-                                <input type="number" class="form-control form-control-sm new-talla-precio" step="0.01" min="0" placeholder="Precio" style="max-width:100px;" disabled>
-                                <input type="number" class="form-control form-control-sm new-talla-costo" step="0.01" min="0" placeholder="Costo" style="max-width:100px;" disabled>
-                                <input type="number" class="form-control form-control-sm new-talla-comision" step="0.01" min="0" placeholder="Comisión" style="max-width:100px;" disabled>
-                                <input type="number" class="form-control form-control-sm new-talla-stock" step="1" min="0" placeholder="Stock" style="max-width:80px;" disabled>
-                            </div>
-                            <?php endforeach; ?>
-                        </div>
+                        <div id="new_variantes_rows" class="d-flex flex-column gap-2"></div>
                     </div>
 
                     <div class="mb-3 mt-3">
@@ -548,51 +556,6 @@ $isAdmin = ($_SESSION['rol'] === 'Administrador');
                             </div>
                         </div>
                     </div>
-
-                    <!-- Grupo Módulos -->
-                    <div id="new_grupo_modulos" style="display: none;" class="mt-3 p-3 bg-light rounded border">
-                        <h6 class="fw-bold mb-3" style="font-size: 13px;">Atributos de Módulo</h6>
-                        <div class="row mb-2">
-                            <div class="col-6">
-                                <label for="new_nivel" class="form-label fw-semibold" style="font-size: 13px;">Nivel</label>
-                                <select class="form-select" id="new_nivel">
-                                    <option value="">Seleccionar</option>
-                                    <?php foreach ($niveles as $n): ?>
-                                        <option value="<?php echo $n['id_nivel']; ?>"><?php echo htmlspecialchars($n['nombre']); ?></option>
-                                    <?php endforeach; ?>
-                                </select>
-                            </div>
-                            <div class="col-6">
-                                <label for="new_grado" class="form-label fw-semibold" style="font-size: 13px;">Grado</label>
-                                <select class="form-select" id="new_grado">
-                                    <option value="">Seleccionar</option>
-                                    <?php foreach ($grados as $g): ?>
-                                        <option value="<?php echo $g['id_grado']; ?>"><?php echo htmlspecialchars($g['nombre']); ?></option>
-                                    <?php endforeach; ?>
-                                </select>
-                            </div>
-                        </div>
-                        <div class="row">
-                            <div class="col-6">
-                                <label for="new_area" class="form-label fw-semibold" style="font-size: 13px;">Área / Curso</label>
-                                <select class="form-select" id="new_area">
-                                    <option value="">Seleccionar</option>
-                                    <?php foreach ($areas as $a): ?>
-                                        <option value="<?php echo $a['id_area']; ?>"><?php echo htmlspecialchars($a['nombre']); ?></option>
-                                    <?php endforeach; ?>
-                                </select>
-                            </div>
-                            <div class="col-6">
-                                <label for="new_bimestre" class="form-label fw-semibold" style="font-size: 13px;">Bimestre</label>
-                                <select class="form-select" id="new_bimestre">
-                                    <option value="">Seleccionar</option>
-                                    <?php foreach ($bimestres as $b): ?>
-                                        <option value="<?php echo $b['id_bimestre']; ?>"><?php echo htmlspecialchars($b['nombre']); ?></option>
-                                    <?php endforeach; ?>
-                                </select>
-                            </div>
-                        </div>
-                    </div>
                 </div>
                 <div class="modal-footer border-0 p-4 pt-0">
                     <button type="button" class="btn btn-light fw-semibold" data-bs-dismiss="modal" style="border-radius: 8px;">Cancelar</button>
@@ -605,7 +568,7 @@ $isAdmin = ($_SESSION['rol'] === 'Administrador');
 
 <!-- Modal: Editar Producto -->
 <div class="modal fade" id="editarProductoModal" tabindex="-1" aria-labelledby="editarProductoModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-dialog modal-dialog-centered" style="max-width: 600px;">
         <div class="modal-content border-0 shadow-lg" style="border-radius: 15px;">
             <div class="modal-header gp-bg-primary text-white border-0 py-3" style="border-radius: 15px 15px 0 0;">
                 <h6 class="modal-title fw-bold" id="editarProductoModalLabel">Editar Registro</h6>
@@ -620,12 +583,22 @@ $isAdmin = ($_SESSION['rol'] === 'Administrador');
                     </div>
                     <div class="row mb-3">
                         <div class="col-6">
-                            <label for="edit_categoria" class="form-label fw-semibold" style="font-size: 13px;">Categoría</label>
-                            <select class="form-select" id="edit_categoria" required onchange="toggleGroups('edit')">
+                            <label for="edit_id_categoria" class="form-label fw-semibold" style="font-size: 13px;">Categorías</label>
+                            <input type="hidden" id="edit_id_categoria" value="">
+                            <input type="text" class="form-control form-control-sm mb-2" id="edit_buscar_cat" placeholder="Buscar categoría…" autocomplete="off" style="font-size:12.5px;">
+                            <div class="border rounded-3 p-2" id="edit_cat_lista" style="max-height:180px; overflow-y:auto; background:#fafbfc;">
                                 <?php foreach ($categorias as $cat): ?>
-                                    <option value="<?php echo $cat['id_categoria']; ?>" data-name="<?php echo htmlspecialchars($cat['nombre']); ?>"><?php echo htmlspecialchars($cat['nombre']); ?></option>
+                                    <div class="form-check cat-item" data-nombre="<?php echo htmlspecialchars($cat['nombre']); ?>">
+                                        <input class="form-check-input cat-check" type="checkbox" id="edit_cat_<?php echo $cat['id_categoria']; ?>"
+                                               value="<?php echo $cat['id_categoria']; ?>" data-nombre="<?php echo htmlspecialchars($cat['nombre']); ?>"
+                                               data-prefix="edit">
+                                        <label class="form-check-label fw-semibold" style="font-size:12.5px; cursor:pointer;" for="edit_cat_<?php echo $cat['id_categoria']; ?>">
+                                            <?php echo htmlspecialchars($cat['nombre']); ?>
+                                        </label>
+                                    </div>
                                 <?php endforeach; ?>
-                            </select>
+                            </div>
+                            <small class="text-muted" style="font-size:11px;">La primera marcada es la categoría principal.</small>
                         </div>
                         <div class="col-6">
                             <label for="edit_unidad" class="form-label fw-semibold" style="font-size: 13px;">Unidad de medida</label>
@@ -664,10 +637,25 @@ $isAdmin = ($_SESSION['rol'] === 'Administrador');
                         </div>
                     </div>
 
-                    <!-- Panel de Variantes por Talla para Editar -->
+                    <!-- Tipo de variante (Editar) -->
+                    <div class="mt-3 p-3 rounded-3" style="background:#f8fafc; border:1.5px solid #e2e8f0;">
+                        <label for="edit_tipo_variante" class="form-label fw-semibold mb-1" style="font-size:13px;">
+                            <i class="bi bi-grid-3x3-gap me-1 text-primary"></i> Tipo de variante
+                        </label>
+                        <select class="form-select" id="edit_tipo_variante" onchange="updateForm('edit')">
+                            <option value="">Sin variantes (producto simple)</option>
+                            <?php foreach ($tiposVariante as $tv): ?>
+                                <?php $desc = ($tv['modo'] === 'libre') ? ' (se escribe la etiqueta)' : ''; ?>
+                                <option value="<?php echo htmlspecialchars($tv['codigo']); ?>"><?php echo htmlspecialchars($tv['nombre'] . $desc); ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                        <small class="text-muted d-block mt-1" style="font-size:11px;">Al elegir un tipo de variante, precio, costo y comisión se configuran por variante (igual que tallas).</small>
+                    </div>
+
+                    <!-- Panel de Variantes para Editar -->
                     <div id="edit_grupo_variantes" class="mt-3 d-none">
                         <div class="d-flex align-items-center justify-content-between mb-2">
-                            <h6 class="fw-bold mb-0" style="font-size:13px;">Configurar Tallas</h6>
+                            <h6 class="fw-bold mb-0" id="edit_grupo_variantes_titulo" style="font-size:13px;">Configurar Variantes</h6>
                             <div class="d-flex gap-2 align-items-center">
                                 <input type="number" id="edit_precio_base_variante" class="form-control form-control-sm" step="0.01" min="0" placeholder="Precio base" style="width:110px;">
                                 <input type="number" id="edit_costo_base_variante" class="form-control form-control-sm" step="0.01" min="0" placeholder="Costo base" style="width:110px;">
@@ -675,23 +663,7 @@ $isAdmin = ($_SESSION['rol'] === 'Administrador');
                                 <button type="button" class="btn btn-sm btn-outline-primary" id="edit_aplicar_precio_todos" style="font-size:12px; white-space:nowrap;">Aplicar a todos</button>
                             </div>
                         </div>
-                        <div id="edit_tallas_container" class="d-flex flex-column gap-2">
-                            <?php foreach ($tallas as $t): ?>
-                            <div class="d-flex align-items-center gap-2 p-2 rounded-3" style="background:#f9fafb; border:1px solid #e5e7eb;">
-                                <input type="checkbox" class="form-check-input edit-talla-check flex-shrink-0"
-                                       id="edit_talla_check_<?= $t['id_talla'] ?>"
-                                       value="<?= $t['id_talla'] ?>"
-                                       data-nombre="<?= htmlspecialchars($t['nombre']) ?>">
-                                <label class="fw-semibold mb-0 flex-shrink-0" style="font-size:13px; min-width:50px;" for="edit_talla_check_<?= $t['id_talla'] ?>">
-                                    <?= htmlspecialchars($t['nombre']) ?>
-                                </label>
-                                <input type="number" class="form-control form-control-sm edit-talla-precio" step="0.01" min="0" placeholder="Precio" style="max-width:100px;" disabled>
-                                <input type="number" class="form-control form-control-sm edit-talla-costo" step="0.01" min="0" placeholder="Costo" style="max-width:100px;" disabled>
-                                <input type="number" class="form-control form-control-sm edit-talla-comision" step="0.01" min="0" placeholder="Comisión" style="max-width:100px;" disabled>
-                                <input type="hidden" class="edit-talla-idproducto" value="">
-                            </div>
-                            <?php endforeach; ?>
-                        </div>
+                        <div id="edit_variantes_rows" class="d-flex flex-column gap-2"></div>
                         <small class="text-muted d-block mt-2" style="font-size:11px;">* El stock de las variantes debe actualizarse desde el panel principal usando el botón de la caja.</small>
                     </div>
                     <div class="mb-3 mt-3">
@@ -726,51 +698,6 @@ $isAdmin = ($_SESSION['rol'] === 'Administrador');
                             </div>
                         </div>
                     </div>
-
-                    <!-- Grupo Módulos -->
-                    <div id="edit_grupo_modulos" style="display: none;" class="mt-3 p-3 bg-light rounded border">
-                        <h6 class="fw-bold mb-3" style="font-size: 13px;">Atributos de Módulo</h6>
-                        <div class="row mb-2">
-                            <div class="col-6">
-                                <label for="edit_nivel" class="form-label fw-semibold" style="font-size: 13px;">Nivel</label>
-                                <select class="form-select" id="edit_nivel">
-                                    <option value="">Seleccionar</option>
-                                    <?php foreach ($niveles as $n): ?>
-                                        <option value="<?php echo $n['id_nivel']; ?>"><?php echo htmlspecialchars($n['nombre']); ?></option>
-                                    <?php endforeach; ?>
-                                </select>
-                            </div>
-                            <div class="col-6">
-                                <label for="edit_grado" class="form-label fw-semibold" style="font-size: 13px;">Grado</label>
-                                <select class="form-select" id="edit_grado">
-                                    <option value="">Seleccionar</option>
-                                    <?php foreach ($grados as $g): ?>
-                                        <option value="<?php echo $g['id_grado']; ?>"><?php echo htmlspecialchars($g['nombre']); ?></option>
-                                    <?php endforeach; ?>
-                                </select>
-                            </div>
-                        </div>
-                        <div class="row">
-                            <div class="col-6">
-                                <label for="edit_area" class="form-label fw-semibold" style="font-size: 13px;">Área / Curso</label>
-                                <select class="form-select" id="edit_area">
-                                    <option value="">Seleccionar</option>
-                                    <?php foreach ($areas as $a): ?>
-                                        <option value="<?php echo $a['id_area']; ?>"><?php echo htmlspecialchars($a['nombre']); ?></option>
-                                    <?php endforeach; ?>
-                                </select>
-                            </div>
-                            <div class="col-6">
-                                <label for="edit_bimestre" class="form-label fw-semibold" style="font-size: 13px;">Bimestre</label>
-                                <select class="form-select" id="edit_bimestre">
-                                    <option value="">Seleccionar</option>
-                                    <?php foreach ($bimestres as $b): ?>
-                                        <option value="<?php echo $b['id_bimestre']; ?>"><?php echo htmlspecialchars($b['nombre']); ?></option>
-                                    <?php endforeach; ?>
-                                </select>
-                            </div>
-                        </div>
-                    </div>
                 </div>
                 <div class="modal-footer border-0 p-4 pt-0">
                     <button type="button" class="btn btn-light fw-semibold" data-bs-dismiss="modal" style="border-radius: 8px;">Cancelar</button>
@@ -783,7 +710,29 @@ $isAdmin = ($_SESSION['rol'] === 'Administrador');
 <?php endif; ?>
 
 <!-- JavaScript para CRUD de Productos -->
+
 <script>
+    // Datos de opciones para cada tipo de variante (inyectados desde PHP)
+    const DATA_OPCIONES = {
+        talla: <?php echo json_encode(array_map(fn($t) => ['id' => (int)$t['id_talla'], 'nombre' => $t['nombre']], $tallas)); ?>,
+        corbata: <?php echo json_encode(array_map(fn($t) => ['id' => (int)$t['id_tipo_corbata'], 'nombre' => $t['nombre']], $tiposCorbata)); ?>,
+        bimestre: <?php echo json_encode(array_map(fn($b) => ['id' => (int)$b['id_bimestre'], 'nombre' => $b['nombre']], $bimestres)); ?>
+        <?php foreach ($tiposVariante as $tv): ?>
+            <?php if ($tv['tipo'] === 'personalizado'): ?>,
+        '<?php echo $tv['codigo']; ?>': <?php echo json_encode(array_map(fn($o) => ['id' => (int)$o['id_opcion'], 'nombre' => $o['nombre']], $tv['opciones'] ?? []), JSON_UNESCAPED_UNICODE); ?>
+            <?php endif; ?>
+        <?php endforeach; ?>
+    };
+    const NOMBRE_TIPO = { talla: 'Tallas', corbata: 'Tipos de corbata', bimestre: 'Bimestres', libre: 'Etiquetas' };
+    const DATA_TIPOS = {
+        <?php foreach ($tiposVariante as $tv): ?>
+        '<?php echo $tv['codigo']; ?>': '<?php echo htmlspecialchars($tv['nombre']); ?>',
+        <?php endforeach; ?>
+    };
+
+    // 'libre' y los tipos personalizados (v{id}) guardan la etiqueta/opción en nombre_variante
+    const esTipoEtiqueta = (tipo) => tipo === 'libre' || (typeof tipo === 'string' && tipo.startsWith('v'));
+
     document.addEventListener('DOMContentLoaded', () => {
         // Inicializar tooltips de Bootstrap
         const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
@@ -797,11 +746,11 @@ $isAdmin = ($_SESSION['rol'] === 'Administrador');
                 const padreId = btn.dataset.padre;
                 const icon = btn.querySelector('i');
                 const isCollapsed = icon.classList.contains('bi-chevron-right');
-                
+
                 document.querySelectorAll(`.child-row.padre-${padreId}`).forEach(row => {
                     row.style.display = isCollapsed ? 'table-row' : 'none';
                 });
-                
+
                 icon.classList.toggle('bi-chevron-right');
                 icon.classList.toggle('bi-chevron-down');
             });
@@ -815,198 +764,226 @@ $isAdmin = ($_SESSION['rol'] === 'Administrador');
             searchInput.addEventListener('input', () => {
                 const query = searchInput.value.toLowerCase().trim();
                 rows.forEach(row => {
-                    const text = row.innerText.toLowerCase();
-                    if (text.includes(query)) {
-                        row.style.display = '';
-                    } else {
-                        row.style.display = 'none';
-                    }
+                    row.style.display = row.innerText.toLowerCase().includes(query) ? '' : 'none';
                 });
             });
         }
 
         <?php if ($isAdmin): ?>
-        // --- Lógica del Panel de Variantes ---
-        const chkTieneVariantes = document.getElementById('new_tiene_variantes');
-        const grupoVariantes = document.getElementById('new_grupo_variantes');
-        const panelPrecioStock = document.getElementById('new_campos_precio_stock');
-        const tallaChecks = document.querySelectorAll('.new-talla-check');
+        // ============================================================
+        // Utilidades del formulario (nuevo y editar)
+        // ============================================================
 
-        if (chkTieneVariantes) {
-            chkTieneVariantes.addEventListener('change', function() {
-                if (this.checked) {
-                    grupoVariantes.classList.remove('d-none');
-                    panelPrecioStock.classList.add('d-none');
-                    document.getElementById('new_precio').removeAttribute('required');
-                    document.getElementById('new_costo').removeAttribute('required');
-                    document.getElementById('new_stock').removeAttribute('required');
-                } else {
-                    grupoVariantes.classList.add('d-none');
-                    panelPrecioStock.classList.remove('d-none');
-                    document.getElementById('new_precio').setAttribute('required', 'required');
-                    document.getElementById('new_costo').setAttribute('required', 'required');
-                    document.getElementById('new_stock').setAttribute('required', 'required');
-                }
-            });
+        const editIsHijo = () => false; // (mantenido por compatibilidad)
+
+        // Devuelve los ids de categorías marcadas en un prefix (new/edit)
+        function categoriasMarcadas(prefix) {
+            const checks = document.querySelectorAll(`.cat-check[data-prefix="${prefix}"]`);
+            return Array.from(checks).filter(c => c.checked).map(c => c.value);
         }
 
-        const chkNuevoIlimitado = document.getElementById('new_stock_ilimitado');
-        if (chkNuevoIlimitado) {
-            chkNuevoIlimitado.addEventListener('change', function() {
-                const stockInput = document.getElementById('new_stock');
-                if (this.checked) {
-                    stockInput.value = '0';
-                    stockInput.disabled = true;
-                    stockInput.setAttribute('title', 'Stock ilimitado: este producto no administra stock');
-                } else {
-                    stockInput.disabled = false;
-                    stockInput.removeAttribute('title');
-                }
-            });
+        // Actualiza la categoría primaria (primera marcada) y la visibilidad de grupos
+        function actualizarPrimaria(prefix) {
+            const ids = categoriasMarcadas(prefix);
+            document.getElementById(prefix + '_id_categoria').value = ids.length ? ids[0] : '';
         }
 
-        tallaChecks.forEach(chk => {
-            chk.addEventListener('change', function() {
-                const container = this.closest('div');
-                const inputs = container.querySelectorAll('input[type="number"]');
-                inputs.forEach(input => input.disabled = !this.checked);
-            });
-        });
+        // Pinta las filas de variantes según el tipo elegido
+        function renderVariantes(prefix, tipo) {
+            const container = document.getElementById(prefix + '_variantes_rows');
+            const titulo = document.getElementById(prefix + '_grupo_variantes_titulo');
+            if (!container) return;
+            container.innerHTML = '';
+            if (titulo) titulo.textContent = NOMBRE_TIPO[tipo] || DATA_TIPOS[tipo] || 'Configurar Variantes';
 
-        const btnAplicarTodos = document.getElementById('new_aplicar_precio_todos');
-        if (btnAplicarTodos) {
-            btnAplicarTodos.addEventListener('click', () => {
-                const precioBase = document.getElementById('new_precio_base_variante').value;
-                const costoBase = document.getElementById('new_costo_base_variante').value;
-                const comisionBase = document.getElementById('new_comision_base_variante').value;
-                tallaChecks.forEach(chk => {
-                    if (chk.checked) {
-                        const container = chk.closest('div');
-                        if (precioBase) container.querySelector('.new-talla-precio').value = precioBase;
-                        if (costoBase) container.querySelector('.new-talla-costo').value = costoBase;
-                        if (comisionBase) container.querySelector('.new-talla-comision').value = comisionBase;
-                    }
+            if (!tipo) return;
+
+            if (esTipoEtiqueta(tipo)) {
+                if (prefix === 'new') addFilaLibre(prefix, null, null, null, null, null, null);
+                const btnAdd = document.createElement('div');
+                btnAdd.className = 'text-center mt-1';
+                btnAdd.innerHTML = '<button type="button" class="btn btn-sm btn-outline-primary" id="' + prefix + '_add_libre">+ Añadir etiqueta</button>';
+                container.appendChild(btnAdd);
+                const addBtn = document.getElementById(prefix + '_add_libre');
+                if (addBtn) addBtn.addEventListener('click', () => addFilaLibre(prefix, null, null, null, null, null, null));
+                return;
+            }
+
+            (DATA_OPCIONES[tipo] || []).forEach(op => {
+                const row = document.createElement('div');
+                row.className = 'd-flex align-items-center gap-2 p-2 rounded-3 var-row';
+                row.style.cssText = 'background:#f9fafb; border:1px solid #e5e7eb;';
+                row.innerHTML = `
+                    <input type="checkbox" class="form-check-input var-check flex-shrink-0"
+                           data-dim="${op.id}" data-nombre="${op.nombre}">
+                    <label class="fw-semibold mb-0 flex-shrink-0" style="font-size:13px; min-width:70px;">${op.nombre}</label>
+                    <input type="number" class="form-control form-control-sm var-precio" step="0.01" min="0" placeholder="Precio" style="max-width:100px;" disabled>
+                    <input type="number" class="form-control form-control-sm var-costo" step="0.01" min="0" placeholder="Costo" style="max-width:100px;" disabled>
+                    <input type="number" class="form-control form-control-sm var-comision" step="0.01" min="0" placeholder="Comisión" style="max-width:100px;" disabled>
+                    <input type="number" class="form-control form-control-sm var-stock" step="1" min="0" placeholder="Stock" style="max-width:80px;" disabled>
+                    <input type="hidden" class="var-idproducto" value="">
+                `;
+                container.appendChild(row);
+                const chk = row.querySelector('.var-check');
+                chk.addEventListener('change', () => {
+                    row.querySelectorAll('input[type="number"]').forEach(i => i.disabled = !chk.checked);
                 });
             });
         }
 
-         // 2. Registro de Producto por AJAX
+        // Fila de variante libre (etiqueta escrita)
+        function addFilaLibre(prefix, nombre, precio, costo, comision, stock, idProducto) {
+            const container = document.getElementById(prefix + '_variantes_rows');
+            const row = document.createElement('div');
+            row.className = 'd-flex align-items-center gap-2 p-2 rounded-3 var-row';
+            row.style.cssText = 'background:#f9fafb; border:1px solid #e5e7eb;';
+            row.innerHTML = `
+                <input type="text" class="form-control form-control-sm var-libre-nombre" placeholder="Etiqueta (ej. Azul, Rojo)" value="${nombre || ''}" style="max-width:150px;">
+                <input type="number" class="form-control form-control-sm var-precio" step="0.01" min="0" placeholder="Precio" value="${precio ?? ''}" style="max-width:100px;">
+                <input type="number" class="form-control form-control-sm var-costo" step="0.01" min="0" placeholder="Costo" value="${costo ?? ''}" style="max-width:100px;">
+                <input type="number" class="form-control form-control-sm var-comision" step="0.01" min="0" placeholder="Comisión" value="${comision ?? ''}" style="max-width:100px;">
+                <input type="number" class="form-control form-control-sm var-stock" step="1" min="0" placeholder="Stock" value="${stock ?? ''}" style="max-width:80px;">
+                <input type="hidden" class="var-idproducto" value="${idProducto || ''}">
+                <button type="button" class="btn btn-sm btn-outline-danger var-libre-del" title="Quitar"><i class="bi bi-x-lg"></i></button>
+            `;
+            const btnAdd = document.getElementById(prefix + '_add_libre');
+            const refNode = btnAdd ? btnAdd.closest('.text-center') : null;
+            if (refNode && container.contains(refNode)) container.insertBefore(row, refNode);
+            else container.appendChild(row);
+            row.querySelector('.var-libre-del').addEventListener('click', () => row.remove());
+        }
+
+        // Actualiza visibilidad de todo el formulario según tipo + categorías
+        function updateForm(prefix) {
+            const tipo = document.getElementById(prefix + '_tipo_variante').value || '';
+            const grupoVariantes = document.getElementById(prefix + '_grupo_variantes');
+            const panelPrecio = document.getElementById(prefix + '_campos_precio_stock');
+            const esPadreEdit = (prefix === 'edit' && document.querySelector('.edit-producto-btn[data-id="' + document.getElementById('edit_id').value + '"]')?.dataset.espadre === "1");
+
+            if (tipo && (prefix === 'new' || esPadreEdit)) {
+                if (grupoVariantes) grupoVariantes.classList.remove('d-none');
+                if (panelPrecio) panelPrecio.classList.add('d-none');
+            } else {
+                if (grupoVariantes) grupoVariantes.classList.add('d-none');
+                if (panelPrecio) panelPrecio.classList.remove('d-none');
+            }
+            renderVariantes(prefix, tipo);
+        }
+
+        // Eventos de checkboxes de categoría
+        document.querySelectorAll('.cat-check').forEach(chk => {
+            chk.addEventListener('change', () => actualizarPrimaria(chk.dataset.prefix));
+        });
+
+        // Buscador de categorías (nuevo y editar)
+        ['new', 'edit'].forEach(prefix => {
+            const input = document.getElementById(prefix + '_buscar_cat');
+            const lista = document.getElementById(prefix + '_cat_lista');
+            if (input && lista) {
+                input.addEventListener('input', () => {
+                    const q = input.value.toLowerCase().trim();
+                    lista.querySelectorAll('.cat-item').forEach(item => {
+                        item.style.display = item.dataset.nombre.toLowerCase().includes(q) ? '' : 'none';
+                    });
+                });
+            }
+        });
+
+        // --- Modal NUEVO ---
         const formNuevo = document.getElementById('formNuevoProducto');
         if (formNuevo) {
+            document.getElementById('nuevoProductoModal').addEventListener('show.bs.modal', () => {
+                // reset
+                document.getElementById('new_tipo_variante').value = '';
+                document.querySelectorAll('.cat-check[data-prefix="new"]').forEach(c => c.checked = false);
+                actualizarPrimaria('new');
+                updateForm('new');
+            });
+
+            // Aplicar precio/costo/comisión a todos
+            document.getElementById('new_aplicar_precio_todos').addEventListener('click', () => {
+                const precio = document.getElementById('new_precio_base_variante').value;
+                const costo = document.getElementById('new_costo_base_variante').value;
+                const comision = document.getElementById('new_comision_base_variante').value;
+                document.querySelectorAll('#new_variantes_rows .var-row').forEach(row => {
+                    const sel = row.querySelector('.var-check');
+                    if (sel && sel.checked) {
+                        if (precio !== '') row.querySelector('.var-precio').value = precio;
+                        if (costo !== '') row.querySelector('.var-costo').value = costo;
+                        if (comision !== '') row.querySelector('.var-comision').value = comision;
+                    }
+                });
+            });
+
             formNuevo.addEventListener('submit', async (e) => {
                 e.preventDefault();
                 const nombre = document.getElementById('new_nombre').value.trim();
-                const id_categoria = document.getElementById('new_categoria').value;
+                const id_categoria = document.getElementById('new_id_categoria').value;
                 const id_unidad = document.getElementById('new_unidad').value;
+                const tipo = document.getElementById('new_tipo_variante').value;
 
-                let payload;
-                let isVariantes = chkTieneVariantes && chkTieneVariantes.checked;
+                if (!id_categoria || !id_unidad || !nombre) {
+                    Swal.fire({ icon: 'warning', title: 'Atención', text: 'Completa nombre, al menos una categoría y la unidad.' });
+                    return;
+                }
+
+                const payload = new FormData();
+                payload.append('nombre', nombre);
+                payload.append('id_categoria', id_categoria);
+                payload.append('id_unidad', id_unidad);
+                categoriasMarcadas('new').forEach(id => payload.append('categorias[]', id));
+
                 let endpoint = './controllers/C_Producto.php?action=crear';
-                let contentType = 'application/json';
 
-                if (isVariantes) {
+                if (tipo) {
                     endpoint = './controllers/C_Producto.php?action=crear_con_variantes';
-                    let variantes = [];
-                    tallaChecks.forEach(chk => {
-                        if (chk.checked) {
-                            const container = chk.closest('div');
-                            variantes.push({
-                                id_talla: chk.value,
-                                precio_unitario: container.querySelector('.new-talla-precio').value || 0,
-                                costo_produccion: container.querySelector('.new-talla-costo').value || 0,
-                                comision: container.querySelector('.new-talla-comision').value || 0,
-                                stock_piezas: container.querySelector('.new-talla-stock').value || 0
-                            });
+                    payload.append('tipo_variante', tipo);
+                    let idx = 0;
+                    const rows = document.querySelectorAll('#new_variantes_rows .var-row');
+                    rows.forEach(row => {
+                        if (tipo === 'libre') {
+                            const etiqueta = row.querySelector('.var-libre-nombre').value.trim();
+                            if (!etiqueta) return;
+                            payload.append(`variantes[${idx}][nombre_variante]`, etiqueta);
+                        } else if (esTipoEtiqueta(tipo)) {
+                            const chk = row.querySelector('.var-check');
+                            if (!chk || !chk.checked) return;
+                            payload.append(`variantes[${idx}][nombre_variante]`, chk.dataset.nombre);
+                        } else {
+                            const chk = row.querySelector('.var-check');
+                            if (!chk.checked) return;
+                            payload.append(`variantes[${idx}][id_dimension]`, chk.dataset.dim);
                         }
+                        payload.append(`variantes[${idx}][precio_unitario]`, row.querySelector('.var-precio').value || 0);
+                        payload.append(`variantes[${idx}][costo_produccion]`, row.querySelector('.var-costo').value || 0);
+                        payload.append(`variantes[${idx}][comision]`, row.querySelector('.var-comision').value || 0);
+                        payload.append(`variantes[${idx}][stock_piezas]`, row.querySelector('.var-stock').value || 0);
+                        idx++;
                     });
-
-                    if (variantes.length === 0) {
-                        Swal.fire({ icon: 'warning', title: 'Atención', text: 'Debes seleccionar al menos una talla.' });
+                    if (idx === 0) {
+                        Swal.fire({ icon: 'warning', title: 'Atención', text: 'Debes configurar al menos una variante.' });
                         return;
                     }
-
-                    payload = new FormData();
-                    payload.append('nombre', nombre);
-                    payload.append('id_categoria', id_categoria);
-                    payload.append('id_unidad', id_unidad);
-                    
-                    // Convertir el array de variantes a JSON en el FormData no es directo en PHP sin decode
-                    // Mejor usar JSON pero necesitamos enviar la imagen. 
-                    // El controlador PHP para crear_con_variantes espera JSON. Cambiaremos cómo se envía abajo.
                 } else {
-                    payload = new FormData();
-                    payload.append('nombre', nombre);
-                    payload.append('id_categoria', id_categoria);
-                    payload.append('id_unidad', id_unidad);
                     payload.append('precio_unitario', document.getElementById('new_precio').value);
                     payload.append('costo_produccion', document.getElementById('new_costo').value);
                     payload.append('comision', document.getElementById('new_comision').value || 0);
                     payload.append('stock', document.getElementById('new_stock').value);
                     payload.append('stock_ilimitado', document.getElementById('new_stock_ilimitado').checked ? 1 : 0);
-                    
-                    if (document.getElementById('new_grupo_uniformes').style.display === 'block') {
-                        payload.append('id_talla', document.getElementById('new_talla').value);
-                        payload.append('id_tipo_corbata', document.getElementById('new_tipo_corbata').value);
-                    }
-                    if (document.getElementById('new_grupo_modulos').style.display === 'block') {
-                        payload.append('id_nivel', document.getElementById('new_nivel').value);
-                        payload.append('id_grado', document.getElementById('new_grado').value);
-                        payload.append('id_area', document.getElementById('new_area').value);
-                        payload.append('id_bimestre', document.getElementById('new_bimestre').value);
-                    }
                 }
 
-                // Aquí reconstruimos la lógica de envío
                 const fileInput = document.getElementById('new_imagen');
                 const file = (fileInput && fileInput.files.length > 0) ? fileInput.files[0] : null;
+                if (file) payload.append('imagen', file);
 
                 try {
-                    let response;
-                    if (isVariantes) {
-                        // Para variantes enviamos JSON (si no hay imagen) o enviamos form data pero no podemos mandar array fácilmente
-                        // La mejor forma de mandar el array de variantes en PHP FormData es recorrerlo:
-                        payload = new FormData();
-                        payload.append('nombre', nombre);
-                        payload.append('id_categoria', id_categoria);
-                        payload.append('id_unidad', id_unidad);
-                        if (file) payload.append('imagen', file);
-                        
-                        let idx = 0;
-                        tallaChecks.forEach(chk => {
-                            if (chk.checked) {
-                                const container = chk.closest('div');
-                                payload.append(`variantes[${idx}][id_talla]`, chk.value);
-                                payload.append(`variantes[${idx}][precio_unitario]`, container.querySelector('.new-talla-precio').value || 0);
-                                payload.append(`variantes[${idx}][costo_produccion]`, container.querySelector('.new-talla-costo').value || 0);
-                                payload.append(`variantes[${idx}][comision]`, container.querySelector('.new-talla-comision').value || 0);
-                                payload.append(`variantes[${idx}][stock_piezas]`, container.querySelector('.new-talla-stock').value || 0);
-                                idx++;
-                            }
-                        });
-
-                        response = await fetch(endpoint, { method: 'POST', body: payload });
-                    } else {
-                        if (file) payload.append('imagen', file);
-                        response = await fetch(endpoint, { method: 'POST', body: payload });
-                    }
-                    
+                    const response = await fetch(endpoint, { method: 'POST', body: payload });
                     const data = await response.json();
-
                     if (data.success) {
-                        Swal.fire({
-                            icon: 'success',
-                            title: '¡Creado!',
-                            text: data.mensaje,
-                            showConfirmButton: false,
-                            timer: 1500
-                        }).then(() => window.location.reload());
+                        Swal.fire({ icon: 'success', title: '¡Creado!', text: data.mensaje, showConfirmButton: false, timer: 1500 })
+                            .then(() => window.location.reload());
                     } else {
-                        Swal.fire({
-                            icon: 'error',
-                            title: 'Error',
-                            text: data.mensaje,
-                            confirmButtonColor: '#23284E'
-                        });
+                        Swal.fire({ icon: 'error', title: 'Error', text: data.mensaje, confirmButtonColor: '#23284E' });
                     }
                 } catch (error) {
                     Swal.fire({ icon: 'error', title: 'Error', text: 'No se pudo conectar al servidor.' });
@@ -1014,10 +991,44 @@ $isAdmin = ($_SESSION['rol'] === 'Administrador');
             });
         }
 
-        // 3. Rellenar campos en el modal de Edición
+        // --- Modal EDITAR ---
         const editModal = new bootstrap.Modal(document.getElementById('editarProductoModal'));
-        const selectCat = document.getElementById('edit_categoria');
         const selectUni = document.getElementById('edit_unidad');
+
+        // Mapa nombre de categoría -> id (para ubicar la primaria en la edición)
+        const catNameToId = {};
+        document.querySelectorAll('.cat-check[data-prefix="edit"]').forEach(c => { catNameToId[c.dataset.nombre] = c.value; });
+
+        // Poblar filas de variantes desde los botones hijos del padre en edición
+        function populateVariantes(btn, tipo) {
+            const children = document.querySelectorAll(`.edit-producto-btn[data-padreid="${btn.dataset.id}"]`);
+            if (tipo === 'libre') {
+                children.forEach(childBtn => {
+                    addFilaLibre('edit', childBtn.dataset.etiqueta, childBtn.dataset.precio, childBtn.dataset.costo, childBtn.dataset.comision, null, childBtn.dataset.id);
+                });
+                return;
+            }
+            document.querySelectorAll('#edit_variantes_rows .var-row').forEach(row => {
+                row.querySelectorAll('input[type="number"]').forEach(i => i.disabled = true);
+            });
+            const esCustom = esTipoEtiqueta(tipo);
+            children.forEach(childBtn => {
+                // Tipos personalizados (v{id}) matchean por nombre de opción; los demás por id_dimension
+                const chk = esCustom
+                    ? Array.from(document.querySelectorAll('#edit_variantes_rows .var-check')).find(c => c.dataset.nombre === childBtn.dataset.etiqueta)
+                    : document.querySelector(`#edit_variantes_rows .var-check[data-dim="${childBtn.dataset.talla || childBtn.dataset.tipocorbata || childBtn.dataset.bimestre}"]`);
+                if (chk) {
+                    const row = chk.closest('.var-row');
+                    chk.checked = true;
+                    row.querySelector('.var-precio').value = childBtn.dataset.precio;
+                    row.querySelector('.var-costo').value = childBtn.dataset.costo;
+                    row.querySelector('.var-comision').value = childBtn.dataset.comision || 0;
+                    row.querySelector('.var-stock').value = '';
+                    row.querySelectorAll('input[type="number"]').forEach(i => i.disabled = false);
+                    row.querySelector('.var-idproducto').value = childBtn.dataset.id;
+                }
+            });
+        }
 
         document.querySelectorAll('.edit-producto-btn').forEach(btn => {
             btn.addEventListener('click', () => {
@@ -1025,53 +1036,31 @@ $isAdmin = ($_SESSION['rol'] === 'Administrador');
                 document.getElementById('edit_id').value = btn.dataset.id;
                 document.getElementById('edit_nombre').value = btn.dataset.nombre;
 
+                // Reset de categorías y tipo
+                document.querySelectorAll('.cat-check[data-prefix="edit"]').forEach(c => c.checked = false);
+                document.getElementById('edit_tipo_variante').value = '';
+                renderVariantes('edit', '');
+
+                // Marcar categorías (pivote) y primaria
+                const cats = (btn.dataset.categorias || '').split(',').filter(x => x !== '');
+                cats.forEach(id => {
+                    const chk = document.getElementById('edit_cat_' + id);
+                    if (chk) chk.checked = true;
+                });
+                const idPrimaria = catNameToId[btn.dataset.categoria];
+                document.getElementById('edit_id_categoria').value = idPrimaria || (cats.length ? cats[0] : '');
+
                 if (isPadre) {
                     document.getElementById('edit_campos_precio_stock').classList.add('d-none');
-                    document.getElementById('edit_grupo_variantes').classList.remove('d-none');
                     document.getElementById('editarProductoModalLabel').textContent = "Editar Familia de Producto";
                     document.getElementById('edit_stock_ilimitado').checked = false;
-                    
-                    // Limpiar y poblar checkboxes de tallas
-                    const idPadre = btn.dataset.id;
-                    const children = document.querySelectorAll(`.edit-producto-btn[data-padreid="${idPadre}"]`);
-                    const checks = document.querySelectorAll('.edit-talla-check');
-                    
-                    // Reset all
-                    checks.forEach(chk => {
-                        chk.checked = false;
-                        const container = chk.closest('div');
-                        const p = container.querySelector('.edit-talla-precio');
-                        const c = container.querySelector('.edit-talla-costo');
-                        const co = container.querySelector('.edit-talla-comision');
-                        const idHidden = container.querySelector('.edit-talla-idproducto');
-                        p.disabled = true; c.disabled = true; co.disabled = true;
-                        p.value = ''; c.value = ''; co.value = ''; idHidden.value = '';
-                    });
-
-                    // Populate from children
-                    children.forEach(childBtn => {
-                        const tallaId = childBtn.dataset.talla; // wait, data-talla is currently id_talla! Yes!
-                        const chk = document.getElementById(`edit_talla_check_${tallaId}`);
-                        if (chk) {
-                            chk.checked = true;
-                            const container = chk.closest('div');
-                            const p = container.querySelector('.edit-talla-precio');
-                            const c = container.querySelector('.edit-talla-costo');
-                            const co = container.querySelector('.edit-talla-comision');
-                            const idHidden = container.querySelector('.edit-talla-idproducto');
-                            p.disabled = false; c.disabled = false; co.disabled = false;
-                            p.value = childBtn.dataset.precio;
-                            c.value = childBtn.dataset.costo;
-                            co.value = childBtn.dataset.comision || 0;
-                            idHidden.value = childBtn.dataset.id;
-                        }
-                    });
-
+                    const tipo = btn.dataset.tipo || 'talla';
+                    document.getElementById('edit_tipo_variante').value = tipo;
+                    updateForm('edit');
+                    populateVariantes(btn, tipo);
                 } else {
                     document.getElementById('edit_campos_precio_stock').classList.remove('d-none');
-                    document.getElementById('edit_grupo_variantes').classList.add('d-none');
                     document.getElementById('editarProductoModalLabel').textContent = "Editar Producto";
-
                     document.getElementById('edit_precio').value = btn.dataset.precio;
                     document.getElementById('edit_costo').value = btn.dataset.costo;
                     document.getElementById('edit_comision').value = btn.dataset.comision || 0;
@@ -1079,13 +1068,14 @@ $isAdmin = ($_SESSION['rol'] === 'Administrador');
                     const chkEditIlimitado = document.getElementById('edit_stock_ilimitado');
                     chkEditIlimitado.checked = btn.dataset.stockilimitado === "1";
                     chkEditIlimitado.dispatchEvent(new Event('change'));
+                    // Preservar tipo de variante de un hijo (no se muestra el panel)
+                    document.getElementById('edit_tipo_variante').value = btn.dataset.tipo || '';
                 }
 
-                // Previsualizar la imagen actual si existe
+                // Previsualizar imagen
                 const imagen = btn.dataset.imagen;
                 const previewDiv = document.getElementById('edit_imagen_preview');
                 const previewImg = document.getElementById('edit_imagen_img');
-                // Limpiar input file viejo
                 document.getElementById('edit_imagen').value = '';
                 if (imagen && imagen !== '' && imagen !== 'null') {
                     previewImg.src = `./assets/productos/${imagen}`;
@@ -1095,125 +1085,90 @@ $isAdmin = ($_SESSION['rol'] === 'Administrador');
                     previewImg.src = '';
                 }
 
-                // Mapear los dropdown de categoría y unidades dinámicamente
-                Array.from(selectCat.options).forEach(opt => {
-                    if (opt.text === btn.dataset.categoria) opt.selected = true;
-                });
-                toggleGroups('edit'); // Actualizar visibilidad de grupos
-                
                 Array.from(selectUni.options).forEach(opt => {
                     if (opt.text.startsWith(btn.dataset.unidad)) opt.selected = true;
                 });
 
-                // Mapear atributos (solo relevantes para simples/hijos)
                 document.getElementById('edit_talla').value = btn.dataset.talla;
                 document.getElementById('edit_tipo_corbata').value = btn.dataset.tipocorbata;
-                document.getElementById('edit_nivel').value = btn.dataset.nivel;
-                document.getElementById('edit_grado').value = btn.dataset.grado;
-                document.getElementById('edit_area').value = btn.dataset.area;
-                document.getElementById('edit_bimestre').value = btn.dataset.bimestre;
 
                 editModal.show();
             });
         });
-        
-        // Habilitar inputs al chequear variantes en el edit modal
-        document.querySelectorAll('.edit-talla-check').forEach(chk => {
-            chk.addEventListener('change', (e) => {
-                const container = e.target.closest('div');
-                const inputs = container.querySelectorAll('input[type="number"]');
-                inputs.forEach(input => input.disabled = !e.target.checked);
-            });
-        });
 
-        document.getElementById('edit_stock_ilimitado')?.addEventListener('change', function() {
-            const stockInput = document.getElementById('edit_stock');
-            if (this.checked) stockInput.value = '0';
-        });
-
-        document.getElementById('edit_aplicar_precio_todos')?.addEventListener('click', () => {
+        document.getElementById('edit_aplicar_precio_todos').addEventListener('click', () => {
             const precio = document.getElementById('edit_precio_base_variante').value;
             const costo = document.getElementById('edit_costo_base_variante').value;
             const comision = document.getElementById('edit_comision_base_variante').value;
-            document.querySelectorAll('.edit-talla-check:checked').forEach(chk => {
-                const container = chk.closest('div');
-                if (precio !== '') container.querySelector('.edit-talla-precio').value = precio;
-                if (costo !== '') container.querySelector('.edit-talla-costo').value = costo;
-                if (comision !== '') container.querySelector('.edit-talla-comision').value = comision;
+            document.querySelectorAll('#edit_variantes_rows .var-row').forEach(row => {
+                const sel = row.querySelector('.var-check');
+                if (sel && sel.checked) {
+                    if (precio !== '') row.querySelector('.var-precio').value = precio;
+                    if (costo !== '') row.querySelector('.var-costo').value = costo;
+                    if (comision !== '') row.querySelector('.var-comision').value = comision;
+                }
             });
         });
 
-        // 4. Guardar cambios del Producto editado
+        // Guardar edición
         const formEditar = document.getElementById('formEditarProducto');
         if (formEditar) {
             formEditar.addEventListener('submit', async (e) => {
                 e.preventDefault();
                 const id_producto = document.getElementById('edit_id').value;
                 const nombre = document.getElementById('edit_nombre').value.trim();
-                const id_categoria = document.getElementById('edit_categoria').value;
+                const id_categoria = document.getElementById('edit_id_categoria').value;
                 const id_unidad = document.getElementById('edit_unidad').value;
-                
-                const isPadre = !document.getElementById('edit_grupo_variantes').classList.contains('d-none');
+                const isPadre = document.querySelector('.edit-producto-btn[data-id="' + id_producto + '"]')?.dataset.espadre === "1";
+                const tipo = document.getElementById('edit_tipo_variante').value || '';
 
-                let formData = new FormData();
-                let endpoint = './controllers/C_Producto.php?action=actualizar';
+                if (!id_categoria || !id_unidad || !nombre) {
+                    Swal.fire({ icon: 'warning', title: 'Atención', text: 'Completa nombre, al menos una categoría y la unidad.' });
+                    return;
+                }
+
+                const formData = new FormData();
+                formData.append('id_producto', id_producto);
+                formData.append('nombre', nombre);
+                formData.append('id_categoria', id_categoria);
+                formData.append('id_unidad', id_unidad);
+                categoriasMarcadas('edit').forEach(id => formData.append('categorias[]', id));
 
                 if (isPadre) {
-                    endpoint = './controllers/C_Producto.php?action=actualizar_con_variantes';
-                    formData.append('id_producto', id_producto);
-                    formData.append('nombre', nombre);
-                    formData.append('id_categoria', id_categoria);
-                    formData.append('id_unidad', id_unidad);
-                    
+                    formData.append('tipo_variante', tipo);
                     let idx = 0;
-                    let hasVariants = false;
-                    document.querySelectorAll('.edit-talla-check').forEach(chk => {
-                        if (chk.checked) {
-                            hasVariants = true;
-                            const container = chk.closest('div');
-                            formData.append(`variantes[${idx}][id_talla]`, chk.value);
-                            formData.append(`variantes[${idx}][precio_unitario]`, container.querySelector('.edit-talla-precio').value || 0);
-                            formData.append(`variantes[${idx}][costo_produccion]`, container.querySelector('.edit-talla-costo').value || 0);
-                            formData.append(`variantes[${idx}][comision]`, container.querySelector('.edit-talla-comision').value || 0);
-                            const idChild = container.querySelector('.edit-talla-idproducto').value;
-                            if (idChild) {
-                                formData.append(`variantes[${idx}][id_producto]`, idChild);
-                            }
-                            idx++;
+                    document.querySelectorAll('#edit_variantes_rows .var-row').forEach(row => {
+                        if (tipo === 'libre') {
+                            const etiqueta = row.querySelector('.var-libre-nombre').value.trim();
+                            if (!etiqueta) return;
+                            formData.append(`variantes[${idx}][nombre_variante]`, etiqueta);
+                        } else if (esTipoEtiqueta(tipo)) {
+                            const chk = row.querySelector('.var-check');
+                            if (!chk || !chk.checked) return;
+                            formData.append(`variantes[${idx}][nombre_variante]`, chk.dataset.nombre);
+                        } else {
+                            const chk = row.querySelector('.var-check');
+                            if (!chk.checked) return;
+                            formData.append(`variantes[${idx}][id_dimension]`, chk.dataset.dim);
                         }
+                        formData.append(`variantes[${idx}][precio_unitario]`, row.querySelector('.var-precio').value || 0);
+                        formData.append(`variantes[${idx}][costo_produccion]`, row.querySelector('.var-costo').value || 0);
+                        formData.append(`variantes[${idx}][comision]`, row.querySelector('.var-comision').value || 0);
+                        const idChild = row.querySelector('.var-idproducto').value;
+                        if (idChild) formData.append(`variantes[${idx}][id_producto]`, idChild);
+                        idx++;
                     });
-
-                    if (!hasVariants) {
-                        Swal.fire({ icon: 'warning', text: 'Debe seleccionar al menos una talla.' });
+                    if (idx === 0) {
+                        Swal.fire({ icon: 'warning', text: 'Debes configurar al menos una variante.' });
                         return;
                     }
                 } else {
-                    const precio_unitario = document.getElementById('edit_precio').value;
-                    const costo_produccion = document.getElementById('edit_costo').value;
-                    const comision = document.getElementById('edit_comision').value || 0;
-                    const stock = document.getElementById('edit_stock').value;
-
-                    formData.append('id_producto', id_producto);
-                    formData.append('nombre', nombre);
-                    formData.append('id_categoria', id_categoria);
-                    formData.append('id_unidad', id_unidad);
-                    formData.append('precio_unitario', precio_unitario);
-                    formData.append('costo_produccion', costo_produccion);
-                    formData.append('comision', comision);
-                    formData.append('stock', stock);
+                    formData.append('precio_unitario', document.getElementById('edit_precio').value);
+                    formData.append('costo_produccion', document.getElementById('edit_costo').value);
+                    formData.append('comision', document.getElementById('edit_comision').value || 0);
+                    formData.append('stock', document.getElementById('edit_stock').value);
                     formData.append('stock_ilimitado', document.getElementById('edit_stock_ilimitado').checked ? 1 : 0);
-                    
-                    // Add attributes
-                    if (document.getElementById('edit_grupo_uniformes').style.display === 'block') {
-                        formData.append('id_talla', document.getElementById('edit_talla').value);
-                        formData.append('id_tipo_corbata', document.getElementById('edit_tipo_corbata').value);
-                    }
-                    if (document.getElementById('edit_grupo_modulos').style.display === 'block') {
-                        formData.append('id_nivel', document.getElementById('edit_nivel').value);
-                        formData.append('id_grado', document.getElementById('edit_grado').value);
-                        formData.append('id_area', document.getElementById('edit_area').value);
-                        formData.append('id_bimestre', document.getElementById('edit_bimestre').value);
-                    }
+                    formData.append('tipo_variante', tipo);
                 }
 
                 const fileInput = document.getElementById('edit_imagen');
@@ -1221,29 +1176,17 @@ $isAdmin = ($_SESSION['rol'] === 'Administrador');
                     formData.append('imagen', fileInput.files[0]);
                 }
 
-                try {
-                    const response = await fetch(endpoint, {
-                        method: 'POST',
-                        body: formData
-                    });
-                    const data = await response.json();
+                const endpoint = isPadre ? './controllers/C_Producto.php?action=actualizar_con_variantes' : './controllers/C_Producto.php?action=actualizar';
 
+                try {
+                    const response = await fetch(endpoint, { method: 'POST', body: formData });
+                    const data = await response.json();
                     if (data.success) {
                         editModal.hide();
-                        Swal.fire({
-                            icon: 'success',
-                            title: '¡Actualizado!',
-                            text: data.mensaje,
-                            showConfirmButton: false,
-                            timer: 1500
-                        }).then(() => window.location.reload());
+                        Swal.fire({ icon: 'success', title: '¡Actualizado!', text: data.mensaje, showConfirmButton: false, timer: 1500 })
+                            .then(() => window.location.reload());
                     } else {
-                        Swal.fire({
-                            icon: 'error',
-                            title: 'Error',
-                            text: data.mensaje,
-                            confirmButtonColor: '#23284E'
-                        });
+                        Swal.fire({ icon: 'error', title: 'Error', text: data.mensaje, confirmButtonColor: '#23284E' });
                     }
                 } catch (error) {
                     Swal.fire({ icon: 'error', title: 'Error', text: 'No se pudo conectar al servidor.' });
@@ -1251,7 +1194,7 @@ $isAdmin = ($_SESSION['rol'] === 'Administrador');
             });
         }
 
-        // 5. Eliminar lógicamente un producto del catálogo activo
+        // 5. Eliminar lógicamente un producto
         document.querySelectorAll('.delete-producto-btn').forEach(btn => {
             btn.addEventListener('click', () => {
                 const id_producto = btn.dataset.id;
@@ -1275,22 +1218,11 @@ $isAdmin = ($_SESSION['rol'] === 'Administrador');
                                 body: JSON.stringify({ id_producto })
                             });
                             const data = await response.json();
-
                             if (data.success) {
-                                Swal.fire({
-                                    icon: 'success',
-                                    title: '¡Eliminado!',
-                                    text: data.mensaje,
-                                    showConfirmButton: false,
-                                    timer: 1500
-                                }).then(() => window.location.reload());
+                                Swal.fire({ icon: 'success', title: '¡Eliminado!', text: data.mensaje, showConfirmButton: false, timer: 1500 })
+                                    .then(() => window.location.reload());
                             } else {
-                                Swal.fire({
-                                    icon: 'error',
-                                    title: 'Error',
-                                    text: data.mensaje,
-                                            confirmButtonColor: '#23284E'
-                                });
+                                Swal.fire({ icon: 'error', title: 'Error', text: data.mensaje, confirmButtonColor: '#23284E' });
                             }
                         } catch (error) {
                             Swal.fire({ icon: 'error', title: 'Error', text: 'No se pudo conectar al servidor.' });
@@ -1299,8 +1231,8 @@ $isAdmin = ($_SESSION['rol'] === 'Administrador');
                 });
             });
         });
-        
-        // Manejador para Actualizar Stock — abre el modal detallado
+
+        // Manejador para Actualizar Stock
         const stockModal = new bootstrap.Modal(document.getElementById('stockModal'));
         const stockMasivoModal = new bootstrap.Modal(document.getElementById('stockMasivoModal'));
 
@@ -1312,47 +1244,42 @@ $isAdmin = ($_SESSION['rol'] === 'Administrador');
                 }
                 const esPadre = btn.dataset.espadre === "1";
                 const id_producto = btn.dataset.id;
-                
+
                 if (esPadre) {
-                    // Cargar Modal Masivo
                     document.getElementById('stock_masivo_id_padre').value = id_producto;
                     document.getElementById('stockMasivoSubtitle').textContent = btn.dataset.nombre;
-                    
-                    // Buscar hijos en la tabla
+
                     const tbody = document.getElementById('stockMasivoTbody');
                     tbody.innerHTML = '';
-                    
+
                     const hijos = document.querySelectorAll(`.update-stock-btn[data-padreid="${id_producto}"]`);
                     hijos.forEach(hijoBtn => {
                         const tr = document.createElement('tr');
                         tr.className = "border-bottom";
                         tr.innerHTML = `
-                            <td class="px-3 fw-bold text-primary">${hijoBtn.dataset.talla}</td>
+                            <td class="px-3 fw-bold text-primary">${hijoBtn.dataset.etiqueta}</td>
                             <td class="px-3 text-end fw-semibold">${parseFloat(hijoBtn.dataset.stock).toLocaleString('es-PE')}</td>
                             <td class="px-3">
-                                <input type="number" class="form-control text-end masivo-cantidad-input" 
+                                <input type="number" class="form-control text-end masivo-cantidad-input"
                                        data-id="${hijoBtn.dataset.id}" data-precio="${hijoBtn.dataset.precio || 0}"
                                        min="0" step="1" placeholder="0" style="border-radius:8px;">
                             </td>
                         `;
                         tbody.appendChild(tr);
                     });
-                    
+
                     if (hijos.length === 0) {
-                        tbody.innerHTML = `<tr><td colspan="3" class="text-center py-4 text-muted">No se encontraron tallas para este producto.</td></tr>`;
+                        tbody.innerHTML = `<tr><td colspan="3" class="text-center py-4 text-muted">No se encontraron variantes para este producto.</td></tr>`;
                     }
-                    
+
                     document.getElementById('stock_masivo_referencia').value = '';
                     setTipoStockMasivo('entrada');
                     stockMasivoModal.show();
-                    
                 } else {
-                    // Modal Normal
-                    document.getElementById('stock_id_producto').value  = btn.dataset.id;
+                    document.getElementById('stock_id_producto').value = btn.dataset.id;
                     document.getElementById('stock_precio_unit').value = btn.dataset.precio || 0;
                     document.getElementById('stockModalSubtitle').textContent = btn.dataset.nombre;
                     document.getElementById('stock_actual_display').textContent = parseFloat(btn.dataset.stock).toLocaleString('es-PE') + ' und.';
-                    // Reset form
                     document.getElementById('stock_cantidad').value = '';
                     document.getElementById('stock_referencia').value = '';
                     document.getElementById('stock_motivo_select').value = '';
@@ -1364,7 +1291,6 @@ $isAdmin = ($_SESSION['rol'] === 'Administrador');
             });
         });
 
-        // Alternar entre Agregar / Descontar (Modal Normal)
         window.setTipoStock = function(tipo) {
             document.getElementById('stock_tipo').value = tipo;
             const btnEntrada = document.getElementById('btnTipoEntrada');
@@ -1391,7 +1317,6 @@ $isAdmin = ($_SESSION['rol'] === 'Administrador');
             }
         };
 
-        // Alternar entre Agregar / Descontar (Modal Masivo)
         window.setTipoStockMasivo = function(tipo) {
             document.getElementById('stock_masivo_tipo').value = tipo;
             const btnEntrada = document.getElementById('btnTipoMasivoEntrada');
@@ -1427,27 +1352,26 @@ $isAdmin = ($_SESSION['rol'] === 'Administrador');
             otro.classList.toggle('d-none', sel.value !== 'Otro');
         };
 
-        // Submit del formulario de stock
         document.getElementById('formStock').addEventListener('submit', async (e) => {
             e.preventDefault();
-            const tipo     = document.getElementById('stock_tipo').value;
+            const tipo = document.getElementById('stock_tipo').value;
             const cantidad = parseFloat(document.getElementById('stock_cantidad').value);
             const id_producto = document.getElementById('stock_id_producto').value;
             const precio_unitario = parseFloat(document.getElementById('stock_precio_unit').value) || 0;
 
             let referencia = '';
-            let concepto   = '';
+            let concepto = '';
 
             if (tipo === 'entrada') {
                 referencia = document.getElementById('stock_referencia').value.trim();
-                concepto   = referencia ? `Entrada de stock — Boleta ${referencia}` : 'Entrada de stock manual';
+                concepto = referencia ? `Entrada de stock — Boleta ${referencia}` : 'Entrada de stock manual';
             } else {
                 const motSel = document.getElementById('stock_motivo_select').value;
                 const motOtro = document.getElementById('stock_motivo_otro').value.trim();
                 const motivo = motSel === 'Otro' ? motOtro : motSel;
                 if (!motivo) { Swal.fire({ icon:'warning', title:'Falta motivo', text:'Debes indicar el motivo del descuento.' }); return; }
                 referencia = motivo;
-                concepto   = `Salida de stock — ${motivo}`;
+                concepto = `Salida de stock — ${motivo}`;
             }
 
             if (!cantidad || cantidad <= 0) {
@@ -1474,46 +1398,39 @@ $isAdmin = ($_SESSION['rol'] === 'Administrador');
             }
         });
 
-        // Submit Masivo de Stock
         const formStockMasivo = document.getElementById('formStockMasivo');
         if (formStockMasivo) {
             formStockMasivo.addEventListener('submit', async (e) => {
                 e.preventDefault();
                 const tipo = document.getElementById('stock_masivo_tipo').value;
-                
+
                 let referencia = '';
                 let concepto = '';
-                
+
                 if (tipo === 'entrada') {
                     referencia = document.getElementById('stock_masivo_referencia').value.trim();
-                    concepto   = referencia ? `Entrada de stock — Boleta ${referencia}` : 'Entrada de stock manual';
+                    concepto = referencia ? `Entrada de stock — Boleta ${referencia}` : 'Entrada de stock manual';
                 } else {
                     const motivo = document.getElementById('stock_masivo_motivo_select').value;
                     referencia = motivo;
-                    concepto   = `Salida de stock — ${motivo}`;
+                    concepto = `Salida de stock — ${motivo}`;
                 }
 
-                // Recolectar tallas a actualizar
                 const inputs = document.querySelectorAll('.masivo-cantidad-input');
                 const updates = [];
-                
+
                 inputs.forEach(input => {
                     const val = parseFloat(input.value);
                     if (val && val > 0) {
-                        updates.push({
-                            id_producto: input.dataset.id,
-                            precio_unitario: input.dataset.precio,
-                            cantidad: val
-                        });
+                        updates.push({ id_producto: input.dataset.id, precio_unitario: input.dataset.precio, cantidad: val });
                     }
                 });
-                
+
                 if (updates.length === 0) {
                     Swal.fire({ icon: 'warning', text: 'Debes ingresar al menos una cantidad mayor a 0.' });
                     return;
                 }
-                
-                // Mostrar cargando
+
                 const btnConfirmar = document.getElementById('btnConfirmarStockMasivo');
                 const originalHtml = btnConfirmar.innerHTML;
                 btnConfirmar.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Guardando...';
@@ -1522,56 +1439,34 @@ $isAdmin = ($_SESSION['rol'] === 'Administrador');
                 try {
                     let successes = 0;
                     for (const up of updates) {
-                        const payload = {
-                            id_producto: up.id_producto,
-                            tipo: tipo,
-                            cantidad: up.cantidad,
-                            precio_unitario: parseFloat(up.precio_unitario) || 0,
-                            referencia: referencia,
-                            concepto: concepto
-                        };
-                        
                         const res = await fetch('./controllers/C_Kardex.php?action=registrar_movimiento', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify(payload)
+                            body: JSON.stringify({
+                                id_producto: up.id_producto,
+                                tipo: tipo,
+                                cantidad: up.cantidad,
+                                precio_unitario: parseFloat(up.precio_unitario) || 0,
+                                referencia: referencia,
+                                concepto: concepto
+                            })
                         });
                         const data = await res.json();
                         if (data.success) successes++;
                     }
-                    
                     stockMasivoModal.hide();
-                    Swal.fire({ icon: 'success', title: '¡Actualizado!', text: `Se actualizaron ${successes} tallas correctamente.`, showConfirmButton: false, timer: 1500 })
+                    Swal.fire({ icon: 'success', title: '¡Actualizado!', text: `Se actualizaron ${successes} variantes correctamente.`, showConfirmButton: false, timer: 1500 })
                         .then(() => window.location.reload());
                 } catch (error) {
                     btnConfirmar.innerHTML = originalHtml;
                     btnConfirmar.disabled = false;
-                    Swal.fire({ icon: 'error', title: 'Error', text: 'Hubo un error al actualizar algunas tallas.' });
+                    Swal.fire({ icon: 'error', title: 'Error', text: 'Hubo un error al actualizar algunas variantes.' });
                 }
             });
         }
 
-        // 6. Funcionalidad para mostrar/ocultar atributos
-
-        window.toggleGroups = function(prefix) {
-            const selectCat = document.getElementById(prefix + '_categoria');
-            if(selectCat.selectedIndex === -1) return;
-            const catName = selectCat.options[selectCat.selectedIndex].getAttribute('data-name');
-            
-            const groupUniformes = document.getElementById(prefix + '_grupo_uniformes');
-            const groupModulos = document.getElementById(prefix + '_grupo_modulos');
-            
-            if (catName === 'Uniformes') {
-                groupUniformes.style.display = 'block';
-                groupModulos.style.display = 'none';
-            } else if (catName === 'Módulos') {
-                groupUniformes.style.display = 'none';
-                groupModulos.style.display = 'block';
-            } else {
-                groupUniformes.style.display = 'none';
-                groupModulos.style.display = 'none';
-            }
-        };
+        // Exponer funciones globales usadas por atributos onchange
+        window.updateForm = updateForm;
         <?php endif; ?>
     });
 </script>

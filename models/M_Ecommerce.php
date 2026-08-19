@@ -38,30 +38,62 @@ class M_Ecommerce {
 
     /**
      * Retorna el catálogo agrupado para la tienda pública y el POS.
-     * - Los productos con variantes de talla se entregan como un solo bloque con su lista de variantes.
+     * - Los productos con variantes (talla/corbata/bimestre/libre) se entregan como
+     *   un solo bloque con su lista de variantes.
      * - Los productos simples (sin padre) se entregan con una sola variante que es el producto mismo.
      * El producto padre (es_agrupador=1) NUNCA aparece como item vendible.
      *
-     * @return array Array de grupos: cada grupo tiene 'tiene_tallas', 'nombre', 'imagen', 'categoria',
-     *               'precio_desde', 'stock_total', 'variantes' (array de variantes con id_producto, talla, precio, stock)
+     * Cada grupo expone: 'tiene_tallas', 'tipo_variante', 'nombre', 'imagen', 'categoria',
+     * 'id_categoria', 'categorias' (array de ids para filtros multi-etiqueta),
+     * 'precio_desde', 'stock_total', 'variantes' (cada una con id_producto, etiqueta, precio, stock).
+     *
+     * @return array
      */
     public function getCatalogoAgrupado(): array {
         try {
             $grupos = [];
 
-            // 1. Productos padre con sus hijos (variantes de talla)
+            // Mapa id_producto => categorías (pivote), para filtros multi-etiqueta
+            $catMap = [];
+            $stmtC = $this->conexion->query(
+                "SELECT id_producto, GROUP_CONCAT(id_categoria) AS ids FROM producto_categorias GROUP BY id_producto"
+            );
+            foreach ($stmtC->fetchAll(PDO::FETCH_ASSOC) as $r) {
+                $catMap[(int) $r['id_producto']] = array_map('intval', explode(',', $r['ids']));
+            }
+
+            // Mapa id_categoria => nombre, para exponer los nombres en el catálogo
+            $catNombreMap = [];
+            $stmtN = $this->conexion->query("SELECT id_categoria, nombre FROM categorias WHERE estado = 1");
+            foreach ($stmtN->fetchAll(PDO::FETCH_ASSOC) as $r) {
+                $catNombreMap[(int) $r['id_categoria']] = $r['nombre'];
+            }
+            $idsANombres = function (array $ids) use ($catNombreMap): array {
+                $nombres = [];
+                foreach ($ids as $id) {
+                    if (isset($catNombreMap[$id])) $nombres[] = $catNombreMap[$id];
+                }
+                return $nombres;
+            };
+
+            // 1. Productos padre con sus hijos (variantes)
             $sqlPadres = "SELECT p.id_producto AS id_padre, p.nombre, p.imagen,
-                                 c.nombre AS categoria, c.id_categoria,
+                                 c.nombre AS categoria, c.id_categoria, p.tipo_variante,
+                                 tv.nombre AS tipo_nombre,
                                  h.id_producto AS var_id, h.precio_unitario AS var_precio,
                                  h.stock_piezas AS var_stock,
-                                 t.nombre AS var_talla, t.id_talla, t.orden AS var_orden
+                                 COALESCE(t.nombre, tc.nombre, b.nombre, h.nombre_variante) AS var_etiqueta,
+                                 COALESCE(t.orden, tc.id_tipo_corbata, b.id_bimestre, 9999) AS var_orden
                           FROM productos p
                           INNER JOIN categorias c ON p.id_categoria = c.id_categoria
                           INNER JOIN productos h ON h.id_producto_padre = p.id_producto
                                                AND h.estado = 1 AND h.stock_ilimitado = 0
+                          LEFT JOIN tipos_variante tv ON tv.codigo = p.tipo_variante
                           LEFT JOIN tallas t ON h.id_talla = t.id_talla
+                          LEFT JOIN tipos_corbata tc ON h.id_tipo_corbata = tc.id_tipo_corbata
+                          LEFT JOIN bimestres b ON h.id_bimestre = b.id_bimestre
                           WHERE p.es_agrupador = 1 AND p.estado = 1
-                          ORDER BY c.nombre ASC, p.nombre ASC, t.orden ASC, t.nombre ASC";
+                          ORDER BY c.nombre ASC, p.nombre ASC";
             $stmtP = $this->conexion->prepare($sqlPadres);
             $stmtP->execute();
             $rowsPadres = $stmtP->fetchAll(PDO::FETCH_ASSOC);
@@ -69,12 +101,17 @@ class M_Ecommerce {
             foreach ($rowsPadres as $row) {
                 $key = 'p_' . $row['id_padre'];
                 if (!isset($grupos[$key])) {
+                    $idPadre = (int) $row['id_padre'];
                     $grupos[$key] = [
-                        'id'          => $row['id_padre'],
+                        'id'          => $idPadre,
                         'nombre'      => $row['nombre'],
                         'imagen'      => $row['imagen'],
                         'categoria'   => $row['categoria'],
                         'id_categoria'=> $row['id_categoria'],
+                        'categorias'  => $catMap[$idPadre] ?? [$row['id_categoria']],
+                        'categorias_nombre' => $idsANombres($catMap[$idPadre] ?? [$row['id_categoria']]),
+                        'tipo_variante'=> $row['tipo_variante'],
+                        'tipo_nombre' => $row['tipo_nombre'],
                         'tiene_tallas'=> true,
                         'disponible'  => false,
                         'precio_desde'=> null,
@@ -88,8 +125,9 @@ class M_Ecommerce {
                 $stock  = (int) $row['var_stock'];
                 $grupos[$key]['variantes'][] = [
                     'id_producto' => (int) $row['var_id'],
-                    'talla'     => $row['var_talla'],
-                    'id_talla'  => $row['id_talla'],
+                    'talla'     => $row['var_etiqueta'],
+                    'etiqueta'  => $row['var_etiqueta'],
+                    'tipo_variante' => $row['tipo_variante'],
                     'precio'    => $precio,
                     'stock'     => $stock,
                 ];
@@ -119,21 +157,26 @@ class M_Ecommerce {
             foreach ($simples as $s) {
                 $ilimitado   = (int) $s['stock_ilimitado'] === 1;
                 $stockMostrar = $ilimitado ? 9999 : (int) $s['stock_piezas'];
-                $grupos['s_' . $s['id_producto']] = [
-                    'id'          => (int) $s['id_producto'],
+                $idSimple    = (int) $s['id_producto'];
+                $grupos['s_' . $idSimple] = [
+                    'id'          => $idSimple,
                     'nombre'      => $s['nombre'],
                     'imagen'      => $s['imagen'],
                     'categoria'   => $s['categoria'],
                     'id_categoria'=> $s['id_categoria'],
+                    'categorias'  => $catMap[$idSimple] ?? [$s['id_categoria']],
+                    'categorias_nombre' => $idsANombres($catMap[$idSimple] ?? [$s['id_categoria']]),
+                    'tipo_variante'=> null,
                     'tiene_tallas'=> false,
                     'disponible'  => $stockMostrar > 0,
                     'precio_desde'=> floatval($s['precio_unitario']),
                     'stock_total' => $stockMostrar,
                     'stock_ilimitado' => $ilimitado,
                     'variantes'   => [[
-                        'id_producto' => (int) $s['id_producto'],
+                        'id_producto' => $idSimple,
                         'talla'     => null,
-                        'id_talla'  => null,
+                        'etiqueta'  => null,
+                        'tipo_variante' => null,
                         'precio'    => floatval($s['precio_unitario']),
                         'stock'     => $stockMostrar,
                         'stock_ilimitado' => $ilimitado,

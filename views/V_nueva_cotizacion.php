@@ -10,21 +10,39 @@ require_once dirname(__DIR__) . '/models/M_Producto.php';
 require_once dirname(__DIR__) . '/models/M_Cliente.php';
 require_once dirname(__DIR__) . '/models/M_Categoria.php';
 require_once dirname(__DIR__) . '/models/M_Caja.php';
+require_once dirname(__DIR__) . '/models/M_TipoVariante.php';
 
 // Listar productos activos en catálogo
 $modelProducto = M_Producto::singleton();
 $productos = $modelProducto->listar();
 
-// Construir mapa de productos agrupados para el selector de tallas en POS
-// Estructura: [ id_padre => ['nombre'=>..., 'imagen'=>..., 'categoria'=>..., 'variantes'=>[...]] ]
+// Mapa codigo => nombre de los tipos de variante (para etiquetas genéricas del POS)
+$tipoNombreMap = [];
+foreach (M_TipoVariante::singleton()->listar() as $tv) {
+    $tipoNombreMap[$tv['codigo']] = $tv['nombre'];
+}
+
+// Plural legible del tipo de variante (badges "N tallas", "N corbatas", etc.)
+function pluralTipoVarianteNombreCotizacion(?string $codigo, ?string $nombre): string {
+    $base = strtolower(trim((string) ($nombre ?? $codigo ?? '')));
+    if ($base === 'talla')   return 'tallas';
+    if ($base === 'corbata') return 'corbatas';
+    if ($base === 'bimestre') return 'bimestres';
+    return 'opciones';
+}
+
+// Construir mapa de productos agrupados para el selector de variantes en POS
+// Estructura: [ id_padre => ['nombre'=>..., 'imagen'=>..., 'categoria'=>..., 'tipo_nombre'=>..., 'variantes'=>[...]] ]
 $productosAgrupados = [];
 foreach ($productos as $ins) {
     if ($ins['es_agrupador'] == 1) {
         $productosAgrupados[$ins['id_producto']] = [
-            'nombre'    => $ins['nombre'],
-            'categoria' => $ins['categoria'],
-            'imagen'    => $ins['imagen'] ?? null,
-            'variantes' => [],
+            'nombre'        => $ins['nombre'],
+            'categoria'     => $ins['categoria'],
+            'imagen'        => $ins['imagen'] ?? null,
+            'tipo_variante' => $ins['tipo_variante'] ?? null,
+            'tipo_nombre'   => $tipoNombreMap[$ins['tipo_variante']] ?? null,
+            'variantes'     => [],
         ];
     }
 }
@@ -32,7 +50,7 @@ foreach ($productos as $ins) {
     if ($ins['id_producto_padre'] && isset($productosAgrupados[$ins['id_producto_padre']]) && $ins['stock_piezas'] > 0) {
         $productosAgrupados[$ins['id_producto_padre']]['variantes'][] = [
             'id_producto' => (int) $ins['id_producto'],
-            'talla'     => $ins['talla'] ?? 'S/T',
+            'etiqueta'  => $ins['etiqueta_variante'] ?? 'S/T',
             'precio'    => (float) $ins['precio_unitario'],
             'stock'     => (float) $ins['stock_piezas'],
             'unidad'    => $ins['abreviatura'],
@@ -316,14 +334,16 @@ $categorias = $modelCat->listar();
                                 $precioDesde   = !empty($variantesDisp) ? min(array_column($variantesDisp, 'precio')) : 0;
                                 $stockTotal    = !empty($variantesDisp) ? array_sum(array_column($variantesDisp, 'stock')) : 0;
                                 if (empty($variantesDisp)) continue;
+                                $tipoNombrePadre  = $tipoNombreMap[$ins['tipo_variante']] ?? 'Talla';
+                                $tipoPluralPadre  = pluralTipoVarianteNombreCotizacion($ins['tipo_variante'], $tipoNombrePadre);
                                 ?>
-                                <!-- TARJETA PADRE: producto con variantes de talla -->
+                                <!-- TARJETA PADRE: producto con variantes -->
                                 <div class="col product-card"
                                      data-nombre="<?php echo htmlspecialchars(strtolower($ins['nombre'])); ?>"
                                      data-categoria="<?php echo htmlspecialchars($ins['categoria']); ?>">
                                     <div class="card h-100 border border-light shadow-sm hover-shadow-md transition-all position-relative" style="border-radius: 12px; overflow: hidden;">
                                         <div class="position-absolute top-0 end-0 m-2">
-                                            <span class="badge bg-info text-dark rounded-pill px-2.5 py-1 fw-bold" style="font-size: 10px;"><i class="bi bi-rulers"></i> <?php echo count($variantesDisp); ?> tallas</span>
+                                            <span class="badge bg-info text-dark rounded-pill px-2.5 py-1 fw-bold" style="font-size: 10px;"><i class="bi bi-rulers"></i> <?php echo count($variantesDisp); ?> <?php echo $tipoPluralPadre; ?></span>
                                         </div>
                                         <div class="card-body p-3 d-flex flex-column justify-content-between">
                                             <div class="mb-3 pt-2">
@@ -340,7 +360,7 @@ $categorias = $modelCat->listar();
                                                         data-padre-id="<?php echo $ins['id_producto']; ?>"
                                                         data-nombre="<?php echo htmlspecialchars($ins['nombre']); ?>"
                                                         style="height: 32px; border-radius: 8px; padding: 0 10px; font-size: 12px; background: #eef1f7; border: 1.5px solid #23284E; color: #23284E; white-space: nowrap;">
-                                                    <i class="bi bi-rulers me-1"></i>Elegir talla
+                                                    <i class="bi bi-rulers me-1"></i>Elegir <?php echo strtolower($tipoNombrePadre); ?>
                                                 </button>
                                             </div>
                                         </div>
@@ -418,15 +438,15 @@ $categorias = $modelCat->listar();
         <div class="modal-content border-0 shadow-lg" style="border-radius: 15px;">
             <div class="modal-header gp-bg-primary border-0 py-3 px-4" style="border-radius: 15px 15px 0 0;">
                 <div>
-                    <h6 class="modal-title fw-bold text-white mb-0" id="tallaPosModalLabel">Seleccionar Talla</h6>
+                    <h6 class="modal-title fw-bold text-white mb-0" id="tallaPosModalLabel">Seleccionar Opción</h6>
                     <small class="text-white opacity-75" id="tallaPosNombreProducto">Producto</small>
                 </div>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" style="box-shadow:none;"></button>
             </div>
             <div class="modal-body p-4">
-                <!-- Pills de tallas -->
+                <!-- Pills de variantes -->
                 <div class="mb-4">
-                    <label class="form-label fw-semibold text-muted mb-2" style="font-size:12px; text-transform:uppercase; letter-spacing:.5px;">Talla disponible</label>
+                    <label class="form-label fw-semibold text-muted mb-2" style="font-size:12px; text-transform:uppercase; letter-spacing:.5px;" id="tallaPosTipoLabel">Opción disponible</label>
                     <div id="tallaPosPickerPills" class="d-flex flex-wrap gap-2"></div>
                 </div>
 
@@ -437,7 +457,7 @@ $categorias = $modelCat->listar();
                         <div class="text-muted" style="font-size:11px; text-transform:uppercase; letter-spacing:.5px;">Precio / Stock</div>
                         <div class="d-flex gap-3 align-items-baseline">
                             <span class="fw-bold fs-5 text-primary" id="tallaPosSelectedPrecio">S/ 0.00</span>
-                            <span class="text-muted" style="font-size:13px;" id="tallaPosSelectedStock">Seleccione una talla</span>
+                            <span class="text-muted" style="font-size:13px;" id="tallaPosSelectedStock">Seleccione una opción</span>
                         </div>
                     </div>
                 </div>
@@ -1022,6 +1042,8 @@ $categorias = $modelCat->listar();
         const productosAgrupados = <?php echo json_encode($productosAgrupados); ?>;
         const tallaPosModal    = new bootstrap.Modal(document.getElementById('tallaPosModal'));
         const tallaPosNombre   = document.getElementById('tallaPosNombreProducto');
+        const tallaPosTipoLabel = document.getElementById('tallaPosTipoLabel');
+        const tallaPosModalLabel = document.getElementById('tallaPosModalLabel');
         const tallaPosPills    = document.getElementById('tallaPosPickerPills');
         const tallaPosPrec     = document.getElementById('tallaPosSelectedPrecio');
         const tallaPosSt       = document.getElementById('tallaPosSelectedStock');
@@ -1030,7 +1052,7 @@ $categorias = $modelCat->listar();
         const tallaPosIncBtn   = document.getElementById('tallaPosIncBtn');
         const tallaPosAddBtn   = document.getElementById('tallaPosAddBtn');
 
-        let tallaSeleccionada  = null; // { id_producto, talla, precio, stock, unidad }
+        let tallaSeleccionada  = null; // { id_producto, etiqueta, precio, stock, unidad }
 
         function seleccionarTalla(variante, pillEl) {
             tallaSeleccionada = variante;
@@ -1063,19 +1085,21 @@ $categorias = $modelCat->listar();
                 if (!producto) return;
 
                 tallaPosNombre.textContent = nombre;
+                tallaPosModalLabel.textContent = 'Seleccionar ' + ((producto.tipo_nombre || 'Opción').toLowerCase());
+                tallaPosTipoLabel.textContent = (producto.tipo_nombre || 'Opción') + ' disponible';
                 tallaSeleccionada = null;
                 tallaPosCant.value = 1;
                 tallaPosPrec.textContent = 'S/ 0.00';
-                tallaPosSt.textContent   = 'Seleccione una talla';
+                tallaPosSt.textContent   = 'Seleccione una opción';
                 tallaPosAddBtn.disabled  = true;
 
-                // Renderizar pills de tallas
+                // Renderizar pills de variantes
                 tallaPosPills.innerHTML = '';
                 producto.variantes.forEach(v => {
                     const pill = document.createElement('button');
                     pill.type        = 'button';
                     pill.className   = 'talla-pill btn fw-semibold';
-                    pill.textContent = v.talla;
+                    pill.textContent = v.etiqueta;
                     pill.style.cssText = 'min-width:48px; height:38px; border-radius:8px; font-size:13px; border:1.5px solid #e5e7eb; background:#f3f4f6; color:#374151;';
                     pill.addEventListener('click', () => seleccionarTalla(v, pill));
                     tallaPosPills.appendChild(pill);
@@ -1099,7 +1123,7 @@ $categorias = $modelCat->listar();
         tallaPosAddBtn.addEventListener('click', () => {
             if (!tallaSeleccionada) return;
             const cantidad = parseInt(tallaPosCant.value) || 1;
-            const nombre   = tallaPosNombre.textContent + ' (T-' + tallaSeleccionada.talla + ')';
+            const nombre   = tallaPosNombre.textContent + ' (' + tallaSeleccionada.etiqueta + ')';
             // Reutilizar la misma función de carrito que el botón add-to-cart
             const id       = tallaSeleccionada.id_producto;
             const precio   = tallaSeleccionada.precio;

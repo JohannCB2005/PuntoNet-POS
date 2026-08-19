@@ -523,7 +523,6 @@ $marcaFavicon  = configuracion('LOGO_FAVICON', 'assets/favicon-nissi.svg?v=3');
             <h1>Vuelve a clases con el uniforme <em>que se ve bien.</em></h1>
             <p>Encuentra el uniforme completo de tu colegio, reserva online y recógelo en tienda cuando esté listo. Rápido, simple y seguro.</p>
             <div class="hero-badges">
-                <span class="h-badge"><i class="bi bi-credit-card"></i> Paga con tarjeta o Yape</span>
                 <span class="h-badge"><i class="bi bi-shop"></i> Recojo en tienda</span>
                 <span class="h-badge"><i class="bi bi-mortarboard"></i> Entrega en el colegio</span>
             </div>
@@ -662,7 +661,7 @@ $marcaFavicon  = configuracion('LOGO_FAVICON', 'assets/favicon-nissi.svg?v=3');
                 <div class="detalle-stock" id="detalleStock"></div>
 
                 <div id="detalleTallasBlock" style="display:none;">
-                    <label class="detalle-talla-label"><i class="bi bi-rulers me-1"></i> Tallas disponibles</label>
+                    <label class="detalle-talla-label" id="detalleTallasLabel"><i class="bi bi-rulers me-1"></i> Opciones disponibles</label>
                     <div class="detalle-tallas" id="detalleTallas"></div>
                 </div>
 
@@ -690,14 +689,14 @@ $marcaFavicon  = configuracion('LOGO_FAVICON', 'assets/favicon-nissi.svg?v=3');
             <div class="modal-content border-0 shadow-lg" style="border-radius: 18px;">
                 <div class="modal-header border-0 py-3 px-4" style="background: var(--navy); border-radius: 18px 18px 0 0;">
                     <div>
-                        <h6 class="modal-title fw-bold text-white mb-0" id="tallaTiendaModalLabel">Seleccionar talla</h6>
+                        <h6 class="modal-title fw-bold text-white mb-0" id="tallaTiendaModalLabel">Seleccionar opción</h6>
                         <small class="text-white opacity-75" id="tallaTiendaNombreProducto">Producto</small>
                     </div>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" style="box-shadow:none;"></button>
                 </div>
                 <div class="modal-body p-4">
                     <div class="mb-4">
-                        <label class="form-label fw-bold text-muted mb-2" style="font-size:11px; text-transform:uppercase; letter-spacing:.1em;">Tallas disponibles</label>
+                        <label class="form-label fw-bold text-muted mb-2" style="font-size:11px; text-transform:uppercase; letter-spacing:.1em;" id="tallaTiendaTipoLabel">Opciones disponibles</label>
                         <div id="tallaTiendaPills" class="d-flex flex-wrap gap-2"></div>
                     </div>
                     <div class="d-flex align-items-center gap-3 p-3 rounded-3 mb-4" style="background: var(--paper-2);">
@@ -771,6 +770,19 @@ $marcaFavicon  = configuracion('LOGO_FAVICON', 'assets/favicon-nissi.svg?v=3');
             const carritoGuardado = sessionStorage.getItem('nissi_cart');
             if (carritoGuardado) cart = JSON.parse(carritoGuardado) || [];
         } catch (e) { cart = []; }
+
+        // Nombre legible de cada tipo de variante (fallback si la API no trae tipo_nombre)
+        const TIPO_VARIANTE_NOMBRE = { talla: 'Talla', corbata: 'Corbata', bimestre: 'Bimestre', libre: 'Etiqueta' };
+        function nombreTipoVariante(tipo, tipoNombre) {
+            if (tipoNombre) return tipoNombre;
+            return TIPO_VARIANTE_NOMBRE[tipo] || 'Opción';
+        }
+        // Plural legible del tipo (para chips tipo "N tallas")
+        function pluralTipoVariante(tipo, tipoNombre) {
+            const base = ((tipoNombre || TIPO_VARIANTE_NOMBRE[tipo] || 'opción') + '').toLowerCase();
+            const pl = { talla: 'tallas', corbata: 'corbatas', bimestre: 'bimestres', etiqueta: 'etiquetas' };
+            return pl[base] || 'opciones';
+        }
 
         // Estado de los filtros
         let filtroNombreVal = '';
@@ -899,7 +911,10 @@ $marcaFavicon  = configuracion('LOGO_FAVICON', 'assets/favicon-nissi.svg?v=3');
         function inicializarFiltroCategorias() {
             const container = document.getElementById('categoriasFiltroContainer');
             if (catalogo.length === 0) return;
-            const categoriasUnicas = [...new Set(catalogo.map(item => item.categoria))];
+            // Todas las categorías de todos los productos (multi-etiqueta)
+            const categoriasUnicas = [...new Set(
+                catalogo.flatMap(item => item.categorias_nombre || [item.categoria])
+            )].sort((a, b) => a.localeCompare(b, 'es'));
             
             let html = '';
             categoriasUnicas.forEach(cat => {
@@ -1002,9 +1017,13 @@ $marcaFavicon  = configuracion('LOGO_FAVICON', 'assets/favicon-nissi.svg?v=3');
                 productos = productos.filter(p => p.nombre.toLowerCase().includes(filtroNombreVal));
             }
 
-            // 2. Filtrar por categorías
+            // 2. Filtrar por categorías (multi-etiqueta: intersección, el producto debe
+            //    pertenecer a TODAS las categorías seleccionadas)
             if (filtroCategoriasVal.length > 0) {
-                productos = productos.filter(p => filtroCategoriasVal.includes(p.categoria));
+                productos = productos.filter(p => {
+                    const cats = p.categorias_nombre || [p.categoria];
+                    return filtroCategoriasVal.every(c => cats.includes(c));
+                });
             }
 
             // 3. Filtrar por precio
@@ -1190,12 +1209,14 @@ $marcaFavicon  = configuracion('LOGO_FAVICON', 'assets/favicon-nissi.svg?v=3');
             contTallas.innerHTML = '';
 
             if (item.tiene_tallas) {
+                const tipoNombre = nombreTipoVariante(item.tipo_variante, item.tipo_nombre);
+                document.getElementById('detalleTallasLabel').textContent = tipoNombre + ' disponibles';
                 blockTallas.style.display = '';
                 item.variantes.forEach(v => {
                     const btn = document.createElement('button');
                     btn.type = 'button';
                     btn.className = 'detalle-talla' + (v.stock <= 0 ? '' : '');
-                    btn.textContent = v.talla;
+                    btn.textContent = v.etiqueta;
                     btn.disabled = v.stock <= 0;
                     btn.title = v.stock <= 0 ? 'Sin stock' : (v.stock + ' disponibles');
                     btn.addEventListener('click', () => {
@@ -1260,7 +1281,7 @@ $marcaFavicon  = configuracion('LOGO_FAVICON', 'assets/favicon-nissi.svg?v=3');
                     return;
                 }
                 const v = tallaDetalleSeleccionada;
-                agregarItemDirecto(v.id_producto, `${productoDetalleActual.nombre} (T-${v.talla})`, v.precio, v.stock, 'Und', qty);
+                agregarItemDirecto(v.id_producto, `${productoDetalleActual.nombre} (${v.etiqueta})`, v.precio, v.stock, 'Und', qty);
             } else {
                 const v = productoDetalleActual.variantes[0];
                 agregarItemDirecto(v.id_producto, productoDetalleActual.nombre, v.precio, v.stock_ilimitado ? 999 : v.stock, 'Und', qty);
@@ -1297,13 +1318,14 @@ $marcaFavicon  = configuracion('LOGO_FAVICON', 'assets/favicon-nissi.svg?v=3');
 
                 if (item.tiene_tallas) {
                     const agotadoTallas = !item.disponible;
+                    const tipoNombre = nombreTipoVariante(item.tipo_variante, item.tipo_nombre);
                     const stockHtmlTallas = agotadoTallas
                         ? '<div class="product-stock" style="background:#eef2f6;color:#6b7f92"><i class="bi bi-x-circle me-1"></i>Agotado</div>'
-                        : `<div class="product-stock" style="color:#23284E"><i class="bi bi-rulers"></i> ${item.variantes.length} tallas</div>`;
+                        : `<div class="product-stock" style="color:#23284E"><i class="bi bi-rulers"></i> ${item.variantes.length} ${pluralTipoVariante(item.tipo_variante, item.tipo_nombre)}</div>`;
                     const btnTallas = agotadoTallas
                         ? `<button class="btn-add btn-add--size" disabled style="background:#eef2f6;color:#8ba0b2;border-color:#e2eaf2;cursor:not-allowed;"><i class="bi bi-bag-x me-1"></i> Agotado</button>`
                         : `<button class="btn-add btn-add--size" onclick='event.stopPropagation(); abrirModalTallasTienda(${JSON.stringify(item).replace(/'/g, "&#39;")})'>
-                            <i class="bi bi-rulers me-1"></i> Elegir talla
+                            <i class="bi bi-rulers me-1"></i> Elegir ${tipoNombre.toLowerCase()}
                         </button>`;
                     html += `
                         <div class="col-6 col-lg-3">
@@ -1376,10 +1398,13 @@ $marcaFavicon  = configuracion('LOGO_FAVICON', 'assets/favicon-nissi.svg?v=3');
                 modalTallaTiendaInstance = new bootstrap.Modal(document.getElementById('tallaTiendaModal'));
             }
             document.getElementById('tallaTiendaNombreProducto').textContent = producto.nombre;
+            const tipoNombreModal = nombreTipoVariante(producto.tipo_variante, producto.tipo_nombre);
+            document.getElementById('tallaTiendaModalLabel').textContent = 'Seleccionar ' + tipoNombreModal.toLowerCase();
+            document.getElementById('tallaTiendaTipoLabel').textContent = tipoNombreModal + ' disponibles';
             tallaSeleccionadaTienda = null;
             document.getElementById('tallaTiendaCantidad').value = 1;
             document.getElementById('tallaTiendaPrecio').textContent = 'S/ 0.00';
-            document.getElementById('tallaTiendaStock').textContent = 'Seleccione una talla';
+            document.getElementById('tallaTiendaStock').textContent = 'Seleccione una opción';
             document.getElementById('tallaTiendaAddBtn').disabled = true;
 
             const pillsContainer = document.getElementById('tallaTiendaPills');
@@ -1388,7 +1413,7 @@ $marcaFavicon  = configuracion('LOGO_FAVICON', 'assets/favicon-nissi.svg?v=3');
             producto.variantes.forEach(v => {
                 const btn = document.createElement('button');
                 btn.className = 'btn fw-semibold';
-                btn.textContent = v.talla;
+                btn.textContent = v.etiqueta;
                 btn.style.cssText = 'min-width:48px; height:38px; border-radius:8px; font-size:13px; border:1.5px solid #e5e7eb; background:#f3f4f6; color:#374151;';
 
                 if (v.stock <= 0) {
@@ -1405,7 +1430,7 @@ $marcaFavicon  = configuracion('LOGO_FAVICON', 'assets/favicon-nissi.svg?v=3');
                 btn.addEventListener('click', () => {
                     tallaSeleccionadaTienda = {
                         id_producto: v.id_producto,
-                        nombre: `${producto.nombre} (T-${v.talla})`,
+                        nombre: `${producto.nombre} (${v.etiqueta})`,
                         precio: v.precio,
                         stock: v.stock,
                         unidad: 'Und'

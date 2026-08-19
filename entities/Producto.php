@@ -28,6 +28,8 @@ class Producto {
     // Sistema de variantes de talla
     public $es_agrupador;       // 1 = Producto padre (NO vendible), 0 = simple/variante
     public $id_producto_padre;  // FK al padre, NULL si es padre o producto simple
+    public $tipo_variante;      // talla|corbata|bimestre|libre (NULL si es simple)
+    public $nombre_variante;    // Etiqueta libre de la variante (solo tipo 'libre')
 
     public function __construct(
         $id_categoria = null,
@@ -47,7 +49,9 @@ class Producto {
         $es_agrupador = 0,
         $id_producto_padre = null,
         $comision = 0.0,
-        $stock_ilimitado = 0
+        $stock_ilimitado = 0,
+        $tipo_variante = null,
+        $nombre_variante = null
     ) {
         $this->id_producto          = $id_producto;
         $this->id_categoria       = $id_categoria;
@@ -68,6 +72,8 @@ class Producto {
         $this->id_bimestre        = $id_bimestre;
         $this->es_agrupador       = $es_agrupador ? 1 : 0;
         $this->id_producto_padre  = $id_producto_padre;
+        $this->tipo_variante      = $tipo_variante;
+        $this->nombre_variante    = $nombre_variante;
     }
 }
 ?>

@@ -17,7 +17,7 @@
 
 // Módulos validados (misma lista que $routes en pos.php)
 $modulos = [
-    'dashboard', 'categorias', 'productos', 'kardex', 'usuarios', 'clientes',
+    'dashboard', 'categorias', 'productos', 'tipos-variante', 'kardex', 'usuarios', 'clientes',
     'nueva-venta', 'historial', 'reportes', 'pedidos-online', 'cotizaciones',
     'nueva-cotizacion', 'separaciones', 'caja', 'control-cajas', 'comisiones',
     'sunat-series', 'configuracion', 'carga', 'alumnos', 'pagos', 'conciliacion',
