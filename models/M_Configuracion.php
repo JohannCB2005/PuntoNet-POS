@@ -76,6 +76,7 @@ class M_Configuracion {
         // ── Cobro por verificación manual (sin pasarela, sin comisiones) ──
         'PAGO_MANUAL_HABILITADO'              => ['grupo' => 'pagos', 'tipo' => 'si_no',  'etiqueta' => 'Cobro por verificación manual'],
         'PAGO_MANUAL_MINUTOS'                 => ['grupo' => 'pagos', 'tipo' => 'texto',  'etiqueta' => 'Minutos de reserva para pago manual'],
+        'RESERVA_PASARELA_MINUTOS'            => ['grupo' => 'pagos', 'tipo' => 'texto',  'etiqueta' => 'Minutos de reserva para pasarela (tarjeta/QR)'],
         'PAGO_MANUAL_INSTRUCCIONES'           => ['grupo' => 'pagos', 'tipo' => 'texto',  'etiqueta' => 'Instrucciones mostradas al cliente'],
         'PAGO_MANUAL_BILLETERA_HABILITADO'    => ['grupo' => 'pagos', 'tipo' => 'si_no',  'etiqueta' => 'Billetera QR (Yape/Plin/Izipay QR)'],
         'PAGO_MANUAL_BILLETERA_YAPE_HABILITADO' => ['grupo' => 'pagos', 'tipo' => 'si_no', 'etiqueta' => 'Yape QR'],

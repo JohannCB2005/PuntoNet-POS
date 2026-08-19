@@ -352,7 +352,11 @@ if (!isset($_SESSION['id_usuario']) || $_SESSION['rol'] !== 'Administrador') {
                 <div class="row g-4 mb-4">
                     <div class="col-6 col-md-3">
                         <label class="form-label fw-semibold text-muted" style="font-size:12px;">Minutos de reserva</label>
-                        <input class="form-control form-control-sm cfg-input" data-clave="PAGO_MANUAL_MINUTOS" placeholder="60">
+                        <input class="form-control form-control-sm cfg-input" data-clave="PAGO_MANUAL_MINUTOS" placeholder="15">
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <label class="form-label fw-semibold text-muted" style="font-size:12px;">Minutos de reserva pasarela</label>
+                        <input class="form-control form-control-sm cfg-input" data-clave="RESERVA_PASARELA_MINUTOS" placeholder="15">
                     </div>
                 </div>
 

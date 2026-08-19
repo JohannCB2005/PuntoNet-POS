@@ -166,7 +166,7 @@ switch ($action) {
             'billetera'     => $manualBilletera,
             'transferencia' => $manualTransferencia,
             'datos'         => [
-                'minutos'       => max(5, (int) (configuracion('PAGO_MANUAL_MINUTOS', '60') ?: 60)),
+                'minutos'       => max(5, (int) (configuracion('PAGO_MANUAL_MINUTOS', '15') ?: 15)),
                 'instrucciones' => configuracion('PAGO_MANUAL_INSTRUCCIONES', ''),
                 'billetera'     => $manualBilletera ? [
                     'titular'           => configuracion('PAGO_MANUAL_BILLETERA_TITULAR', ''),
@@ -305,25 +305,57 @@ switch ($action) {
         if (!in_array($metodo, ['tarjeta', 'qr', 'billetera', 'transferencia'], true)) {
             $metodo = '';
         }
+        require_once dirname(__DIR__) . '/config/settings.php';
         $minutosManual = null;
         if (in_array($metodo, ['billetera', 'transferencia'], true)) {
-            require_once dirname(__DIR__) . '/config/settings.php';
-            $minutosManual = max(5, (int) (configuracion('PAGO_MANUAL_MINUTOS', '60') ?: 60));
+            $minutosManual = max(5, (int) (configuracion('PAGO_MANUAL_MINUTOS', '15') ?: 15));
         }
+
+        // Ventana de reserva de las pasarelas (tarjeta/QR): configurable, default 15 min.
+        $minutosPasarela = max(5, (int) (configuracion('RESERVA_PASARELA_MINUTOS', '15') ?: 15));
 
         // Ya no hay identificador de pago externo que validar: el pedido se crea primero,
         // con los totales recalculados en servidor, y su propio id genera la referencia
         // que después se envía a Izipay al pedir el FormToken (ver C_Izipay.php).
         $res = M_Ecommerce::singleton()->crearPedidoPendiente(
             (int) $_SESSION['id_cliente'], $carrito, $entrega, $tipo_comprobante, $id_cliente_facturacion,
-            $metodo === '' ? null : $metodo, $minutosManual
+            $metodo === '' ? null : $metodo,
+            $metodo === 'tarjeta' || $metodo === 'qr' ? $minutosPasarela : $minutosManual
         );
         echo json_encode([
-            'success'   => $res['ok'],
-            'mensaje'   => $res['mensaje'] ?? null,
-            'id_pedido' => $res['id_pedido'] ?? null,
-            'token'     => $res['token'] ?? null,
-            'total'     => $res['total'] ?? null,
+            'success'      => $res['ok'],
+            'mensaje'      => $res['mensaje'] ?? null,
+            'id_pedido'    => $res['id_pedido'] ?? null,
+            'token'        => $res['token'] ?? null,
+            'total'        => $res['total'] ?? null,
+            'fecha_expira' => $res['fecha_expira'] ?? null,
+            'minutos'      => $res['minutos'] ?? null,
+        ]);
+        break;
+
+    // El cliente decide su método de pago en el paso 4 (después de reservar).
+    // Solo se persiste el método: la ventana de reserva ya se fijó al crear el
+    // pedido y el contador no debe reiniciarse al cambiar de opción.
+    case 'actualizar_metodo':
+        $data = json_decode(file_get_contents('php://input'), true) ?: [];
+        $idPedido = (int) ($data['id_pedido'] ?? 0);
+        $token = (string) ($data['token'] ?? '');
+        $metodo = (string) ($data['metodo'] ?? '');
+        $modelo = M_Ecommerce::singleton();
+        $pedido = $modelo->getPedidoPublico($idPedido, $token);
+        if (!$pedido) {
+            echo json_encode(['success' => false, 'mensaje' => 'No encontramos tu pedido.'], JSON_UNESCAPED_UNICODE);
+            exit;
+        }
+        if ((int) $pedido['estado'] !== 3) {
+            echo json_encode(['success' => false, 'mensaje' => 'Tu pedido ya no está en reserva.'], JSON_UNESCAPED_UNICODE);
+            exit;
+        }
+        $res = $modelo->actualizarMetodoPago($idPedido, $metodo);
+        echo json_encode([
+            'success'      => $res['ok'],
+            'mensaje'      => $res['mensaje'] ?? null,
+            'fecha_expira' => $res['fecha_expira'] ?? null,
         ]);
         break;
 

@@ -3,6 +3,7 @@ require_once dirname(__DIR__, 2) . '/config/sesion_segura.php';
 session_start();
 require_once dirname(dirname(__DIR__)) . '/models/M_ClienteWeb.php';
 require_once dirname(dirname(__DIR__)) . '/models/M_Producto.php';
+require_once dirname(dirname(__DIR__)) . '/config/izipay.php';
 
 // La compra requiere cuenta — ya no existe checkout como invitado.
 if (!isset($_SESSION['id_cliente'])) {
@@ -124,6 +125,10 @@ $grados = M_Producto::singleton()->obtenerGrados();
             box-shadow: var(--shadow);
         }
         .co-card + .co-card { margin-top: 20px; }
+
+        /* Secciones 1-3 colapsadas al pasar al pago: se ocultan y quedan solo
+           el resumen de datos y la sección de pago. */
+        .co-card-collapsed { display: none !important; }
 
         .co-card-title {
             font-family: var(--font-display);
@@ -412,6 +417,41 @@ $grados = M_Producto::singleton()->obtenerGrados();
             justify-content: center;
             gap: 5px;
         }
+        /* ─── Contador de reserva (paso de pago) ─────────────── */
+        .co-card-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-bottom: 22px;
+        }
+        .co-card-head .co-card-title { margin-bottom: 0; }
+        .countdown-box {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: .95rem;
+            color: var(--muted);
+            margin: 0;
+        }
+        .countdown-box #countdownTime {
+            font-size: 1.15rem;
+            font-weight: 700;
+            color: var(--navy);
+            background: var(--paper-2);
+            border: 1.5px solid var(--line);
+            border-radius: 999px;
+            padding: 2px 12px;
+            font-variant-numeric: tabular-nums;
+            white-space: nowrap;
+            transition: color .2s, border-color .2s, background .2s;
+        }
+        .countdown-box.urgente #countdownTime {
+            color: var(--danger);
+            background: var(--danger-100);
+            border-color: var(--danger);
+        }
         /* Radio-tarjeta de selección del checkout */
         .btn-check + .btn { border-radius: var(--radius-sm); }
     </style>
@@ -439,6 +479,12 @@ $grados = M_Producto::singleton()->obtenerGrados();
 
         <!-- ─── LEFT: Forms ─── -->
         <div id="formCol">
+
+            <!-- Error de pago (visible en todo el flujo asistente, arriba de las secciones) -->
+            <div id="payment-error" style="margin-top:0;">
+                <i class="bi bi-exclamation-circle-fill"></i>
+                <span id="payment-error-msg"></span>
+            </div>
 
             <!-- Empty cart fallback -->
             <div id="empty-cart-msg" class="co-card" style="display:none;">
@@ -603,12 +649,35 @@ $grados = M_Producto::singleton()->obtenerGrados();
                 </p>
             </div>
 
-            <!-- ══ SECCIÓN 4: Pago con Izipay ══ -->
-            <div class="co-card" id="cardPago">
-                <h2 class="co-card-title">
-                    <span class="step-badge">4</span>
-                    Método de Pago
-                </h2>
+            <!-- Resumen de datos (aparece tras colapsar las secciones 1-3) -->
+            <div class="co-card co-card-collapsed d-none" id="resumenDatos">
+                <div class="d-flex align-items-center justify-content-between mb-2">
+                    <h2 class="co-card-title mb-0">
+                        <span class="step-badge">✓</span>
+                        Tus datos
+                    </h2>
+                </div>
+                <div class="row g-2 text-muted" id="resumenDatosBody" style="font-size:0.85rem;"></div>
+            </div>
+
+            <!-- Botón que avanza a la sección de pago y reserva el pedido -->
+            <button id="btn-siguiente" class="btn-pay w-100">
+                <span class="spinner-sm" id="sig-spinner"></span>
+                <span id="sig-label">Continuar al pago</span>
+            </button>
+
+            <!-- ══ SECCIÓN 4: Pago con Izipay (se muestra al pulsar "Continuar al pago") ══ -->
+            <div class="co-card d-none" id="cardPago">
+                <div class="co-card-head">
+                    <h2 class="co-card-title mb-0">
+                        <span class="step-badge">4</span>
+                        Método de Pago
+                    </h2>
+                    <p class="countdown-box" id="reservaNota" style="display:none;">
+                        <i class="bi bi-clock-history"></i>
+                        <span id="reservaNotaText">Tu pedido queda reservado <strong id="countdownTime">--:--</strong> para que completes el pago.</span>
+                    </p>
+                </div>
 
                 <div class="pasarela-nota">
                     <i class="bi bi-shield-lock-fill"></i>
@@ -646,12 +715,6 @@ $grados = M_Producto::singleton()->obtenerGrados();
                     <i class="bi bi-info-circle"></i> Paga con tu tarjeta de débito o crédito.
                 </p>
 
-                <!-- Error de pago -->
-                <div id="payment-error">
-                    <i class="bi bi-exclamation-circle-fill"></i>
-                    <span id="payment-error-msg"></span>
-                </div>
-
                 <!-- Paso B: aquí Krypton monta el formulario de tarjeta -->
                 <div id="izipay-form-container" class="d-none">
                     <!-- El div .kr-embedded se inserta por JS justo antes de renderizar.
@@ -673,11 +736,6 @@ $grados = M_Producto::singleton()->obtenerGrados();
                     <i class="bi bi-lock-fill" id="pay-icon"></i>
                     <span id="pay-label">Continuar al pago</span>
                 </button>
-
-                <p class="security-note" id="reservaNota" style="display:none;">
-                    <i class="bi bi-clock-history"></i>
-                    Tu pedido queda reservado 10 minutos mientras completas el pago.
-                </p>
 
                 <div class="text-center mt-3">
                     <a href="/tienda" class="btn-back">
@@ -717,6 +775,33 @@ $grados = M_Producto::singleton()->obtenerGrados();
         </div>
 
     </main><!-- /co-wrapper -->
+
+    <!-- Modal de advertencia al salir con pedido pendiente (en vez de la
+         notificación nativa del navegador). La nativa sigue de respaldo para
+         refrescar/cerrar pestaña, donde un modal no puede mostrarse. -->
+    <div class="modal fade" id="modalSalirCheckout" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-sm">
+            <div class="modal-content" style="border-radius:18px;border:none;box-shadow:0 24px 60px rgba(15,23,42,.25);">
+                <div class="modal-body p-4 text-center">
+                    <div class="mx-auto mb-3 d-flex align-items-center justify-content-center" style="width:58px;height:58px;border-radius:50%;background:#FFF7ED;color:#C2410C;">
+                        <i class="bi bi-exclamation-triangle fs-3"></i>
+                    </div>
+                    <h5 class="fw-bold mb-2" style="color:var(--navy);">¿Seguro que quieres salir?</h5>
+                    <p class="text-muted mb-4" style="font-size:.9rem;">
+                        Tienes un pedido pendiente de pago. Si sales ahora se <strong>liberará el stock reservado</strong> y tendrás que armar tu carrito de nuevo.
+                    </p>
+                    <div class="d-grid gap-2">
+                        <button type="button" class="btn btn-primary rounded-pill py-2 fw-semibold" id="btnQuedarseCheckout">
+                            <i class="bi bi-bag-check me-1"></i> Continuar comprando
+                        </button>
+                        <button type="button" class="btn btn-outline-danger rounded-pill py-2 fw-semibold" id="btnSalirCheckout">
+                            Salir y liberar el stock
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
@@ -840,6 +925,8 @@ $grados = M_Producto::singleton()->obtenerGrados();
     //    El monto SIEMPRE lo calcula el servidor a partir de {id_producto, cantidad}.
     // ─────────────────────────────────────────────────────────────
     let pedidoCreado = null;   // { id_pedido, token } una vez reservado
+    let fechaExpiracion = null; // Date límite de la reserva (contador del paso 4)
+    let timerCountdown  = null; // id del setInterval del contador
     let kryptonCargado = false;
 
     // Carga kr-payment-form.min.js una sola vez, con la clave pública que
@@ -852,6 +939,11 @@ $grados = M_Producto::singleton()->obtenerGrados();
             s.setAttribute('kr-public-key', publicKey);
             s.setAttribute('kr-post-url-success', '/confirmacion');
             s.setAttribute('kr-language', 'es-ES');
+            <?php if (defined('IZIPAY_MODO') && IZIPAY_MODO === 'PRODUCCION'): ?>
+            // En producción se oculta la barra de tarjetas de prueba de Krypton;
+            // en sandbox (TEST) se deja visible para poder probar pagos.
+            s.setAttribute('kr-hide-debug-toolbar', 'true');
+            <?php endif; ?>
             s.onload = () => {
                 const ext = document.createElement('script');
                 ext.src = 'https://static.micuentaweb.pe/static/js/krypton-client/V4.0/ext/classic.js';
@@ -905,8 +997,123 @@ $grados = M_Producto::singleton()->obtenerGrados();
         }
 
         pedidoCreado = { id_pedido: json.id_pedido, token: json.token };
+        fechaExpiracion = json.fecha_expira ? new Date(String(json.fecha_expira).replace(' ', 'T')) : null;
         activarProteccionAbandono();
         return true;
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // Paso A2: flujo asistente. Las secciones 1-3 se rellenan primero y al pulsar
+    // "Siguiente" se reserva el pedido, se colapsan y se muestra la sección de pago
+    // con un contador regresivo hasta la expiración de la reserva.
+    // ─────────────────────────────────────────────────────────────
+    function iniciarCountdown() {
+        if (timerCountdown) clearInterval(timerCountdown);
+        const nota = document.getElementById('reservaNota');
+        const el   = document.getElementById('countdownTime');
+        if (!fechaExpiracion || !nota || !el) return;
+        nota.style.display = '';
+        const tick = () => {
+            const restante = Math.floor((fechaExpiracion.getTime() - Date.now()) / 1000);
+            if (restante <= 0) {
+                clearInterval(timerCountdown);
+                timerCountdown = null;
+                el.textContent = '00:00';
+                manejarReservaExpirada();
+                return;
+            }
+            const mm = String(Math.floor(restante / 60)).padStart(2, '0');
+            const ss = String(restante % 60).padStart(2, '0');
+            el.textContent = `${mm}:${ss}`;
+            nota.classList.toggle('urgente', restante <= 120);
+        };
+        tick();
+        timerCountdown = setInterval(tick, 1000);
+    }
+
+    // La reserva expiró: se libera el stock (best-effort en servidor) y se vuelve
+    // al paso 1 para que el cliente pueda generar una nueva reserva.
+    function manejarReservaExpirada() {
+        if (timerCountdown) { clearInterval(timerCountdown); timerCountdown = null; }
+        if (pedidoCreado) {
+            try {
+                navigator.sendBeacon(
+                    `../../controllers/C_Ecommerce.php?action=cancelar_pedido&id=${pedidoCreado.id_pedido}&t=${encodeURIComponent(pedidoCreado.token)}`
+                );
+            } catch (e) { /* el barrido de expirados lo cubre igual */ }
+        }
+        desactivarProteccionAbandono();
+        pedidoCreado = null;
+        fechaExpiracion = null;
+
+        ['cardDatos', 'cardComprobante', 'cardEntrega'].forEach(id => {
+            document.getElementById(id).classList.remove('co-card-collapsed');
+        });
+        document.getElementById('cardPago').classList.add('d-none');
+        document.getElementById('resumenDatos').classList.add('d-none');
+        document.getElementById('btn-siguiente').classList.remove('d-none');
+        const iz = document.getElementById('izipay-form-container');
+        if (iz) { iz.classList.add('d-none'); iz.innerHTML = ''; }
+        const pm = document.getElementById('pago-manual-container');
+        if (pm) { pm.classList.add('d-none'); pm.innerHTML = ''; }
+        document.getElementById('reservaNota').style.display = 'none';
+
+        showError('Tu reserva expiró y el stock se liberó. Pulsa "Siguiente" para generar una nueva reserva.');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function colapsarSecciones() {
+        ['cardDatos', 'cardComprobante', 'cardEntrega'].forEach(id => {
+            document.getElementById(id).classList.add('co-card-collapsed');
+        });
+        document.getElementById('btn-siguiente').classList.add('d-none');
+        pintarResumenDatos();
+        document.getElementById('resumenDatos').classList.remove('d-none');
+    }
+
+    function pintarResumenDatos() {
+        const body = document.getElementById('resumenDatosBody');
+        const tipoComp = document.querySelector('input[name="tipoComprobante"]:checked').value === '2'
+            ? `Factura (RUC ${document.getElementById('coRuc').value.trim()})`
+            : 'Boleta';
+        let entrega;
+        if (document.getElementById('entregaColegio').checked) {
+            entrega = `Entrega en colegio — <strong>${escapeHtml(document.getElementById('coEstudiante').value.trim())}</strong>`;
+        } else if (document.getElementById('recogeOtra').checked) {
+            entrega = `Recoger en tienda — <strong>${escapeHtml(document.getElementById('coRecogeNombre').value.trim())}</strong> (DNI ${document.getElementById('coRecogeDni').value.trim()})`;
+        } else {
+            entrega = 'Recoger en tienda — lo recoge el titular';
+        }
+        body.innerHTML = `
+            <div class="col-12 col-md-6">
+                <i class="bi bi-receipt me-1"></i> Comprobante: <strong>${tipoComp}</strong>
+            </div>
+            <div class="col-12 col-md-6">
+                <i class="bi bi-geo-alt me-1"></i> ${entrega}
+            </div>`;
+    }
+
+    function mostrarSeccion4() {
+        document.getElementById('cardPago').classList.remove('d-none');
+        document.getElementById('cardPago').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    // Actualiza el método del pedido reservado en servidor. La ventana de reserva
+    // no cambia (el pedido ya se creó con sus minutos), así que el contador sigue
+    // corriendo sin reiniciarse al cambiar de opción de pago.
+    async function actualizarMetodoServidor(metodo) {
+        if (!pedidoCreado) return;
+        try {
+            const res  = await fetch('../../controllers/C_Ecommerce.php?action=actualizar_metodo', {
+                method:  'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body:    JSON.stringify({ id_pedido: pedidoCreado.id_pedido, token: pedidoCreado.token, metodo }),
+            });
+            const json = await res.json();
+            if (json.success && json.fecha_expira) {
+                fechaExpiracion = new Date(String(json.fecha_expira).replace(' ', 'T'));
+            }
+        } catch (e) { /* si falla se mantiene la ventana ya reservada */ }
     }
 
     // Paso B: pedir el FormToken de ese pedido y montar el formulario de tarjeta.
@@ -1014,6 +1221,9 @@ $grados = M_Producto::singleton()->obtenerGrados();
             document.getElementById('btn-pay').style.display = '';
             document.getElementById('reservaNota').style.display = 'none';
         }
+        // Con pedido ya reservado, el método elegido se persiste en servidor sin
+        // tocar la ventana de reserva (el contador no se reinicia).
+        if (pedidoCreado) actualizarMetodoServidor(metodo);
         actualizarNotaMetodo();
     }
 
@@ -1189,10 +1399,13 @@ $grados = M_Producto::singleton()->obtenerGrados();
         }
 
         bloquearDatosEntrega();
+        // La nota de reserva muestra el contador regresivo (no texto estático):
+        // se reconstruye porque este panel pisa el innerHTML de reservaNota.
         document.getElementById('reservaNota').innerHTML =
-            `<i class="bi bi-clock-history"></i> Tu pedido queda reservado ${d.minutos || 60} minutos mientras realizas el pago y reportas tu operación.`;
+            `<i class="bi bi-clock-history"></i> <span id="reservaNotaText">Tu pedido queda reservado <strong id="countdownTime">--:--</strong> para que reportes tu pago.</span>`;
         document.getElementById('reservaNota').style.display = '';
         document.getElementById('btn-pay').style.display    = 'none';
+        iniciarCountdown();
 
         document.getElementById('pm-enviar').addEventListener('click', async () => {
             const btn = document.getElementById('pm-enviar');
@@ -1492,7 +1705,10 @@ $grados = M_Producto::singleton()->obtenerGrados();
     //    A partir de ahí el cobro lo gestiona el formulario de Krypton, que al
     //    completarse hace POST a V_checkout_success.php con kr-answer + kr-hash.
     // ─────────────────────────────────────────────────────────────
-    document.getElementById('btn-pay').addEventListener('click', async () => {
+    // 3.5 "Continuar al pago": valida las secciones 1-3, reserva el
+    //     pedido (stock bloqueado) y muestra la sección de pago con el contador.
+    // ─────────────────────────────────────────────────────────────
+    document.getElementById('btn-siguiente').addEventListener('click', async () => {
         hideError();
 
         if (!validateComprobante()) {
@@ -1510,16 +1726,44 @@ $grados = M_Producto::singleton()->obtenerGrados();
             return;
         }
 
+        setLoadingSig(true);
+        try {
+            if (!(await reservarPedido())) { setLoadingSig(false); return; }
+            colapsarSecciones();
+            mostrarSeccion4();
+            iniciarCountdown();
+        } catch (e) {
+            showError('No pudimos reservar tu pedido. Intenta de nuevo.');
+        }
+        setLoadingSig(false);
+    });
+
+    // ─────────────────────────────────────────────────────────────
+    // 4. "btn-pay" (paso 4): el pedido YA se reservó en el paso anterior; aquí solo
+    //    se monta el formulario del método elegido. Si no hubiera reserva (fallback
+    //    o reserva expirada), se crea una con los datos actuales.
+    // ─────────────────────────────────────────────────────────────
+    document.getElementById('btn-pay').addEventListener('click', async () => {
+        hideError();
+
+        if (!pedidoCreado) {
+            if (cart.length === 0) { showError('Tu carrito está vacío.'); return; }
+            if (!(await reservarPedido())) return;
+            colapsarSecciones();
+        }
+        if (fechaExpiracion && Date.now() > fechaExpiracion.getTime()) {
+            manejarReservaExpirada();
+            return;
+        }
+
         setLoading(true);
         try {
-            // Si el cliente ya reservó antes y falló al montar el formulario, no se
-            // vuelve a crear el pedido: se reutiliza el mismo y se pide otro token.
-            if (!pedidoCreado && !(await reservarPedido())) {
-                setLoading(false);
-                return;
-            }
-
             const metodo = metodoPagoSeleccionado();
+            // Métodos manuales: el pedido se reservó como pasarela; se actualiza el
+            // método en servidor y se extiende la ventana de reserva.
+            if (metodo === 'billetera' || metodo === 'transferencia') {
+                await actualizarMetodoServidor(metodo);
+            }
             const ok = metodo === 'qr'
                 ? await montarPagoQR()
                 : (metodo === 'billetera' || metodo === 'transferencia')
@@ -1581,6 +1825,59 @@ $grados = M_Producto::singleton()->obtenerGrados();
         } catch (e) { /* best-effort: el barrido de expirados lo cubre igual */ }
     }
 
+    // ── Salir con pedido pendiente: modal propia en vez de la notificación
+    //    nativa del navegador. Al navegar dentro de la página (clics en enlaces
+    //    con el pedido reservado) se intercepta el clic y se muestra la modal;
+    //    si el cliente confirma, se libera el stock y se navega. La notificación
+    //    nativa solo queda como respaldo para refrescar o cerrar la pestaña
+    //    (casos donde el navegador no permite renderizar un modal).
+    let salidaPendiente = null;
+
+    const modalSalirEl = document.getElementById('modalSalirCheckout');
+    const modalSalir  = modalSalirEl ? new bootstrap.Modal(modalSalirEl) : null;
+
+    function esSalidaNavegable(anchor) {
+        if (!anchor || !anchor.href) return false;
+        if (anchor.target === '_blank') return false;
+        const href = (anchor.getAttribute('href') || '').trim();
+        if (!href || href.startsWith('#') || href.startsWith('javascript:')) return false;
+        if (anchor.hasAttribute('data-bs-toggle') || anchor.hasAttribute('data-bs-dismiss')) return false;
+        // Navegaciones dentro del propio flujo de pago no se interceptan.
+        if (href.startsWith('/compra') || href.startsWith('/confirmacion')) return false;
+        return true;
+    }
+
+    document.addEventListener('click', (e) => {
+        if (!reservaActiva || pagoEnProgreso || !pedidoCreado) return;
+        const anchor = e.target.closest('a[href]');
+        if (!esSalidaNavegable(anchor)) return;
+        e.preventDefault();
+        e.stopPropagation();
+        salidaPendiente = anchor.href;
+        if (modalSalir) modalSalir.show();
+    });
+
+    if (modalSalir) {
+        document.getElementById('btnQuedarseCheckout').addEventListener('click', () => {
+            salidaPendiente = null;
+            modalSalir.hide();
+        });
+        document.getElementById('btnSalirCheckout').addEventListener('click', () => {
+            const destino = salidaPendiente;
+            salidaPendiente = null;
+            modalSalir.hide();
+            if (!destino) return;
+            // Liberar el stock reservado y salir del checkout.
+            desactivarProteccionAbandono();
+            try {
+                navigator.sendBeacon(
+                    `../../controllers/C_Ecommerce.php?action=cancelar_pedido&id=${pedidoCreado.id_pedido}&t=${encodeURIComponent(pedidoCreado.token)}`
+                );
+            } catch (err) { /* el barrido de expirados lo cubre igual */ }
+            window.location.href = destino;
+        });
+    }
+
     function setLoading(loading) {
         const btn     = document.getElementById('btn-pay');
         const spinner = document.getElementById('pay-spinner');
@@ -1593,6 +1890,18 @@ $grados = M_Producto::singleton()->obtenerGrados();
         label.textContent     = loading
             ? 'Procesando pago...'
             : `Continuar al pago — S/ ${totalAmount.toFixed(2)}`;
+    }
+
+    function setLoadingSig(loading) {
+        const btn     = document.getElementById('btn-siguiente');
+        const spinner = document.getElementById('sig-spinner');
+        const label   = document.getElementById('sig-label');
+
+        btn.disabled = loading;
+        spinner.style.display = loading ? 'block' : 'none';
+        label.textContent     = loading
+            ? 'Reservando tu pedido...'
+            : 'Continuar al pago';
     }
 
     function showError(msg) {

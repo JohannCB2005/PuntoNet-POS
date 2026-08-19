@@ -341,15 +341,40 @@ class M_Ecommerce {
             }
 
             $this->conexion->commit();
+            $stmtFe = $this->conexion->prepare("SELECT fecha_expira FROM pedidos_online WHERE id_pedido = ?");
+            $stmtFe->execute([$id_pedido]);
             return [
-                'ok'         => true,
-                'id_pedido'  => $id_pedido,
-                'token'      => $token,
-                'total'      => $calc['total'],
-                'referencia' => $referencia,
+                'ok'          => true,
+                'id_pedido'   => $id_pedido,
+                'token'       => $token,
+                'total'       => $calc['total'],
+                'referencia'  => $referencia,
+                'fecha_expira'=> $stmtFe->fetchColumn(),
+                'minutos'     => $minutos,
             ];
         } catch (Exception $e) {
             $this->conexion->rollBack();
+            return ['ok' => false, 'mensaje' => $e->getMessage()];
+        }
+    }
+
+    /**
+     * Cambia el método de pago de un pedido pendiente (estado 3) SIN tocar la
+     * ventana de reserva: al elegir el método en el paso de pago, la reserva ya
+     * se creó con sus minutos y el contador no debe reiniciarse. Devuelve la
+     * fecha de expiración vigente para que el frontend mantenga su contador.
+     */
+    public function actualizarMetodoPago(int $id_pedido, string $metodo): array {
+        try {
+            $metodo = in_array($metodo, ['tarjeta', 'qr', 'billetera', 'transferencia'], true) ? $metodo : 'tarjeta';
+            $upd = $this->conexion->prepare(
+                "UPDATE pedidos_online SET metodo_pago_online = ? WHERE id_pedido = ? AND estado = 3"
+            );
+            $upd->execute([$metodo, $id_pedido]);
+            $fe = $this->conexion->prepare("SELECT fecha_expira FROM pedidos_online WHERE id_pedido = ?");
+            $fe->execute([$id_pedido]);
+            return ['ok' => true, 'fecha_expira' => $fe->fetchColumn()];
+        } catch (PDOException $e) {
             return ['ok' => false, 'mensaje' => $e->getMessage()];
         }
     }

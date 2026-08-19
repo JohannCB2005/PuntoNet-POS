@@ -327,6 +327,33 @@ $marcaFavicon  = configuracion('LOGO_FAVICON', 'assets/favicon-nissi.svg?v=3');
 
         .offcanvas-cart-footer { background: var(--card); border-top: 1px solid var(--line); }
 
+        /* Cuando la cesta está abierta: solo "Mi Cesta" brilla, el resto deshabilitado */
+        body.cart-open .hero,
+        body.cart-open .catalog-head,
+        body.cart-open .btn-filtros-sticky,
+        body.cart-open #mainLayout,
+        body.cart-open #productoDetalle,
+        body.cart-open .n-brand,
+        body.cart-open .navbar .dropdown,
+        body.cart-open .navbar .btn-outline-primary {
+            opacity: .4;
+            pointer-events: none;
+            user-select: none;
+            filter: saturate(.6);
+            transition: opacity .25s ease, filter .25s ease;
+        }
+        body.cart-open #btnCarrito {
+            opacity: 1;
+            pointer-events: auto;
+            filter: none;
+            box-shadow: 0 0 0 3px var(--accent), 0 6px 20px rgba(35,40,78,.5);
+            animation: carrito-encendido 1.8s ease-in-out infinite;
+        }
+        @keyframes carrito-encendido {
+            0%, 100% { box-shadow: 0 0 0 3px var(--accent), 0 6px 20px rgba(35,40,78,.5); }
+            50%      { box-shadow: 0 0 0 3px var(--accent), 0 0 28px rgba(35,40,78,.8); }
+        }
+
         /* ── Modal tallas + cesta en móvil ──────────────────── */
         @media (max-width: 575.98px) {
             #tallaTiendaModal .modal-dialog { margin: .5rem; }
@@ -480,7 +507,7 @@ $marcaFavicon  = configuracion('LOGO_FAVICON', 'assets/favicon-nissi.svg?v=3');
                 <?php endif; ?>
 
                 <!-- Mi Cesta -->
-                <button class="btn btn-dark position-relative px-3 fw-semibold" type="button" data-bs-toggle="offcanvas" data-bs-target="#cartOffcanvas">
+                <button class="btn btn-dark position-relative px-3 fw-semibold" type="button" id="btnCarrito" data-bs-toggle="offcanvas" data-bs-target="#cartOffcanvas">
                     <i class="bi bi-bag-fill"></i><span class="nav-label"> Mi Cesta</span>
                     <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-primary border border-white" id="cartBadge">0</span>
                 </button>
@@ -706,7 +733,7 @@ $marcaFavicon  = configuracion('LOGO_FAVICON', 'assets/favicon-nissi.svg?v=3');
     </div>
 
     <!-- Offcanvas Carrito -->
-    <div class="offcanvas offcanvas-end" tabindex="-1" id="cartOffcanvas">
+    <div class="offcanvas offcanvas-end" tabindex="-1" id="cartOffcanvas" data-bs-backdrop="false">
         <div class="offcanvas-header">
             <h5 class="offcanvas-title"><i class="bi bi-bag-heart me-2" style="color:var(--accent);"></i>Tu Cesta</h5>
             <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
@@ -759,13 +786,23 @@ $marcaFavicon  = configuracion('LOGO_FAVICON', 'assets/favicon-nissi.svg?v=3');
             inicializarEventosFiltros();
             actualizarCarrito();
 
-            // Al abrir el carrito, ocultar el botón Filtros (sticky) para que no
-            // quede "brillante" sobre el backdrop oscuro del offcanvas.
+            // Al abrir la cesta, deshabilitar el resto de la página: solo el botón
+            // "Mi Cesta" queda iluminado, el filtro y el contenido se atenúan
+            // (CSS `body.cart-open`) y dejan de recibir clics.
             const cartEl = document.getElementById('cartOffcanvas');
-            const btnFiltros = document.querySelector('.btn-filtros-sticky');
-            if (cartEl && btnFiltros) {
-                cartEl.addEventListener('show.bs.offcanvas', () => { btnFiltros.style.visibility = 'hidden'; });
-                cartEl.addEventListener('hidden.bs.offcanvas', () => { btnFiltros.style.visibility = ''; });
+            if (cartEl) {
+                cartEl.addEventListener('show.bs.offcanvas', () => { document.body.classList.add('cart-open'); });
+                cartEl.addEventListener('hidden.bs.offcanvas', () => { document.body.classList.remove('cart-open'); });
+
+                // Cerrar la cesta al pulsar fuera de ella: el contenido deshabilitado
+                // deja pasar el clic hasta el document, que cierra la cesta.
+                const cartInstance = bootstrap.Offcanvas.getOrCreateInstance(cartEl);
+                document.addEventListener('click', (e) => {
+                    if (!document.body.classList.contains('cart-open')) return;
+                    if (cartEl.contains(e.target)) return;
+                    if (e.target.closest && e.target.closest('#btnCarrito')) return;
+                    cartInstance.hide();
+                });
             }
 
             const btnLogout = document.getElementById('btnCerrarSesionCliente');
