@@ -231,7 +231,7 @@ class M_Caja {
             if (!$caja) return null;
 
             // 2. Ventas de esta caja física (nunca incluye pedidos online: id_caja=NULL en esos casos)
-            $etiquetasMetodo = ['1' => 'Efectivo', '2' => 'Yape/Plin', '3' => 'Tarjeta', '4' => 'Mixto'];
+            $etiquetasMetodo = ['1' => 'Efectivo', '2' => 'Yape/Plin', '3' => 'Tarjeta', '4' => 'Mixto', '5' => 'Transferencia'];
             $stmtVentas = $this->conexion->prepare("
                 SELECT v.id_venta, v.fecha AS fecha_venta, v.total, v.metodo_pago,
                        v.tipo_comprobante, v.estado,

@@ -11,7 +11,7 @@
  * celular, donde el cliente abrirá el enlace compartido.
  */
 
-$nombresMetodo = [1 => 'Efectivo', 2 => 'Yape/Plin', 3 => 'Tarjeta'];
+$nombresMetodo = [1 => 'Efectivo', 2 => 'Yape/Plin', 3 => 'Tarjeta', 5 => 'Transferencia'];
 $tipoDoc       = 'BOLETA DE VENTA';
 $codigo        = '';
 $fechaEmision  = '';

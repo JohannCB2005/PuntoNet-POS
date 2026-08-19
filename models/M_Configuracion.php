@@ -73,9 +73,34 @@ class M_Configuracion {
         // ── Servicio PSE ──
         'PSE_HABILITADO'          => ['grupo' => 'pse', 'tipo' => 'si_no', 'etiqueta' => 'Servicio PSE'],
 
-        // ── Configuración de pagos ──
-        'PAGO_YAPE_HABILITADO'    => ['grupo' => 'pagos', 'tipo' => 'si_no', 'etiqueta' => 'Yape'],
-        'PAGO_MERCADOPAGO_HABILITADO' => ['grupo' => 'pagos', 'tipo' => 'si_no', 'etiqueta' => 'Mercado Pago'],
+        // ── Cobro por verificación manual (sin pasarela, sin comisiones) ──
+        'PAGO_MANUAL_HABILITADO'              => ['grupo' => 'pagos', 'tipo' => 'si_no',  'etiqueta' => 'Cobro por verificación manual'],
+        'PAGO_MANUAL_MINUTOS'                 => ['grupo' => 'pagos', 'tipo' => 'texto',  'etiqueta' => 'Minutos de reserva para pago manual'],
+        'PAGO_MANUAL_INSTRUCCIONES'           => ['grupo' => 'pagos', 'tipo' => 'texto',  'etiqueta' => 'Instrucciones mostradas al cliente'],
+        'PAGO_MANUAL_BILLETERA_HABILITADO'    => ['grupo' => 'pagos', 'tipo' => 'si_no',  'etiqueta' => 'Billetera QR (Yape/Plin/Izipay QR)'],
+        'PAGO_MANUAL_BILLETERA_YAPE_HABILITADO' => ['grupo' => 'pagos', 'tipo' => 'si_no', 'etiqueta' => 'Yape QR'],
+        'PAGO_MANUAL_BILLETERA_PLIN_HABILITADO' => ['grupo' => 'pagos', 'tipo' => 'si_no', 'etiqueta' => 'Plin QR'],
+        'PAGO_MANUAL_BILLETERA_IZIPAY_HABILITADO' => ['grupo' => 'pagos', 'tipo' => 'si_no', 'etiqueta' => 'Izipay QR'],
+        'PAGO_MANUAL_BILLETERA_QR'            => ['grupo' => 'pagos', 'tipo' => 'archivo', 'etiqueta' => 'Imagen del QR de billetera'],
+        'PAGO_MANUAL_BILLETERA_TITULAR'       => ['grupo' => 'pagos', 'tipo' => 'texto',  'etiqueta' => 'Titular del QR de billetera'],
+        'PAGO_MANUAL_QR_YAPE_CONTENIDO'       => ['grupo' => 'pagos', 'tipo' => 'texto',  'etiqueta' => 'Contenido QR Yape (EMVCo)'],
+        'PAGO_MANUAL_QR_PLIN_CONTENIDO'       => ['grupo' => 'pagos', 'tipo' => 'texto',  'etiqueta' => 'Contenido QR Plin (EMVCo)'],
+        'PAGO_MANUAL_TRANSFERENCIA_HABILITADO'=> ['grupo' => 'pagos', 'tipo' => 'si_no',  'etiqueta' => 'Transferencia bancaria'],
+        'PAGO_MANUAL_BCP_HABILITADO'          => ['grupo' => 'pagos', 'tipo' => 'si_no',  'etiqueta' => 'BCP habilitado'],
+        'PAGO_MANUAL_BCP_TITULAR'             => ['grupo' => 'pagos', 'tipo' => 'texto',  'etiqueta' => 'BCP — Titular'],
+        'PAGO_MANUAL_BCP_CUENTA'              => ['grupo' => 'pagos', 'tipo' => 'texto',  'etiqueta' => 'BCP — N° cuenta'],
+        'PAGO_MANUAL_BCP_CCI'                 => ['grupo' => 'pagos', 'tipo' => 'texto',  'etiqueta' => 'BCP — CCI'],
+        'PAGO_MANUAL_BBVA_HABILITADO'         => ['grupo' => 'pagos', 'tipo' => 'si_no',  'etiqueta' => 'BBVA habilitado'],
+        'PAGO_MANUAL_BBVA_TITULAR'            => ['grupo' => 'pagos', 'tipo' => 'texto',  'etiqueta' => 'BBVA — Titular'],
+        'PAGO_MANUAL_BBVA_CUENTA'             => ['grupo' => 'pagos', 'tipo' => 'texto',  'etiqueta' => 'BBVA — N° cuenta'],
+        'PAGO_MANUAL_BBVA_CCI'                => ['grupo' => 'pagos', 'tipo' => 'texto',  'etiqueta' => 'BBVA — CCI'],
+        'PAGO_MANUAL_INTERBANK_HABILITADO'    => ['grupo' => 'pagos', 'tipo' => 'si_no',  'etiqueta' => 'Interbank habilitado'],
+        'PAGO_MANUAL_INTERBANK_TITULAR'       => ['grupo' => 'pagos', 'tipo' => 'texto',  'etiqueta' => 'Interbank — Titular'],
+        'PAGO_MANUAL_INTERBANK_CUENTA'        => ['grupo' => 'pagos', 'tipo' => 'texto',  'etiqueta' => 'Interbank — N° cuenta'],
+        'PAGO_MANUAL_INTERBANK_CCI'           => ['grupo' => 'pagos', 'tipo' => 'texto',  'etiqueta' => 'Interbank — CCI'],
+        'PAGO_MANUAL_SCOTIABANK_HABILITADO'   => ['grupo' => 'pagos', 'tipo' => 'si_no',  'etiqueta' => 'Scotiabank habilitado'],
+        'PAGO_MANUAL_SCOTIABANK_CUENTA'       => ['grupo' => 'pagos', 'tipo' => 'texto',  'etiqueta' => 'Scotiabank — N° cuenta'],
+        'PAGO_MANUAL_SCOTIABANK_CCI'          => ['grupo' => 'pagos', 'tipo' => 'texto',  'etiqueta' => 'Scotiabank — CCI'],
 
         // ── Pasarelas de pago de la tienda online (TAYPI QR / Izipay tarjeta) ──
         'TAYPI_HABILITADO'        => ['grupo' => 'pagos', 'tipo' => 'si_no',  'etiqueta' => 'TAYPI (Yape/Plin) habilitada'],
@@ -89,6 +114,9 @@ class M_Configuracion {
         'IZIPAY_PUBLIC_KEY'       => ['grupo' => 'pagos', 'tipo' => 'password','etiqueta' => 'Izipay Public Key', 'secreto' => true],
         'IZIPAY_PASSWORD'         => ['grupo' => 'pagos', 'tipo' => 'password','etiqueta' => 'Izipay Password (Backend)', 'secreto' => true],
         'IZIPAY_HMAC_SHA256'      => ['grupo' => 'pagos', 'tipo' => 'password','etiqueta' => 'Izipay HMAC SHA256', 'secreto' => true],
+
+        // ── Confirmación de pedidos (tienda online) ──
+        'CODIGO_CONFIRMACION_HABILITADO' => ['grupo' => 'pagos', 'tipo' => 'si_no', 'etiqueta' => 'Código de confirmación de pedido'],
 
         // ── Marca y apariencia (usa la tienda, el panel, correos y documentos) ──
         'MARCA_NOMBRE'            => ['grupo' => 'marca', 'tipo' => 'texto', 'etiqueta' => 'Nombre de la marca'],

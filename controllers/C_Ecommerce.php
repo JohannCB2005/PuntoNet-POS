@@ -108,16 +108,83 @@ switch ($action) {
         echo json_encode(['success' => true, 'data' => $grupos]);
         break;
 
-    // Consulta pública: qué pasarelas de pago están habilitadas y configuradas en
-    // el panel. La usa el checkout para mostrar/ocultar los métodos de pago.
+    // Consulta pública: qué métodos de pago están habilitados y configurados en el
+    // panel. La usa el checkout para mostrar/ocultar métodos. Incluye el cobro por
+    // verificación manual (QR + bancos), que no depende de ninguna pasarela.
     case 'pasarelas':
         header('Cache-Control: no-store, no-cache, must-revalidate');
         require_once dirname(__DIR__) . '/models/M_Taypi.php';
         require_once dirname(__DIR__) . '/models/M_Izipay.php';
+
+        require_once dirname(__DIR__) . '/config/settings.php';
+        $manualHabilitado = configuracion('PAGO_MANUAL_HABILITADO') === 'SI';
+
+        // Los QR de Yape y Plin se muestran REDIBUJADOS en el checkout (más nítidos que
+        // una captura). El contenido EMVCo se guarda en Configuración → Pagos; estos
+        // valores son el fallback por defecto decodificado de los QR del comercio.
+        $qrYapeContenido = configuracion('PAGO_MANUAL_QR_YAPE_CONTENIDO', '00020101021139324c6cec2d66db5cc7bcb5463fb2490aca5204561153036045802PE5906YAPERO6004Lima63049501');
+        $qrPlinContenido = configuracion('PAGO_MANUAL_QR_PLIN_CONTENIDO', '0002015802PE0102115204482953036045912P2P Transfer6004Lima26560032876acd9027f84481b6073a9a67e4103b0116Plin Network P2P63041109');
+        $qrIzipayRuta    = configuracion('PAGO_MANUAL_BILLETERA_QR', '');
+        // Cada billetera se habilita con su propio interruptor (default SI para no romper
+        // configuraciones existentes); se muestra solo si además tiene contenido.
+        $yapeOk  = configuracion('PAGO_MANUAL_BILLETERA_YAPE_HABILITADO', 'SI') === 'SI' && $qrYapeContenido !== '';
+        $plinOk  = configuracion('PAGO_MANUAL_BILLETERA_PLIN_HABILITADO', 'SI') === 'SI' && $qrPlinContenido !== '';
+        $izipayOk = configuracion('PAGO_MANUAL_BILLETERA_IZIPAY_HABILITADO', 'SI') === 'SI' && $qrIzipayRuta !== '';
+        $manualBilletera = $manualHabilitado
+            && configuracion('PAGO_MANUAL_BILLETERA_HABILITADO') === 'SI'
+            && ($yapeOk || $plinOk || $izipayOk);
+
+        $logosBanco = [
+            'bcp'        => 'assets/pagos/bcp.webp',
+            'bbva'       => 'assets/pagos/bbva.webp',
+            'interbank'  => 'assets/pagos/interbank.webp',
+            'scotiabank' => 'assets/pagos/scotiabank.webp',
+        ];
+        $bancos = [];
+        foreach (['BCP', 'BBVA', 'INTERBANK', 'SCOTIABANK'] as $banco) {
+            // Cada banco se habilita con su propio interruptor (default SI) y además
+            // debe tener número de cuenta cargado para mostrarse.
+            if (configuracion('PAGO_MANUAL_' . $banco . '_HABILITADO', 'SI') !== 'SI') continue;
+            $cuenta = configuracion('PAGO_MANUAL_' . $banco . '_CUENTA', '');
+            if ($cuenta === '') continue;
+            $codigo = strtolower($banco);
+            $bancos[] = [
+                'codigo'  => $codigo,
+                'nombre'  => $banco === 'INTERBANK' ? 'Interbank' : $banco,
+                'titular' => configuracion('PAGO_MANUAL_' . $banco . '_TITULAR', ''),
+                'cuenta'  => $cuenta,
+                'cci'     => configuracion('PAGO_MANUAL_' . $banco . '_CCI', ''),
+                'logo'    => $logosBanco[$codigo] ?? null,
+            ];
+        }
+        $manualTransferencia = $manualHabilitado
+            && configuracion('PAGO_MANUAL_TRANSFERENCIA_HABILITADO') === 'SI'
+            && !empty($bancos);
+
+        $manual = [
+            'habilitado'    => $manualHabilitado,
+            'billetera'     => $manualBilletera,
+            'transferencia' => $manualTransferencia,
+            'datos'         => [
+                'minutos'       => max(5, (int) (configuracion('PAGO_MANUAL_MINUTOS', '60') ?: 60)),
+                'instrucciones' => configuracion('PAGO_MANUAL_INSTRUCCIONES', ''),
+                'billetera'     => $manualBilletera ? [
+                    'titular'           => configuracion('PAGO_MANUAL_BILLETERA_TITULAR', ''),
+                    'logo_yape'         => 'assets/pagos/yape-logo.png',
+                    'logo_plin'         => 'assets/pagos/plin-logo.webp',
+                    'qr_yape_contenido' => $yapeOk ? $qrYapeContenido : '',
+                    'qr_plin_contenido' => $plinOk ? $qrPlinContenido : '',
+                    'qr_izipay'         => $izipayOk ? $qrIzipayRuta : '',
+                ] : null,
+                'bancos'        => $bancos,
+            ],
+        ];
+
         echo json_encode([
             'success' => true,
             'taypi'   => M_Taypi::singleton()->estaConfigurado(),
             'izipay'  => M_Izipay::singleton()->estaConfigurado(),
+            'manual'  => $manual,
         ]);
         break;
 
@@ -232,11 +299,24 @@ switch ($action) {
             $id_cliente_facturacion = $resolucion['id_cliente'];
         }
 
+        // Método elegido en el checkout: tarjeta/qr (pasarelas) o billetera/transferencia
+        // (verificación manual). El pedido lo registra para el flujo y la reserva de stock.
+        $metodo = (string) ($data['metodo'] ?? '');
+        if (!in_array($metodo, ['tarjeta', 'qr', 'billetera', 'transferencia'], true)) {
+            $metodo = '';
+        }
+        $minutosManual = null;
+        if (in_array($metodo, ['billetera', 'transferencia'], true)) {
+            require_once dirname(__DIR__) . '/config/settings.php';
+            $minutosManual = max(5, (int) (configuracion('PAGO_MANUAL_MINUTOS', '60') ?: 60));
+        }
+
         // Ya no hay identificador de pago externo que validar: el pedido se crea primero,
         // con los totales recalculados en servidor, y su propio id genera la referencia
         // que después se envía a Izipay al pedir el FormToken (ver C_Izipay.php).
         $res = M_Ecommerce::singleton()->crearPedidoPendiente(
-            (int) $_SESSION['id_cliente'], $carrito, $entrega, $tipo_comprobante, $id_cliente_facturacion
+            (int) $_SESSION['id_cliente'], $carrito, $entrega, $tipo_comprobante, $id_cliente_facturacion,
+            $metodo === '' ? null : $metodo, $minutosManual
         );
         echo json_encode([
             'success'   => $res['ok'],
@@ -277,8 +357,10 @@ switch ($action) {
         echo json_encode(['success' => true, 'data' => $detalles]);
         break;
 
-    // Transiciones de estado de un pedido pagado: preparar (1→5), entregar (1|5→2), rechazar (1|5→0).
-    // No exige caja abierta: un pedido online se paga por pasarela, nunca con dinero físico.
+    // Transiciones de estado de un pedido: preparar (1→5), entregar (1|5→2),
+    // aprobar pago manual (6→1) y rechazar (1|5|6→0).
+    // No exige caja abierta: un pedido online se paga por pasarela o verificación manual,
+    // nunca con dinero físico en caja.
     case 'gestionar_pedido':
         if (!isset($_SESSION['id_usuario'])) {
             echo json_encode(['success' => false, 'mensaje' => 'No autorizado']);
@@ -290,21 +372,31 @@ switch ($action) {
         $raw = file_get_contents("php://input");
         $data = json_decode($raw, true);
         $id_pedido = intval($data['id_pedido'] ?? 0);
-        $accion = $data['accion'] ?? ''; // 'preparar', 'entregar' o 'rechazar'
+        $accion = $data['accion'] ?? ''; // 'preparar', 'entregar', 'rechazar' o 'aprobar'
         $motivo = trim($data['motivo'] ?? '');
+        $codigoConfirmacion = trim((string) ($data['codigo_confirmacion'] ?? ''));
+        $saltarCodigo = !empty($data['saltar_codigo']);
 
-        if ($id_pedido <= 0 || !in_array($accion, ['preparar', 'entregar', 'rechazar'], true)) {
+        if ($id_pedido <= 0 || !in_array($accion, ['preparar', 'entregar', 'rechazar', 'aprobar'], true)) {
             echo json_encode(['success' => false, 'mensaje' => 'Datos inválidos.']);
             exit;
         }
 
-        // Rechazar (implica devolver dinero al cliente por fuera del sistema) queda reservado al Administrador.
-        if ($accion === 'rechazar' && $_SESSION['rol'] !== 'Administrador') {
-            echo json_encode(['success' => false, 'mensaje' => 'Solo un Administrador puede rechazar un pedido.']);
+        // Rechazar (implica devolver dinero al cliente por fuera del sistema) y aprobar
+        // (confirma un cobro manual) quedan reservados al Administrador.
+        if (in_array($accion, ['rechazar', 'aprobar'], true) && $_SESSION['rol'] !== 'Administrador') {
+            echo json_encode(['success' => false, 'mensaje' => 'Solo un Administrador puede ' . ($accion === 'aprobar' ? 'aprobar' : 'rechazar') . ' un pedido.']);
             exit;
         }
 
-        $res = M_Ecommerce::singleton()->gestionarPedido($id_pedido, $accion, $_SESSION['id_usuario'], $motivo ?: null);
+        $res = M_Ecommerce::singleton()->gestionarPedido(
+            $id_pedido,
+            $accion,
+            $_SESSION['id_usuario'],
+            $motivo ?: null,
+            $codigoConfirmacion ?: null,
+            $saltarCodigo
+        );
 
         // Al entregar, la venta ya quedó confirmada arriba; el envío a SUNAT es
         // best-effort y nunca debe revertir la entrega ya hecha (ver M_Sunat::emitir(),

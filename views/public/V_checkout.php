@@ -256,6 +256,70 @@ $grados = M_Producto::singleton()->obtenerGrados();
         }
         .btn-back:hover { color: var(--navy); }
 
+        /* ─── Medios de pago manual: logos (bancos y billeteras) ─── */
+        .pm-opciones { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 16px; justify-content: center; }
+        .pm-chip {
+            flex: 1 1 120px;
+            max-width: 150px;
+            min-width: 104px;
+            border: 2px solid var(--line);
+            background: #fff;
+            border-radius: 14px;
+            padding: 8px;
+            cursor: pointer;
+            text-align: center;
+            transition: border-color .15s, box-shadow .15s, transform .15s;
+        }
+        .pm-chip img {
+            width: 100%;
+            height: 56px;
+            object-fit: contain;
+            border-radius: 10px;
+            background: #fff;
+        }
+        .pm-chip:hover { border-color: var(--line-strong); box-shadow: 0 6px 16px rgba(var(--navy-rgb),.10); transform: translateY(-2px); }
+        .pm-chip.activo { border-color: var(--sage); box-shadow: 0 6px 16px rgba(var(--navy-rgb),.16); }
+        .pm-chip .pm-chip-label { font-size: .72rem; color: var(--muted); font-weight: 600; }
+
+        /* Chip de banco: la imagen llena todo el rectángulo (sin marco blanco)
+           y sin etiqueta de nombre (los logos ya identifican al banco). */
+        .pm-chip.pm-banco {
+            padding: 4px;
+            background: transparent;
+        }
+        .pm-chip.pm-banco img {
+            height: 68px;
+            object-fit: cover;
+            border-radius: 10px;
+            background: transparent;
+        }
+
+        /* QR redibujado: fondo blanco, esquinas rectas (sin redondeo). */
+        .pm-qr-wrap {
+            display: inline-block;
+            background: #fff;
+            border-radius: 0;
+            padding: 14px;
+            box-shadow: 0 8px 20px rgba(var(--navy-rgb),.14);
+            border: 1px solid var(--line);
+            overflow: hidden;
+        }
+        .pm-qr-wrap img, .pm-qr-wrap canvas { border-radius: 0; display: block; }
+
+        .pm-cuenta-linea {
+            display: flex; align-items: center; justify-content: space-between; gap: 10px;
+            background: #fff; border: 1px solid var(--line); border-radius: 12px;
+            padding: 9px 14px; margin-bottom: 8px;
+        }
+        .pm-cuenta-linea .pm-cuenta-valor { font-family: var(--font-display), monospace; font-weight: 700; font-size: .95rem; letter-spacing: .5px; word-break: break-all; }
+        .pm-copiar {
+            flex: 0 0 auto; border: 1px solid var(--line-strong); background: #fff;
+            border-radius: 9px; padding: 6px 12px; font-size: .75rem; font-weight: 700;
+            color: var(--navy); cursor: pointer; transition: all .15s;
+        }
+        .pm-copiar:hover { background: var(--navy); color: #fff; border-color: var(--navy); }
+        .pm-copiar.copiado { background: var(--sage); border-color: var(--sage); color: #fff; }
+
         /* ─── Error Message ───────────────────────────── */
         #payment-error {
             background: var(--danger-100);
@@ -565,6 +629,18 @@ $grados = M_Producto::singleton()->obtenerGrados();
                             <i class="bi bi-qr-code me-1"></i> Yape / Plin
                         </label>
                     </div>
+                    <div class="col">
+                        <input type="radio" class="btn-check" name="metodoPago" id="metodoBilleteraManual" value="billetera">
+                        <label class="btn btn-outline-primary w-100 py-2" for="metodoBilleteraManual">
+                            <i class="bi bi-wallet2 me-1"></i> QR
+                        </label>
+                    </div>
+                    <div class="col">
+                        <input type="radio" class="btn-check" name="metodoPago" id="metodoTransferencia" value="transferencia">
+                        <label class="btn btn-outline-primary w-100 py-2" for="metodoTransferencia">
+                            <i class="bi bi-bank me-1"></i> Transferencia
+                        </label>
+                    </div>
                 </div>
                 <p class="text-muted mb-0" style="font-size:0.8rem;" id="metodoPagoNota">
                     <i class="bi bi-info-circle"></i> Paga con tu tarjeta de débito o crédito.
@@ -576,6 +652,19 @@ $grados = M_Producto::singleton()->obtenerGrados();
                     <span id="payment-error-msg"></span>
                 </div>
 
+                <!-- Paso B: aquí Krypton monta el formulario de tarjeta -->
+                <div id="izipay-form-container" class="d-none">
+                    <!-- El div .kr-embedded se inserta por JS justo antes de renderizar.
+                         Si estuviera aquí desde el inicio, Krypton lo auto-renderizaría
+                         (sin token) al cargarse y chocaría con nuestro render real. -->
+                </div>
+
+                <!-- Paso B (manual): aquí se pinta el panel "Paga y reporta tu pago"
+                     (QR / cuentas + número de operación) para billetera y transferencia.
+                     Va ANTES del botón para que "Continuar al pago" quede siempre al
+                     final, debajo del QR o de las cuentas. -->
+                <div id="pago-manual-container" class="d-none"></div>
+
                 <!-- Paso A: botón que reserva el pedido y pide el formulario de pago.
                      Krypton necesita el FormToken (y por tanto el pedido ya creado)
                      antes de poder renderizar el formulario de tarjeta. -->
@@ -584,13 +673,6 @@ $grados = M_Producto::singleton()->obtenerGrados();
                     <i class="bi bi-lock-fill" id="pay-icon"></i>
                     <span id="pay-label">Continuar al pago</span>
                 </button>
-
-                <!-- Paso B: aquí Krypton monta el formulario de tarjeta -->
-                <div id="izipay-form-container" class="d-none">
-                    <!-- El div .kr-embedded se inserta por JS justo antes de renderizar.
-                         Si estuviera aquí desde el inicio, Krypton lo auto-renderizaría
-                         (sin token) al cargarse y chocaría con nuestro render real. -->
-                </div>
 
                 <p class="security-note" id="reservaNota" style="display:none;">
                     <i class="bi bi-clock-history"></i>
@@ -637,6 +719,7 @@ $grados = M_Producto::singleton()->obtenerGrados();
     </main><!-- /co-wrapper -->
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <script>
     // ─────────────────────────────────────────────────────────────
     // 1. Load cart from sessionStorage (solo para el render inicial;
@@ -645,29 +728,39 @@ $grados = M_Producto::singleton()->obtenerGrados();
     const cart = JSON.parse(sessionStorage.getItem('nissi_cart') || sessionStorage.getItem('puntonet_cart') || '[]');
     let totalAmount = cart.reduce((s, i) => s + i.subtotal, 0);
 
-    // Pasarelas habilitadas en el panel (Configuración → Pagos). Si el administrador
-    // deshabilitó una, no se muestra su método de pago. Con una sola disponible se
-    // selecciona por defecto; con ninguna, se bloquea el botón de pago.
-    let pasarelas = { taypi: true, izipay: true };
+    // Métodos de pago habilitados en el panel (Configuración → Pagos): pasarelas
+    // (Izipay/Taypi) y el cobro por verificación manual (QR billetera + transferencia).
+    // Si algo se deshabilitó, no se muestra su método; con ninguno se bloquea el botón.
+    let pasarelas  = { taypi: true, izipay: true };
+    let manualInfo = { habilitado: false, billetera: false, transferencia: false, datos: null };
     (async () => {
         try {
-            const res = await fetch('../../controllers/C_Ecommerce.php?action=pasarelas', { cache: 'no-store' });
+            const res  = await fetch('../../controllers/C_Ecommerce.php?action=pasarelas', { cache: 'no-store' });
             const json = await res.json();
-            if (json.success) pasarelas = { taypi: !!json.taypi, izipay: !!json.izipay };
-        } catch (e) { /* ante error, se asume que ambas están habilitadas */ }
+            if (json.success) {
+                pasarelas  = { taypi: !!json.taypi, izipay: !!json.izipay };
+                manualInfo = json.manual || { habilitado: false, billetera: false, transferencia: false, datos: null };
+            }
+        } catch (e) { /* ante error, se asume que todo está habilitado */ }
 
-        const wrapTarjeta = document.getElementById('metodoTarjeta').closest('.col');
-        const wrapQr      = document.getElementById('metodoQr').closest('.col');
+        const wrapTarjeta     = document.getElementById('metodoTarjeta').closest('.col');
+        const wrapQr          = document.getElementById('metodoQr').closest('.col');
+        const wrapBilletera   = document.getElementById('metodoBilleteraManual').closest('.col');
+        const wrapTransfer    = document.getElementById('metodoTransferencia').closest('.col');
 
         if (!pasarelas.izipay && wrapTarjeta) wrapTarjeta.style.display = 'none';
-        if (!pasarelas.taypi && wrapQr) wrapQr.style.display = 'none';
+        if (!pasarelas.taypi  && wrapQr)      wrapQr.style.display      = 'none';
+        if (wrapBilletera) wrapBilletera.style.display = manualInfo.billetera ? '' : 'none';
+        if (wrapTransfer)  wrapTransfer.style.display  = manualInfo.transferencia ? '' : 'none';
 
-        // La advertencia de pago solo menciona las pasarelas activas.
+        // La advertencia de pago solo menciona los métodos activos.
         const notaText = document.getElementById('pasarelaNotaText');
         if (notaText) {
             const partes = [];
             if (pasarelas.izipay) partes.push('Izipay (tarjeta)');
             if (pasarelas.taypi)  partes.push('TAYPI (QR Yape/Plin)');
+            if (manualInfo.billetera)     partes.push('QR Yape/Plin/Izipay (manual)');
+            if (manualInfo.transferencia) partes.push('Transferencia bancaria (manual)');
             if (partes.length > 0) {
                 notaText.textContent = `Pago procesado por ${partes.join(' o ')} · Encriptación SSL · No almacenamos datos de tu tarjeta`;
             } else {
@@ -676,11 +769,27 @@ $grados = M_Producto::singleton()->obtenerGrados();
         }
 
         // Reacomodar la selección por defecto según lo que quede disponible.
-        if (!pasarelas.izipay && pasarelas.taypi) {
-            document.getElementById('metodoQr').checked = true;
-            document.getElementById('metodoPagoNota').innerHTML =
-                '<i class="bi bi-info-circle"></i> Escanea el código QR con Yape, Plin o tu app bancaria.';
-        } else if (!pasarelas.izipay && !pasarelas.taypi) {
+        const disponibles = {
+            tarjeta: !!pasarelas.izipay,
+            qr: !!pasarelas.taypi,
+            billetera: !!manualInfo.billetera,
+            transferencia: !!manualInfo.transferencia,
+        };
+        const idsPorMetodo = {
+            tarjeta: 'metodoTarjeta',
+            qr: 'metodoQr',
+            billetera: 'metodoBilleteraManual',
+            transferencia: 'metodoTransferencia',
+        };
+        const alguna = Object.values(disponibles).some(Boolean);
+        const actual = metodoPagoSeleccionado();
+        if (!disponibles[actual]) {
+            const primero = Object.keys(idsPorMetodo).find(k => disponibles[k]);
+            if (primero) document.getElementById(idsPorMetodo[primero]).checked = true;
+            actualizarNotaMetodo();
+        }
+
+        if (!alguna) {
             document.getElementById('btn-pay').disabled = true;
             document.getElementById('btn-pay').innerHTML =
                 '<i class="bi bi-exclamation-triangle"></i> Pagos no disponibles';
@@ -762,6 +871,7 @@ $grados = M_Producto::singleton()->obtenerGrados();
             tipo_entrega: parseInt(document.querySelector('input[name="tipoEntrega"]:checked').value),
             observaciones: document.getElementById('coObservaciones').value.trim(),
             tipo_comprobante: parseInt(document.querySelector('input[name="tipoComprobante"]:checked').value),
+            metodo: metodoPagoSeleccionado(),
         };
         if (payload.tipo_entrega === 2) {
             payload.estudiante_nombre = document.getElementById('coEstudiante').value.trim();
@@ -878,13 +988,37 @@ $grados = M_Producto::singleton()->obtenerGrados();
         return document.querySelector('input[name="metodoPago"]:checked').value;
     }
 
+    function actualizarNotaMetodo() {
+        const notas = {
+            tarjeta: '<i class="bi bi-info-circle"></i> Paga con tu tarjeta de débito o crédito.',
+            qr: '<i class="bi bi-info-circle"></i> Escanea el código QR con Yape, Plin o tu app bancaria.',
+            billetera: '<i class="bi bi-info-circle"></i> Escanea el QR, paga y reporta tu número de operación.',
+            transferencia: '<i class="bi bi-info-circle"></i> Transfiere a la cuenta indicada y reporta tu número de operación.',
+        };
+        const nota = document.getElementById('metodoPagoNota');
+        if (nota) nota.innerHTML = notas[metodoPagoSeleccionado()] || '';
+    }
+
+    // Al cambiar el método: para billetera/transferencia se muestran las opciones
+    // de pago de inmediato (vista previa) y "Continuar al pago" sigue visible, así
+    // el cliente puede cambiar de método sin quedarse atrapado. Para tarjeta/QR se
+    // oculta el panel manual y se restaura el botón.
+    function cambiarMetodoPago() {
+        hideError();
+        const metodo = metodoPagoSeleccionado();
+        const contenedor = document.getElementById('pago-manual-container');
+        if (metodo === 'billetera' || metodo === 'transferencia') {
+            montarPagoManual();
+        } else {
+            if (contenedor) { contenedor.classList.add('d-none'); contenedor.innerHTML = ''; }
+            document.getElementById('btn-pay').style.display = '';
+            document.getElementById('reservaNota').style.display = 'none';
+        }
+        actualizarNotaMetodo();
+    }
+
     document.querySelectorAll('input[name="metodoPago"]').forEach(radio => {
-        radio.addEventListener('change', () => {
-            const esQr = metodoPagoSeleccionado() === 'qr';
-            document.getElementById('metodoPagoNota').innerHTML = esQr
-                ? '<i class="bi bi-info-circle"></i> Escanea el código QR con Yape, Plin o tu app bancaria.'
-                : '<i class="bi bi-info-circle"></i> Paga con tu tarjeta de débito o crédito.';
-        });
+        radio.addEventListener('change', cambiarMetodoPago);
     });
 
     // Carga checkout.js de TAYPI. El host depende del modo (sandbox vs producción):
@@ -958,6 +1092,239 @@ $grados = M_Producto::singleton()->obtenerGrados();
         });
 
         return true;
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // 2.55 Pago por verificación manual (billetera QR o transferencia bancaria).
+    //      El cliente paga por su app y reporta el número de operación (+ captura
+    //      opcional). El admin lo aprueba en "Pedidos Online" → no hay pasarela.
+    // ─────────────────────────────────────────────────────────────
+    function montarPagoManual() {
+        const metodo = metodoPagoSeleccionado();
+        const d      = manualInfo.datos;
+        const contenedor = document.getElementById('pago-manual-container');
+        if (!d) { contenedor.classList.add('d-none'); return true; }
+        // Vista previa (sin pedido reservado): solo se muestran las opciones de pago
+        // para que el cliente vea el QR / cuentas y pueda cambiar de método. El
+        // reporte (nº de operación + captura) aparece tras "Continuar al pago".
+        const sinReserva = !pedidoCreado;
+
+        let seleccionHtml = '', destinoHtml = '';
+        let valorInicialMedio = '';
+
+        if (metodo === 'billetera') {
+            const b = d.billetera;
+            let chips = '';
+            if (b.qr_yape_contenido) {
+                chips += `<div class="pm-chip pm-billetera" data-medio="yape"><img src="../../${escapeHtml(b.logo_yape)}" alt="Yape"><span class="pm-chip-label">Yape</span></div>`;
+            }
+            if (b.qr_plin_contenido) {
+                chips += `<div class="pm-chip pm-billetera" data-medio="plin"><img src="../../${escapeHtml(b.logo_plin)}" alt="Plin"><span class="pm-chip-label">Plin</span></div>`;
+            }
+            if (b.qr_izipay) {
+                chips += `<div class="pm-chip pm-billetera" data-medio="izipay_qr"><img src="../../${escapeHtml(b.qr_izipay)}" alt="Izipay QR"><span class="pm-chip-label">Izipay QR</span></div>`;
+            }
+            seleccionHtml = `
+                <div class="fw-semibold mb-2" style="font-size:.9rem;">¿Cómo vas a pagar?</div>
+                <div class="pm-opciones">${chips}</div>
+                <div id="pm-destino" class="text-center mb-3"></div>`;
+            valorInicialMedio = b.qr_yape_contenido ? 'yape' : (b.qr_plin_contenido ? 'plin' : 'izipay_qr');
+            destinoHtml = `<input type="hidden" id="pm-medio" value="${valorInicialMedio}">`;
+        } else {
+            seleccionHtml = `
+                <div class="fw-semibold mb-2" style="font-size:.9rem;">¿A qué banco vas a transferir?</div>
+                <div class="pm-opciones">
+                    ${d.bancos.map(b => `
+                        <div class="pm-chip pm-banco" data-medio="${escapeHtml(b.codigo)}" title="${escapeHtml(b.nombre)}">
+                            ${b.logo ? `<img src="../../${escapeHtml(b.logo)}" alt="${escapeHtml(b.nombre)}">` : ''}
+                        </div>`).join('')}
+                </div>
+                <div id="pm-destino" class="mb-3"></div>`;
+            valorInicialMedio = d.bancos[0] ? d.bancos[0].codigo : '';
+            destinoHtml = `<input type="hidden" id="pm-medio" value="${valorInicialMedio}">`;
+        }
+
+        // Campos de reporte: el número de operación SIEMPRE se pide (en QR y en
+        // transferencia); el botón "Ya pagué" solo aparece tras reservar.
+        const parteCampos = `
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Número de operación <span class="text-danger">*</span></label>
+                    <input class="form-control" id="pm-referencia" placeholder="Ej: 123456789" maxlength="255">
+                    <small class="text-muted">Es único: no puedes reutilizar un número de operación ya registrado.</small>
+                </div>`;
+        const parteBoton = sinReserva ? '' : `
+                <button class="btn btn-success w-100 fw-bold" id="pm-enviar">
+                    <i class="bi bi-check-lg"></i> Ya pagué — Reportar pago
+                </button>
+                <p class="security-note" style="display:none;margin-top:10px;" id="pm-msg"></p>`;
+
+        contenedor.innerHTML = `
+            <div class="border rounded-3 p-3" style="background:var(--paper);">
+                <div class="fw-bold mb-2" style="font-size:1rem;">${sinReserva ? 'Opciones de pago' : 'Paga y reporta tu pago'}</div>
+                ${d.instrucciones ? `<p class="text-muted" style="font-size:.85rem;">${escapeHtml(d.instrucciones)}</p>` : ''}
+                ${seleccionHtml}
+                ${destinoHtml}
+                ${parteCampos}
+                ${parteBoton}
+            </div>`;
+        contenedor.classList.remove('d-none');
+
+        pintarDestinoManual(metodo);
+        contenedor.querySelectorAll('.pm-chip').forEach(chip => {
+            if (chip.dataset.medio === document.getElementById('pm-medio').value) chip.classList.add('activo');
+            chip.addEventListener('click', () => {
+                contenedor.querySelectorAll('.pm-chip').forEach(c => c.classList.remove('activo'));
+                chip.classList.add('activo');
+                document.getElementById('pm-medio').value = chip.dataset.medio;
+                pintarDestinoManual(metodo);
+            });
+        });
+
+        if (sinReserva) {
+            // Vista previa: "Continuar al pago" sigue visible; el cliente puede
+            // cambiar de método libremente (ya no queda atrapado en este panel).
+            document.getElementById('btn-pay').style.display    = '';
+            document.getElementById('reservaNota').style.display = 'none';
+            return true;
+        }
+
+        bloquearDatosEntrega();
+        document.getElementById('reservaNota').innerHTML =
+            `<i class="bi bi-clock-history"></i> Tu pedido queda reservado ${d.minutos || 60} minutos mientras realizas el pago y reportas tu operación.`;
+        document.getElementById('reservaNota').style.display = '';
+        document.getElementById('btn-pay').style.display    = 'none';
+
+        document.getElementById('pm-enviar').addEventListener('click', async () => {
+            const btn = document.getElementById('pm-enviar');
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Enviando...';
+
+            const formData = new FormData();
+            formData.append('id_pedido', pedidoCreado.id_pedido);
+            formData.append('token', pedidoCreado.token);
+            formData.append('medio_pago', document.getElementById('pm-medio').value);
+            formData.append('referencia', document.getElementById('pm-referencia').value.trim());
+
+            try {
+                const res  = await fetch('../../controllers/C_PagoManual.php?action=reportar', { method: 'POST', body: formData });
+                const json = await res.json();
+                const msg  = document.getElementById('pm-msg');
+                if (json.success) {
+                    // El pago ya está registrado: nada que liberar si se va de la página.
+                    pagoEnProgreso = true;
+                    desactivarProteccionAbandono();
+                    contenedor.innerHTML = `
+                        <div class="text-center py-4">
+                            <i class="bi bi-check-circle-fill text-success" style="font-size:3rem;"></i>
+                            <h5 class="mt-3 fw-bold">Pago reportado</h5>
+                            <p class="text-muted" style="max-width:420px;margin:0 auto;">${escapeHtml(json.mensaje || 'Recibimos tu pago. Un administrador lo verificará.')}</p>
+                            <div class="d-flex gap-2 justify-content-center flex-wrap mt-3">
+                                <a href="/mis-pedidos" class="btn btn-primary rounded-pill px-3"><i class="bi bi-bag"></i> Ver mis pedidos</a>
+                                <a href="/tienda" class="btn btn-outline-primary rounded-pill px-3"><i class="bi bi-shop"></i> Volver a la tienda</a>
+                            </div>
+                        </div>`;
+                } else {
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="bi bi-check-lg"></i> Ya pagué — Reportar pago';
+                    msg.style.display = 'block';
+                    msg.innerHTML = '<i class="bi bi-exclamation-triangle-fill"></i> ' + escapeHtml(json.mensaje || 'No pudimos registrar tu pago.');
+                }
+            } catch (e) {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="bi bi-check-lg"></i> Ya pagué — Reportar pago';
+                const msg = document.getElementById('pm-msg');
+                msg.style.display = 'block';
+                msg.innerHTML = '<i class="bi bi-exclamation-triangle-fill"></i> Error de conexión. Intenta de nuevo.';
+            }
+        });
+
+        return true;
+    }
+
+    // Pinta el destino según el medio elegido: QR redibujado (billetera) o la
+    // cuenta del banco con botón copiar (transferencia).
+    function pintarDestinoManual(metodo) {
+        const d     = manualInfo.datos;
+        const medio = document.getElementById('pm-medio').value;
+        const cont  = document.getElementById('pm-destino');
+        if (!cont) return;
+
+        if (metodo === 'billetera') {
+            const b = d.billetera;
+            if (medio === 'yape' || medio === 'plin') {
+                const contenido = medio === 'yape' ? b.qr_yape_contenido : b.qr_plin_contenido;
+                if (!contenido) { cont.innerHTML = ''; return; }
+                cont.innerHTML = `
+                    <div class="pm-qr-wrap" id="pm-qr">
+                        <div class="text-muted" style="font-size:.8rem;margin-bottom:8px;">Escanea con tu app <strong>${medio === 'yape' ? 'Yape' : 'Plin'}</strong></div>
+                    </div>
+                    ${b.titular ? `<div class="text-muted mt-2" style="font-size:.85rem;">Titular: <strong>${escapeHtml(b.titular)}</strong></div>` : ''}`;
+                const wrap = document.getElementById('pm-qr');
+                if (typeof QRCode !== 'undefined') {
+                    new QRCode(wrap, { text: contenido, width: 170, height: 170, correctLevel: QRCode.CorrectLevel.M });
+                } else {
+                    const img = document.createElement('img');
+                    img.src = medio === 'yape' ? '../../assets/pagos/qr-yape-original.jpeg' : '../../assets/pagos/qr-plin-original.jpeg';
+                    img.style.width = '170px';
+                    wrap.appendChild(img);
+                }
+            } else if (medio === 'izipay_qr') {
+                cont.innerHTML = `
+                    <div class="pm-qr-wrap">
+                        <img src="../../${escapeHtml(b.qr_izipay)}" alt="Izipay QR" style="width:170px;">
+                    </div>
+                    ${b.titular ? `<div class="text-muted mt-2" style="font-size:.85rem;">Titular: <strong>${escapeHtml(b.titular)}</strong></div>` : ''}`;
+            }
+            return;
+        }
+
+        const banco = d.bancos.find(x => x.codigo === medio);
+        if (!banco) { cont.innerHTML = ''; return; }
+        cont.innerHTML = `
+            ${banco.titular ? `<div class="text-muted mb-2" style="font-size:.85rem;">Titular: <strong>${escapeHtml(banco.titular)}</strong></div>` : ''}
+            <div class="pm-cuenta-linea">
+                <div class="text-start">
+                    <div class="small text-muted" style="font-size:.72rem;">N° de cuenta</div>
+                    <div class="pm-cuenta-valor">${escapeHtml(banco.cuenta)}</div>
+                </div>
+                <button type="button" class="pm-copiar" data-copiar="${escapeHtml(banco.cuenta)}"><i class="bi bi-clipboard me-1"></i>Copiar</button>
+            </div>
+            ${banco.cci ? `
+            <div class="pm-cuenta-linea">
+                <div class="text-start">
+                    <div class="small text-muted" style="font-size:.72rem;">CCI (cuenta interbancaria)</div>
+                    <div class="pm-cuenta-valor">${escapeHtml(banco.cci)}</div>
+                </div>
+                <button type="button" class="pm-copiar" data-copiar="${escapeHtml(banco.cci)}"><i class="bi bi-clipboard me-1"></i>Copiar</button>
+            </div>` : ''}`;
+        cont.querySelectorAll('.pm-copiar').forEach(btn => {
+            btn.addEventListener('click', () => copiarAlPortapapeles(btn, btn.dataset.copiar));
+        });
+    }
+
+    async function copiarAlPortapapeles(btn, texto) {
+        let ok = false;
+        try {
+            await navigator.clipboard.writeText(texto);
+            ok = true;
+        } catch (e) {
+            const ta = document.createElement('textarea');
+            ta.value = texto;
+            ta.style.position = 'fixed';
+            ta.style.opacity  = '0';
+            document.body.appendChild(ta);
+            ta.select();
+            try { ok = document.execCommand('copy'); } catch (e2) { ok = false; }
+            document.body.removeChild(ta);
+        }
+        if (ok) {
+            btn.classList.add('copiado');
+            btn.innerHTML = '<i class="bi bi-check-lg"></i> Copiado';
+            setTimeout(() => {
+                btn.classList.remove('copiado');
+                btn.innerHTML = '<i class="bi bi-clipboard me-1"></i>Copiar';
+            }, 1800);
+        }
     }
 
     // ─────────────────────────────────────────────────────────────
@@ -1152,9 +1519,12 @@ $grados = M_Producto::singleton()->obtenerGrados();
                 return;
             }
 
-            const ok = metodoPagoSeleccionado() === 'qr'
+            const metodo = metodoPagoSeleccionado();
+            const ok = metodo === 'qr'
                 ? await montarPagoQR()
-                : await montarFormularioPago();
+                : (metodo === 'billetera' || metodo === 'transferencia')
+                    ? await montarPagoManual()
+                    : await montarFormularioPago();
 
             if (!ok) {
                 setLoading(false);

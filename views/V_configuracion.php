@@ -43,6 +43,16 @@ if (!isset($_SESSION['id_usuario']) || $_SESSION['rol'] !== 'Administrador') {
         background: #fff;
         padding: 4px;
     }
+    .qr-preview-wrap {
+        width: 96px;
+        height: 96px;
+        flex-shrink: 0;
+        border-radius: 12px;
+        border: 1px solid var(--gp-border);
+        background: #fff;
+        padding: 4px;
+        overflow: hidden;
+    }
     .password-toggle-btn {
         border: 1px solid var(--gp-border);
         border-left: 0;
@@ -317,32 +327,153 @@ if (!isset($_SESSION['id_usuario']) || $_SESSION['rol'] !== 'Administrador') {
 
     <!-- Pestaña: Pagos -->
     <div class="config-pane" id="pane-pagos">
+        <!-- Cobro por verificación manual (sin pasarela, sin comisiones) -->
+        <?php $bancosManual = [
+            ['clave' => 'BCP', 'nombre' => 'BCP'],
+            ['clave' => 'BBVA', 'nombre' => 'BBVA'],
+            ['clave' => 'INTERBANK', 'nombre' => 'Interbank'],
+            ['clave' => 'SCOTIABANK', 'nombre' => 'Scotiabank'],
+        ]; ?>
         <div class="card border-0 shadow-sm rounded-4 mb-3">
             <div class="card-body p-4">
-                <h6 class="config-section-title mb-3">Configuración de pagos</h6>
-                <div class="row g-4">
-                    <div class="col-12 col-md-6">
-                        <div class="d-flex align-items-center justify-content-between border rounded-3 p-3">
-                            <div>
-                                <div class="fw-bold" style="font-size:14px;">Yape</div>
-                                <small class="text-muted" style="font-size:11px;">Pagos por Yape en la tienda</small>
-                            </div>
-                            <div class="form-check form-switch">
-                                <input class="form-check-input cfg-switch" type="checkbox" data-clave="PAGO_YAPE_HABILITADO" id="yapeSwitch">
-                            </div>
+                <div class="d-flex align-items-center justify-content-between mb-3">
+                    <div>
+                        <h6 class="config-section-title mb-1">Cobro por verificación manual</h6>
+                        <p class="text-muted mb-0" style="font-size:11px;">
+                            Cobra sin pasarela: el cliente paga con tu QR (Yape/Plin/Izipay QR) o por transferencia
+                            bancaria y tú apruebas el pago manualmente desde <strong>Pedidos Online</strong>. Evita las comisiones de las pasarelas.
+                        </p>
+                    </div>
+                    <div class="form-check form-switch ms-3">
+                        <input class="form-check-input cfg-switch" type="checkbox" data-clave="PAGO_MANUAL_HABILITADO" id="pagoManualSwitch">
+                    </div>
+                </div>
+
+                <div class="row g-4 mb-4">
+                    <div class="col-6 col-md-3">
+                        <label class="form-label fw-semibold text-muted" style="font-size:12px;">Minutos de reserva</label>
+                        <input class="form-control form-control-sm cfg-input" data-clave="PAGO_MANUAL_MINUTOS" placeholder="60">
+                    </div>
+                </div>
+
+                <!-- Billetera (QR) -->
+                <div class="border rounded-3 p-3 mb-4">
+                    <div class="d-flex align-items-center justify-content-between mb-3">
+                        <div>
+                            <div class="fw-bold" style="font-size:14px;">Billetera — QR Yape / Plin / Izipay QR</div>
+                            <small class="text-muted" style="font-size:11px;">Cada billetera se activa con su propio interruptor. Para Yape y Plin, <strong>carga la imagen del QR y se decodifica sola</strong>: el código se redibuja automáticamente en el checkout (no hace falta copiar el contenido a mano).</small>
+                        </div>
+                        <div class="alert alert-warning py-2 mb-3" style="font-size:12px;">
+                            <i class="bi bi-exclamation-triangle me-1"></i>
+                            Los datos que coloques aquí (contenido del QR y titular) son <strong>bajo tu responsabilidad</strong>: asegúrate de que el QR corresponda a tu cuenta y no muestres el QR de otra persona.
+                        </div>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input cfg-switch" type="checkbox" data-clave="PAGO_MANUAL_BILLETERA_HABILITADO" id="billeteraManualSwitch">
                         </div>
                     </div>
-                    <div class="col-12 col-md-6">
-                        <div class="d-flex align-items-center justify-content-between border rounded-3 p-3">
-                            <div>
-                                <div class="fw-bold" style="font-size:14px;">Mercado Pago</div>
-                                <small class="text-muted" style="font-size:11px;">Pagos por Mercado Pago en la tienda</small>
-                            </div>
-                            <div class="form-check form-switch">
-                                <input class="form-check-input cfg-switch" type="checkbox" data-clave="PAGO_MERCADOPAGO_HABILITADO" id="mercadoPagoSwitch">
+                    <div class="row g-3">
+                        <div class="col-12 col-md-6">
+                            <div class="bg-light rounded-3 p-3 h-100">
+                                <div class="d-flex align-items-center justify-content-between mb-2">
+                                    <div class="fw-bold" style="font-size:13px;color:#23284E;">Yape</div>
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input cfg-switch" type="checkbox" data-clave="PAGO_MANUAL_BILLETERA_YAPE_HABILITADO">
+                                    </div>
+                                </div>
+                                <div class="mb-2">
+                                    <label class="form-label fw-semibold text-muted mb-0" style="font-size:11px;">Cargar imagen del QR (se decodifica sola)</label>
+                                    <input type="file" class="form-control form-control-sm qr-auto-decodificar" data-target="PAGO_MANUAL_QR_YAPE_CONTENIDO" data-preview="qrPreviewYape" accept="image/*">
+                                </div>
+                                <div class="d-flex align-items-start gap-2">
+                                    <div class="qr-preview-wrap" id="qrPreviewYape" style="display:none;"></div>
+                                    <textarea class="form-control form-control-sm cfg-input font-monospace" data-clave="PAGO_MANUAL_QR_YAPE_CONTENIDO" data-preview="qrPreviewYape" rows="3" placeholder="Contenido EMVCo (se llena solo al subir la imagen)"></textarea>
+                                </div>
                             </div>
                         </div>
+                        <div class="col-12 col-md-6">
+                            <div class="bg-light rounded-3 p-3 h-100">
+                                <div class="d-flex align-items-center justify-content-between mb-2">
+                                    <div class="fw-bold" style="font-size:13px;color:#23284E;">Plin</div>
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input cfg-switch" type="checkbox" data-clave="PAGO_MANUAL_BILLETERA_PLIN_HABILITADO">
+                                    </div>
+                                </div>
+                                <div class="mb-2">
+                                    <label class="form-label fw-semibold text-muted mb-0" style="font-size:11px;">Cargar imagen del QR (se decodifica sola)</label>
+                                    <input type="file" class="form-control form-control-sm qr-auto-decodificar" data-target="PAGO_MANUAL_QR_PLIN_CONTENIDO" data-preview="qrPreviewPlin" accept="image/*">
+                                </div>
+                                <div class="d-flex align-items-start gap-2">
+                                    <div class="qr-preview-wrap" id="qrPreviewPlin" style="display:none;"></div>
+                                    <textarea class="form-control form-control-sm cfg-input font-monospace" data-clave="PAGO_MANUAL_QR_PLIN_CONTENIDO" data-preview="qrPreviewPlin" rows="3" placeholder="Contenido EMVCo (se llena solo al subir la imagen)"></textarea>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-12 col-md-6">
+                            <div class="bg-light rounded-3 p-3 h-100">
+                                <div class="d-flex align-items-center justify-content-between mb-2">
+                                    <div class="fw-bold" style="font-size:13px;color:#23284E;">Izipay QR</div>
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input cfg-switch" type="checkbox" data-clave="PAGO_MANUAL_BILLETERA_IZIPAY_HABILITADO">
+                                    </div>
+                                </div>
+                                <label class="form-label fw-semibold text-muted mb-0" style="font-size:11px;">Imagen del QR Izipay (opcional)</label>
+                                <input type="file" class="form-control form-control-sm" data-archivo="PAGO_MANUAL_BILLETERA_QR" accept="image/*">
+                                <img class="config-file-preview mt-2" data-preview="PAGO_MANUAL_BILLETERA_QR" style="display:none;" alt="Vista previa QR">
+                            </div>
+                        </div>
+                        <div class="col-12 col-md-6">
+                            <label class="form-label fw-semibold text-muted" style="font-size:12px;">Titular (nombre que aparece al pagar)</label>
+                            <input class="form-control form-control-sm cfg-input" data-clave="PAGO_MANUAL_BILLETERA_TITULAR" placeholder="Nombre del titular">
+                        </div>
                     </div>
+                </div>
+
+                <!-- Transferencia bancaria -->
+                <div class="border rounded-3 p-3">
+                    <div class="d-flex align-items-center justify-content-between mb-3">
+                        <div>
+                            <div class="fw-bold" style="font-size:14px;">Transferencia bancaria</div>
+                            <small class="text-muted" style="font-size:11px;">El cliente transfiere a cualquiera de estos bancos y reporta a cuál. Llena titular + cuenta + CCI de los que uses.</small>
+                        </div>
+                        <div class="alert alert-warning py-2 mb-3" style="font-size:12px;">
+                            <i class="bi bi-exclamation-triangle me-1"></i>
+                            Los datos que coloques aquí (titular, n° de cuenta y CCI) son <strong>bajo tu responsabilidad</strong>: verifica que sean correctos antes de guardar, ya que el cliente pagará usando esa información tal como la veas.
+                        </div>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input cfg-switch" type="checkbox" data-clave="PAGO_MANUAL_TRANSFERENCIA_HABILITADO" id="transferenciaManualSwitch">
+                        </div>
+                    </div>
+                    <div class="row g-3">
+                        <?php foreach ($bancosManual as $b): ?>
+                        <div class="col-12 col-lg-6">
+                            <div class="bg-light rounded-3 p-3 h-100">
+                                <div class="d-flex align-items-center justify-content-between mb-2">
+                                    <div class="fw-bold" style="font-size:13px;color:#23284E;"><?php echo $b['nombre']; ?></div>
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input cfg-switch" type="checkbox" data-clave="PAGO_MANUAL_<?php echo $b['clave']; ?>_HABILITADO">
+                                    </div>
+                                </div>
+                                <div class="mb-2">
+                                    <label class="form-label fw-semibold text-muted mb-0" style="font-size:11px;">Titular</label>
+                                    <input class="form-control form-control-sm cfg-input" data-clave="PAGO_MANUAL_<?php echo $b['clave']; ?>_TITULAR" placeholder="Nombre del titular">
+                                </div>
+                                <div class="mb-2">
+                                    <label class="form-label fw-semibold text-muted mb-0" style="font-size:11px;">N° de cuenta</label>
+                                    <input class="form-control form-control-sm cfg-input" data-clave="PAGO_MANUAL_<?php echo $b['clave']; ?>_CUENTA" placeholder="1234-567890-...">
+                                </div>
+                                <div>
+                                    <label class="form-label fw-semibold text-muted mb-0" style="font-size:11px;">CCI (cuenta interbancaria)</label>
+                                    <input class="form-control form-control-sm cfg-input" data-clave="PAGO_MANUAL_<?php echo $b['clave']; ?>_CCI" placeholder="00-1234-567890-...">
+                                </div>
+                            </div>
+                        </div>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+
+                <div class="mt-4">
+                    <label class="form-label fw-semibold text-muted" style="font-size:12px;">Instrucciones mostradas al cliente al pagar</label>
+                    <textarea class="form-control form-control-sm cfg-input" data-clave="PAGO_MANUAL_INSTRUCCIONES" rows="2" placeholder="Ej: Transfiere el monto exacto y envía tu número de operación. El pedido queda en verificación hasta que lo confirmemos."></textarea>
                 </div>
             </div>
             <div class="card-footer bg-transparent border-0 pb-4 pt-0 d-flex justify-content-end">
@@ -448,6 +579,28 @@ if (!isset($_SESSION['id_usuario']) || $_SESSION['rol'] !== 'Administrador') {
             </div>
             <div class="card-footer bg-transparent border-0 pb-4 pt-0 d-flex justify-content-end">
                 <button type="button" class="btn btn-sm btn-guardar-seccion gp-btn-primary border-0 rounded-3 px-3 fw-semibold" style="font-size:12px;"><i class="bi bi-check2-circle me-1"></i> Guardar</button>
+</div>
+            </div>
+            <!-- Código de confirmación de pedido (tienda online) -->
+            <div class="card border-0 shadow-sm rounded-4 mb-3">
+                <div class="card-body p-4">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div>
+                            <h6 class="config-section-title mb-1">Código de confirmación de pedido</h6>
+                            <p class="text-muted mb-0" style="font-size:11px;">
+                                Al confirmarse una compra, el cliente recibe un código numérico de 4 dígitos
+                                (en el correo de confirmación y en "Mis compras") para presentarlo al recojo.
+                                En la entrega, el cajero pide ese código, con opción de saltarlo solo como última opción.
+                            </p>
+                        </div>
+                        <div class="form-check form-switch ms-3">
+                            <input class="form-check-input cfg-switch" type="checkbox" data-clave="CODIGO_CONFIRMACION_HABILITADO" id="codigoConfirmacionSwitch">
+                        </div>
+                    </div>
+                </div>
+                <div class="card-footer bg-transparent border-0 pb-4 pt-0 d-flex justify-content-end">
+                    <button type="button" class="btn btn-sm btn-guardar-seccion gp-btn-primary border-0 rounded-3 px-3 fw-semibold" style="font-size:12px;"><i class="bi bi-check2-circle me-1"></i> Guardar</button>
+                </div>
             </div>
         </div>
     </div>
@@ -535,10 +688,11 @@ if (!isset($_SESSION['id_usuario']) || $_SESSION['rol'] !== 'Administrador') {
             </div>
             <div class="card-footer bg-transparent border-0 pb-4 pt-0 d-flex justify-content-end">
                 <button type="button" class="btn btn-sm btn-guardar-seccion gp-btn-primary border-0 rounded-3 px-3 fw-semibold" style="font-size:12px;"><i class="bi bi-check2-circle me-1"></i> Guardar</button>
-            </div>
-        </div>
+</div>
     </div>
 </div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', () => {
     let datosConfig = {};
@@ -579,6 +733,61 @@ document.addEventListener('DOMContentLoaded', () => {
                 reader.readAsDataURL(file);
             }
         });
+    });
+
+    // ── Decodificación automática de QR de billetera (Yape/Plin) ──
+    function pintarPreviewQR(clave, contenido) {
+        const ta = document.querySelector('.cfg-input[data-clave="' + clave + '"]');
+        const preview = ta && document.getElementById(ta.dataset.preview);
+        if (preview && contenido && typeof QRCode === 'function') {
+            preview.innerHTML = '';
+            new QRCode(preview, { text: contenido, width: 96, height: 96, correctLevel: QRCode.CorrectLevel.M });
+            preview.style.display = 'block';
+        }
+    }
+
+    function decodificarQR(input) {
+        const file = input.files[0];
+        if (!file) return;
+        const textarea = document.querySelector('.cfg-input[data-clave="' + input.dataset.target + '"]');
+        if (!textarea) return;
+        const img = new Image();
+        const url = URL.createObjectURL(file);
+        img.onload = () => {
+            const canvas = document.createElement('canvas');
+            const escala = Math.min(1, 1024 / img.width);
+            canvas.width = Math.max(1, Math.round(img.width * escala));
+            canvas.height = Math.max(1, Math.round(img.height * escala));
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            let resultado = null;
+            try {
+                const datos = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                if (typeof jsQR === 'function') resultado = jsQR(datos.data, datos.width, datos.height, { inversionAttempts: 'dontInvert' });
+            } catch (e) { /* imagen no legible */ }
+            URL.revokeObjectURL(url);
+            if (resultado && resultado.data) {
+                textarea.value = resultado.data;
+                input.classList.remove('is-invalid');
+                input.classList.add('is-valid');
+                pintarPreviewQR(textarea.dataset.clave, resultado.data);
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({ icon: 'success', title: 'QR decodificado', text: 'El QR se redibujará en el checkout. Presiona Guardar para aplicar.', toast: true, position: 'top-end', showConfirmButton: false, timer: 2200, confirmButtonColor: '#23284E' });
+                }
+            } else {
+                input.classList.remove('is-valid');
+                input.classList.add('is-invalid');
+                if (typeof Swal !== 'undefined') Swal.fire({ icon: 'error', title: 'No se pudo leer el QR', text: 'Sube una imagen nítida del código QR (solo el QR, sin recortar).', confirmButtonColor: '#23284E' });
+            }
+        };
+        img.onerror = () => {
+            URL.revokeObjectURL(url);
+            if (typeof Swal !== 'undefined') Swal.fire({ icon: 'error', title: 'Imagen inválida', confirmButtonColor: '#23284E' });
+        };
+        img.src = url;
+    }
+    document.querySelectorAll('.qr-auto-decodificar').forEach(input => {
+        input.addEventListener('change', () => decodificarQR(input));
     });
 
     // ── Cargar datos actuales ──
@@ -629,6 +838,8 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         renderPaletas();
         pintarPreview();
+        pintarPreviewQR('PAGO_MANUAL_QR_YAPE_CONTENIDO', data['PAGO_MANUAL_QR_YAPE_CONTENIDO']?.valor || '');
+        pintarPreviewQR('PAGO_MANUAL_QR_PLIN_CONTENIDO', data['PAGO_MANUAL_QR_PLIN_CONTENIDO']?.valor || '');
     }
 
     // ── Kit de paletas sugeridas + vista previa ──

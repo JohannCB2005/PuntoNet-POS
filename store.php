@@ -141,7 +141,7 @@ $marcaFavicon  = configuracion('LOGO_FAVICON', 'assets/favicon-nissi.svg?v=3');
         }
         .product-img-wrap {
             height: 172px;
-            background: linear-gradient(160deg, var(--paper) 0%, var(--paper-2) 100%);
+            background: #ffffff;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -357,7 +357,7 @@ $marcaFavicon  = configuracion('LOGO_FAVICON', 'assets/favicon-nissi.svg?v=3');
         }
         .detalle-img-wrap {
             position: relative;
-            background: linear-gradient(160deg, var(--paper-2) 0%, #fbfbfc 100%);
+            background: #ffffff;
             border: 1px solid var(--line); border-radius: var(--radius);
             min-height: 420px; display: flex; align-items: center; justify-content: center;
             padding: 32px; overflow: hidden;

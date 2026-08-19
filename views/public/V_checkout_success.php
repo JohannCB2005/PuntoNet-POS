@@ -162,6 +162,15 @@ if (!empty($_POST['kr-answer'])) {
         }
         .info-item .info-value { font-size: .94rem; font-weight: 600; }
 
+        /* Código de confirmación del pedido */
+        .confirm-codigo {
+            display: flex; align-items: center; justify-content: space-between; gap: 12px;
+            background: var(--paper); border: 2px dashed var(--accent); border-radius: 12px;
+            padding: 12px 16px; margin-top: 14px;
+        }
+        .confirm-codigo-label { font-size: .68rem; color: var(--muted); font-weight: 700; text-transform: uppercase; letter-spacing: .12em; }
+        .confirm-codigo-value { font-family: var(--font-display); font-weight: 800; font-size: 1.6rem; letter-spacing: .16em; color: var(--navy); }
+
         /* ─── Items de compra ─────────────────────────────── */
         .items-table { width: 100%; border-collapse: collapse; font-size: .9rem; }
         .items-table th {
@@ -282,6 +291,16 @@ if (!empty($_POST['kr-answer'])) {
                         <div class="info-value" id="infoFecha">—</div>
                     </div>
                 </div>
+                <!-- Código de confirmación (si el switch de la tienda está activo) -->
+                <div id="codigoConfirmacionBox" class="confirm-codigo" style="display:none;">
+                    <div>
+                        <div class="confirm-codigo-label">Código de confirmación</div>
+                        <div class="confirm-codigo-value" id="infoCodigoConfirmacion">—</div>
+                    </div>
+                    <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill" onclick="copiarCodigoSuccess(this, document.getElementById('infoCodigoConfirmacion').textContent)" title="Copiar código">
+                        <i class="bi bi-clipboard"></i>
+                    </button>
+                </div>
             </div>
 
             <!-- Detalle de compra -->
@@ -363,13 +382,17 @@ if (!empty($_POST['kr-answer'])) {
         // primero via SSE (notificación en tiempo real) y, si SSE no está disponible
         // o se corta, con polling cada 4 s. Nunca se recarga la página.
         async function cargarPedido() {
-            // Mientras el pedido esté pendiente, se consulta TAYPI directamente
-            // (verificar_pago): el webhook puede tardar ~50 s y no queremos que el
-            // cliente espere tanto para ver su pago confirmado. El webhook queda como
-            // respaldo/fuente de verdad. Idempotente: si ya está pagado, no hace nada.
+            // Mientras el pedido esté pendiente y se haya cobrado por QR de TAYPI, se
+            // consulta TAYPI directamente (verificar_pago): el webhook puede tardar
+            // ~50 s y no queremos que el cliente espere tanto para ver su pago
+            // confirmado. El webhook queda como respaldo/fuente de verdad.
+            // Idempotente: si ya está pagado, no hace nada.
+            // Los pedidos por verificación manual (billetera/transferencia) NO tienen
+            // payment_id_taypi: nunca se consulta la pasarela por ellos.
             const pedido = await getPedido();
-            const estadoActual = parseInt(pedido.estado);
-            if (estadoActual === 3 || estadoActual === 4) {
+            const datosActuales = pedido.data || {};
+            const estadoActual  = parseInt(datosActuales.estado);
+            if ((estadoActual === 3 || estadoActual === 4) && datosActuales.payment_id_taypi) {
                 await fetch(`../../controllers/C_Taypi.php?action=verificar_pago&id=${id_pedido}&t=${encodeURIComponent(token)}`, { cache: 'no-store' })
                     .then(r => r.json())
                     .catch(() => null);
@@ -394,6 +417,23 @@ if (!empty($_POST['kr-answer'])) {
                 cache: 'no-store',
             });
             return res.json();
+        }
+
+        function copiarCodigoSuccess(btn, texto) {
+            const icono = btn.querySelector('i');
+            const avisar = () => {
+                btn.innerHTML = '<i class="bi bi-check-lg text-success"></i> Copiado';
+                setTimeout(() => { btn.innerHTML = icono.outerHTML; }, 1800);
+            };
+            if (navigator.clipboard) {
+                navigator.clipboard.writeText(texto).then(avisar).catch(() => {
+                    const ta = document.createElement('textarea');
+                    ta.value = texto; ta.style.position = 'fixed'; ta.style.opacity = '0';
+                    document.body.appendChild(ta); ta.select();
+                    try { if (document.execCommand('copy')) avisar(); } catch (e) {}
+                    document.body.removeChild(ta);
+                });
+            }
         }
 
         function iniciarSSE() {
@@ -485,6 +525,15 @@ if (!empty($_POST['kr-answer'])) {
                 document.getElementById('confirmSubtitulo').innerHTML =
                     `El pedido <span class="pedido-ref">#${String(d.id_pedido).padStart(6, '0')}</span> fue rechazado.`;
                 document.getElementById('totalLabel').textContent = 'Monto a devolver';
+            } else if (estado === 6) {
+                // Pago por verificación manual reportado: no hay pasarela que confirmar,
+                // el admin lo aprueba en "Pedidos Online". Estado estático (no hace poll).
+                iconoEl.style.background = 'var(--amber-100)';
+                iconoEl.innerHTML = '<i class="bi bi-shield-check" style="color:var(--amber)"></i>';
+                document.getElementById('confirmTitulo').textContent = 'Pago enviado para verificación';
+                document.getElementById('confirmSubtitulo').innerHTML =
+                    `Tu pedido <span class="pedido-ref">#${String(d.id_pedido).padStart(6, '0')}</span> está en revisión.`;
+                document.getElementById('totalLabel').textContent = 'Total a pagar';
             } else if (estado === 3 || estado === 4) {
                 iconoEl.style.background = 'var(--amber-100)';
                 iconoEl.innerHTML = '<i class="bi bi-hourglass-split" style="color:var(--amber)"></i>';
@@ -511,6 +560,15 @@ if (!empty($_POST['kr-answer'])) {
             document.getElementById('infoTelefono').textContent = d.telefono || '—';
             document.getElementById('infoFecha').textContent    = formatFecha(d.fecha_pedido);
 
+            // Código de confirmación (4 dígitos): solo si el switch de la tienda
+            // está activo (llega desde el backend; null si está desactivado).
+            const codigoBox = document.getElementById('codigoConfirmacionBox');
+            if (codigoBox) {
+                const codigo = d.codigo_confirmacion || '';
+                codigoBox.style.display = codigo ? '' : 'none';
+                document.getElementById('infoCodigoConfirmacion').textContent = codigo || '—';
+            }
+
             // Estado: pasos normales para 1/5/2, aviso especial para rechazado (0) y
             // "verificando" mientras el pago aún no se confirma (3/4).
             const stepsWrap = document.getElementById('statusStepsWrap');
@@ -522,6 +580,16 @@ if (!empty($_POST['kr-answer'])) {
                             <strong>Tu pedido fue rechazado.</strong>
                             ${d.motivo_rechazo ? `<div class="mt-1">${escapeHtml(d.motivo_rechazo)}</div>` : ''}
                             <div class="mt-1">Revisa tu correo para coordinar la devolución de tu dinero.</div>
+                        </div>
+                    </div>
+                `;
+            } else if (estado === 6) {
+                stepsWrap.innerHTML = `
+                    <div class="status-rejected">
+                        <i class="bi bi-shield-check fs-5"></i>
+                        <div>
+                            <strong>Recibimos tu pago. Está en verificación manual.</strong>
+                            <div class="mt-1">Un administrador lo aprobará en breve y te avisaremos por correo.</div>
                         </div>
                     </div>
                 `;

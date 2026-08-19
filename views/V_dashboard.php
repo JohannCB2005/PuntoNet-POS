@@ -119,7 +119,7 @@ $stmt = $dbh->prepare(
      GROUP BY pv.metodo_pago"
 );
 $stmt->execute([':desde' => $rangoInicio . ' 00:00:00']);
-$metodosMap = [1 => 'Efectivo', 2 => 'Yape', 3 => 'Tarjeta'];
+$metodosMap = [1 => 'Efectivo', 2 => 'Yape', 3 => 'Tarjeta', 5 => 'Transferencia'];
 $chartMetodos = [];
 foreach ($stmt->fetchAll() as $row) {
     $chartMetodos[] = [

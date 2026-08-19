@@ -1,5 +1,6 @@
 <?php
 require_once dirname(__DIR__) . '/config/conexion.php';
+require_once dirname(__DIR__) . '/config/settings.php';
 
 class M_Ecommerce {
     private $conexion;
@@ -261,13 +262,19 @@ class M_Ecommerce {
      * @param ?int  $idClienteFacturacion   Entidad a facturar (empresa con RUC) si $tipoComprobante=2.
      *              Ya viene resuelto por C_Ecommerce.php contra el RUC — nunca confiar en un id
      *              recibido tal cual del navegador en niveles superiores a este.
+     * @param ?string $metodoPagoOnline      Método presentado en el checkout:
+     *              tarjeta|taypi|billetera|transferencia (los manuales reservan más minutos).
+     * @param ?int  $minutosReserva          Ventana de reserva (default 10 min; los métodos
+     *              manuales usan ~60 min para dar tiempo a transferir).
      */
     public function crearPedidoPendiente(
         int $id_cliente_web,
         array $carritoCliente,
         array $entrega,
         int $tipoComprobante = 1,
-        ?int $idClienteFacturacion = null
+        ?int $idClienteFacturacion = null,
+        ?string $metodoPagoOnline = null,
+        ?int $minutosReserva = null
     ): array {
         try {
             $this->conexion->beginTransaction();
@@ -278,16 +285,26 @@ class M_Ecommerce {
                 return ['ok' => false, 'mensaje' => $calc['mensaje']];
             }
 
-            // Crear pedido en estado 3 (pendiente de pago), reserva de 10 minutos
+            // Código de confirmación de 4 dígitos (configurable): se genera solo
+            // cuando el switch de la tienda está activo. Puede repetirse entre
+            // pedidos; la referencia única del pedido sigue siendo el id_pedido.
+            $codigoConfirmacion = null;
+            if (configuracion('CODIGO_CONFIRMACION_HABILITADO', 'SI') === 'SI') {
+                $codigoConfirmacion = str_pad((string) random_int(0, 9999), 4, '0', STR_PAD_LEFT);
+            }
+
+            // Crear pedido en estado 3 (pendiente de pago), con ventana de reserva
+            // configurable (10 min pasarelas, ~60 min métodos manuales).
             $token = bin2hex(random_bytes(16));
             $tipoEntrega = (int) ($entrega['tipo_entrega'] ?? 1);
+            $minutos = $minutosReserva ? max(5, min((int) $minutosReserva, 720)) : 10;
             $stmtPedido = $this->conexion->prepare(
                 "INSERT INTO pedidos_online
                     (id_cliente_web, id_cliente_facturacion, total, tipo_comprobante, tipo_entrega,
                      estudiante_nombre, id_nivel, id_grado, observaciones,
                      quien_recoge, recoge_dni, recoge_nombre,
-                     fecha_expira, token_publico, estado)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, DATE_ADD(NOW(), INTERVAL 10 MINUTE), ?, 3)"
+                     fecha_expira, token_publico, estado, metodo_pago_online, codigo_confirmacion)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, DATE_ADD(NOW(), INTERVAL ? MINUTE), ?, 3, ?, ?)"
             );
             $stmtPedido->execute([
                 $id_cliente_web,
@@ -302,7 +319,10 @@ class M_Ecommerce {
                 $entrega['quien_recoge'] ?? null,
                 $entrega['recoge_dni'] ?? null,
                 $entrega['recoge_nombre'] ?? null,
+                $minutos,
                 $token,
+                $metodoPagoOnline,
+                $codigoConfirmacion,
             ]);
             $id_pedido = (int) $this->conexion->lastInsertId();
 
@@ -341,6 +361,9 @@ class M_Ecommerce {
                            p.estudiante_nombre, p.observaciones, p.motivo_rechazo,
                            p.quien_recoge, p.recoge_dni, p.recoge_nombre,
                            p.fecha_preparado, p.fecha_entregado,
+                           p.metodo_pago_online, p.medio_pago_usado, p.referencia_cliente, p.captura_pago,
+                           p.codigo_confirmacion,
+                           p.token_publico,
                            n.nombre AS nivel_nombre, g.nombre AS grado_nombre
                     FROM pedidos_online p
                     LEFT JOIN niveles_educativos n ON p.id_nivel = n.id_nivel
@@ -350,6 +373,16 @@ class M_Ecommerce {
             $stmt = $this->conexion->prepare($sql);
             $stmt->execute([$id_cliente_web]);
             $pedidos = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            // El código de confirmación solo se expone al cliente cuando el switch
+            // de la tienda está activo (aunque el pedido lo tenga guardado).
+            $codigoVisible = configuracion('CODIGO_CONFIRMACION_HABILITADO', 'SI') === 'SI';
+            if (!$codigoVisible) {
+                foreach ($pedidos as &$pedido) {
+                    $pedido['codigo_confirmacion'] = null;
+                }
+                unset($pedido);
+            }
 
             foreach ($pedidos as &$pedido) {
                 $pedido['detalles'] = $this->getDetallesPedido($pedido['id_pedido']);
@@ -504,6 +537,14 @@ class M_Ecommerce {
 
         $id = (int) $pedido['id_pedido'];
 
+        // Pago manual (billetera/transferencia): no hay pasarela que consultar. Si el
+        // cliente abandona el checkout sin reportar su pago, se libera la reserva
+        // directo (estado 3). Un reporte ya enviado (estado 6) nunca se cancela aquí.
+        if (in_array((string) ($pedido['metodo_pago_online'] ?? ''), ['billetera', 'transferencia'], true)) {
+            $this->expirarPedido($id);
+            return ['ok' => true, 'accion' => 'liberado', 'mensaje' => 'Pedido cancelado y stock liberado.'];
+        }
+
         // ¿El pago fue por TAYPI (QR)? Verificar contra su API.
         $paymentIdTaypi = (string) ($pedido['payment_id_taypi'] ?? '');
         if ($paymentIdTaypi !== '') {
@@ -595,6 +636,86 @@ class M_Ecommerce {
         }
     }
 
+    /** Medios de billetera que el cliente puede reportar al pagar con QR manual. */
+    public const MEDIOS_BILLETERA = ['yape', 'plin', 'izipay_qr'];
+
+    /** Bancos que el cliente puede reportar al pagar por transferencia. */
+    public const MEDIOS_TRANSFERENCIA = ['bcp', 'bbva', 'interbank', 'scotiabank'];
+
+    /**
+     * El cliente reporta un pago manual (billetera o transferencia) de un pedido
+     * en estado 3 (pendiente). Valida el token, que el pedido siga vigente, el
+     * medio reportado y que el número de operación NO se repita.
+     *
+     * Al aprobarse el reporte el pedido pasa a estado 6 ("Pago enviado — en
+     * verificación manual") y deja de expirar: el stock queda reservado hasta
+     * que el admin apruebe o rechace desde Pedidos Online.
+     *
+     * @param array $datos ['medio_pago_usado'=>string, 'referencia'=>string, 'captura_pago'=>?string]
+     */
+    public function reportarPagoManual(int $id_pedido, string $token, array $datos): array {
+        $pedido = $this->getPedidoPublico($id_pedido, $token);
+        if (!$pedido) {
+            return ['ok' => false, 'mensaje' => 'Pedido no encontrado.'];
+        }
+        if ((int) $pedido['estado'] !== 3) {
+            return ['ok' => false, 'mensaje' => 'Este pedido ya no está pendiente de pago.'];
+        }
+
+        $metodo = (string) ($pedido['metodo_pago_online'] ?? '');
+        $medio  = strtolower(trim((string) ($datos['medio_pago_usado'] ?? '')));
+        if ($metodo === 'billetera' && !in_array($medio, self::MEDIOS_BILLETERA, true)) {
+            return ['ok' => false, 'mensaje' => 'Indica con qué app pagaste (Yape, Plin o Izipay QR).'];
+        }
+        if ($metodo === 'transferencia' && !in_array($medio, self::MEDIOS_TRANSFERENCIA, true)) {
+            return ['ok' => false, 'mensaje' => 'Indica el banco al que transferiste.'];
+        }
+        if (!in_array($metodo, ['billetera', 'transferencia'], true)) {
+            return ['ok' => false, 'mensaje' => 'Este pedido no usa pago por verificación manual.'];
+        }
+
+        $referencia = trim((string) ($datos['referencia'] ?? ''));
+        if ($referencia === '' || mb_strlen($referencia) > 255) {
+            return ['ok' => false, 'mensaje' => 'Ingresa el número de operación de tu pago.'];
+        }
+
+        try {
+            // Unicidad del número de operación: no puede repetirse en ningún pedido.
+            // La FK/índice único (uq_referencia_cliente) garantiza la unicidad incluso
+            // ante dos reportes concurrentes; el chequeo previo da el mensaje amigable.
+            $this->conexion->beginTransaction();
+            $stmtDup = $this->conexion->prepare(
+                "SELECT id_pedido FROM pedidos_online
+                 WHERE referencia_cliente = ? AND id_pedido <> ? LIMIT 1 FOR UPDATE"
+            );
+            $stmtDup->execute([$referencia, $id_pedido]);
+            if ($stmtDup->fetch()) {
+                $this->conexion->rollBack();
+                return ['ok' => false, 'mensaje' => 'Ese número de operación ya fue registrado para otro pedido. Verifícalo e inténtalo de nuevo.'];
+            }
+
+            $upd = $this->conexion->prepare(
+                "UPDATE pedidos_online
+                 SET estado = 6, fecha_expira = NULL,
+                     medio_pago_usado = ?, referencia_cliente = ?, captura_pago = ?
+                 WHERE id_pedido = ? AND estado = 3"
+            );
+            $upd->execute([$medio, $referencia, $datos['captura_pago'] ?? null, $id_pedido]);
+            if ($upd->rowCount() === 0) {
+                $this->conexion->rollBack();
+                return ['ok' => false, 'mensaje' => 'El pedido venció y se liberó el stock. Vuelve a intentar el pago desde tu carrito.'];
+            }
+            $this->conexion->commit();
+        } catch (Exception $e) {
+            if ($this->conexion->inTransaction()) {
+                $this->conexion->rollBack();
+            }
+            return ['ok' => false, 'mensaje' => 'No pudimos registrar tu pago. Intenta de nuevo.'];
+        }
+
+        return ['ok' => true, 'mensaje' => 'Recibimos tu pago. El vendedor lo verificará y te avisaremos por correo.'];
+    }
+
     private function enviarCorreoConfirmacion(int $id_pedido): void {
         try {
             require_once dirname(__DIR__) . '/models/M_Mailer.php';
@@ -642,7 +763,7 @@ class M_Ecommerce {
         try {
             $limite = max(1, min($limite, 100));
             $stmt = $this->conexion->prepare(
-                "SELECT id_pedido, referencia_pago FROM pedidos_online
+                "SELECT id_pedido, referencia_pago, metodo_pago_online FROM pedidos_online
                  WHERE estado = 3 AND fecha_expira < NOW()
                  ORDER BY fecha_expira ASC LIMIT " . intval($limite)
             );
@@ -659,6 +780,13 @@ class M_Ecommerce {
         foreach ($vencidos as $v) {
             $id_pedido  = (int) $v['id_pedido'];
             $referencia = (string) ($v['referencia_pago'] ?: self::referenciaPago($id_pedido));
+
+            // Pago manual: no hay pasarela que consultar; la reserva venció sin que el
+            // cliente reportara su pago → se libera el stock directo.
+            if (in_array((string) ($v['metodo_pago_online'] ?? ''), ['billetera', 'transferencia'], true)) {
+                $this->expirarPedido($id_pedido);
+                continue;
+            }
 
             $r = $izipay->ordenEstaPagada($referencia);
 
@@ -744,8 +872,10 @@ class M_Ecommerce {
         try {
             $sql = "SELECT p.id_pedido, p.fecha_pedido, p.total, p.estado, p.token_publico,
                            p.fecha_expira, p.referencia_pago, p.payment_id_taypi,
+                           p.metodo_pago_online, p.medio_pago_usado, p.referencia_cliente, p.captura_pago,
                            p.tipo_entrega, p.estudiante_nombre, p.observaciones, p.motivo_rechazo,
                            p.quien_recoge, p.recoge_dni, p.recoge_nombre,
+                           p.codigo_confirmacion,
                            n.nombre AS nivel_nombre, g.nombre AS grado_nombre,
                            cw.numero_documento, cw.nombres_razon_social, cw.apellidos, cw.telefono
                     FROM pedidos_online p
@@ -761,6 +891,13 @@ class M_Ecommerce {
                 return null;
             }
             unset($pedido['token_publico']);
+
+            // El código de confirmación solo se muestra cuando el switch de la
+            // tienda está activo (aunque el pedido lo tenga guardado).
+            if (configuracion('CODIGO_CONFIRMACION_HABILITADO', 'SI') !== 'SI') {
+                $pedido['codigo_confirmacion'] = null;
+            }
+
             $pedido['detalles'] = $this->getDetallesPedido($id_pedido);
             return $pedido;
         } catch (PDOException $e) {
@@ -778,10 +915,12 @@ class M_Ecommerce {
         try {
             $sql = "SELECT p.id_pedido, p.fecha_pedido, p.total, p.nro_operacion_yape,
                            p.referencia_pago, p.transaccion_uuid,
-                           p.fecha_pago, p.fecha_preparado, p.fecha_entregado, p.motivo_rechazo, p.estado,
+                           p.metodo_pago_online, p.medio_pago_usado, p.referencia_cliente, p.captura_pago,
+                           p.fecha_pago, p.id_verificado_por, p.fecha_verificacion,
+                           p.fecha_preparado, p.fecha_entregado, p.motivo_rechazo, p.estado,
                            p.tipo_entrega, p.estudiante_nombre, p.observaciones,
                            p.quien_recoge, p.recoge_dni, p.recoge_nombre,
-                           p.tipo_comprobante,
+                           p.tipo_comprobante, p.codigo_confirmacion,
                            perFact.numero_documento AS ruc_facturacion, perFact.nombres_razon_social AS razon_social_facturacion,
                            n.nombre AS nivel_nombre, g.nombre AS grado_nombre,
                            cw.numero_documento, cw.nombres_razon_social, cw.apellidos, cw.telefono,
@@ -799,7 +938,18 @@ class M_Ecommerce {
             $sql .= " ORDER BY p.fecha_pedido DESC";
             $stmt = $this->conexion->prepare($sql);
             $stmt->execute();
-            return $stmt->fetchAll();
+            $pedidos = $stmt->fetchAll();
+
+            // El panel indica si el pedido exige el código de confirmación en la
+            // entrega (switch activo + pedido con código), SIN exponer el código
+            // al cajero: el código lo dicta el cliente y lo verifica el servidor.
+            $codigoActivo = configuracion('CODIGO_CONFIRMACION_HABILITADO', 'SI') === 'SI';
+            foreach ($pedidos as &$pedido) {
+                $pedido['requiere_codigo'] = ($codigoActivo && !empty($pedido['codigo_confirmacion'])) ? 1 : 0;
+                unset($pedido['codigo_confirmacion']);
+            }
+            unset($pedido);
+            return $pedidos;
         } catch (PDOException $e) {
             return [];
         }
@@ -837,14 +987,15 @@ class M_Ecommerce {
      *   entregar : 1 ó 5    → 2 (sella fecha_entregado, genera la venta SIN caja física, correo de entrega)
      *   rechazar : 1 ó 5    → 0 (exige motivo, devuelve stock, correo de rechazo con el motivo)
      */
-    public function gestionarPedido($id_pedido, $accion, $id_usuario_cajero, ?string $motivoRechazo = null) {
+    public function gestionarPedido($id_pedido, $accion, $id_usuario_cajero, ?string $motivoRechazo = null, ?string $codigoConfirmacion = null, bool $saltarCodigo = false) {
         try {
             $this->conexion->beginTransaction();
 
             $estadosOrigen = match ($accion) {
                 'preparar' => [1],
+                'aprobar'  => [6],
                 'entregar' => [1, 5],
-                'rechazar' => [1, 5],
+                'rechazar' => [1, 5, 6],
                 default => [],
             };
             if (empty($estadosOrigen)) {
@@ -866,6 +1017,21 @@ class M_Ecommerce {
 
                 $this->conexion->commit();
                 return ['ok' => true, 'mensaje' => 'Pedido marcado como preparado.'];
+            }
+
+            // Aprobar un pago por verificación manual (estado 6 → 1): el admin verificó
+            // el comprobante y confirma el cobro. El correo de confirmación avisa al cliente.
+            if ($accion === 'aprobar') {
+                $stmtUpdate = $this->conexion->prepare(
+                    "UPDATE pedidos_online
+                     SET estado = 1, fecha_pago = NOW(), id_verificado_por = ?, fecha_verificacion = NOW()
+                     WHERE id_pedido = ?"
+                );
+                $stmtUpdate->execute([$id_usuario_cajero, $id_pedido]);
+
+                $this->conexion->commit();
+                $this->enviarCorreoConfirmacion($id_pedido);
+                return ['ok' => true, 'mensaje' => 'Pago aprobado. El pedido pasó a "Pagado — en proceso".'];
             }
 
             if ($accion === 'rechazar') {
@@ -890,6 +1056,19 @@ class M_Ecommerce {
             }
 
             if ($accion === 'entregar') {
+                // Verificación del código de confirmación (configurable en la tienda):
+                // si el switch está activo y el pedido tiene código, se exige que el
+                // código que dicta el cliente coincida. El salto manual es la última
+                // opción (cliente que perdió el correo), nunca el camino normal.
+                if (
+                    configuracion('CODIGO_CONFIRMACION_HABILITADO', 'SI') === 'SI'
+                    && !empty($pedido['codigo_confirmacion'])
+                ) {
+                    if (!$saltarCodigo && !hash_equals((string) $pedido['codigo_confirmacion'], (string) $codigoConfirmacion)) {
+                        throw new Exception('El código de confirmación no coincide. Verifica con el cliente o usa "Saltar verificación" solo como última opción.');
+                    }
+                }
+
                 // Método de pago = 3 (Tarjeta), pagado vía pasarela. Sin id_caja: no hay dinero
                 // físico involucrado, por eso nunca debe sumarse al arqueo de quien despacha.
                 //
@@ -904,6 +1083,15 @@ class M_Ecommerce {
                     ? (int) $pedido['id_cliente_facturacion']
                     : $this->resolverClientePosEntrega((int) $pedido['id_cliente_web']);
 
+                // Método de pago según cómo se cobró el pedido: la billetera manual
+                // (Yape/Plin/Izipay QR) se registra como Yape/Plin (2), la transferencia
+                // bancaria como 5 (Transferencia) y las pasarelas como Tarjeta (3).
+                $metodoVenta = match ((string) ($pedido['metodo_pago_online'] ?? '')) {
+                    'billetera'     => 2,
+                    'transferencia' => 5,
+                    default         => 3,
+                };
+
                 // Desglose fiscal: se deriva de total (aquí total SÍ es el valor íntegro de
                 // la mercadería, a diferencia del anticipo de una separación), igual criterio
                 // que M_Venta::registrarEnTransaccion() — SUNAT valida al céntimo.
@@ -912,9 +1100,9 @@ class M_Ecommerce {
 
                 $stmtInsertVenta = $this->conexion->prepare(
                     "INSERT INTO ventas (id_usuario, id_caja, id_cliente, tipo_comprobante, total, subtotal, igv, metodo_pago, estado, origen)
-                     VALUES (?, NULL, ?, ?, ?, ?, ?, 3, 1, 2)"
+                     VALUES (?, NULL, ?, ?, ?, ?, ?, ?, 1, 2)"
                 );
-                $stmtInsertVenta->execute([$id_usuario_cajero, $idClienteVenta, $tipoComprobante, $pedido['total'], $ventaSubtotal, $ventaIgv]);
+                $stmtInsertVenta->execute([$id_usuario_cajero, $idClienteVenta, $tipoComprobante, $pedido['total'], $ventaSubtotal, $ventaIgv, $metodoVenta]);
                 $id_venta = $this->conexion->lastInsertId();
 
                 $stmtDetallesPedido = $this->conexion->prepare("SELECT id_producto, cantidad, precio_unitario, subtotal FROM detalle_pedidos_online WHERE id_pedido = ?");
@@ -978,6 +1166,7 @@ class M_Ecommerce {
     private function obtenerDatosCorreoPedido(int $id_pedido): ?array {
         $sql = "SELECT p.id_pedido, p.total, p.tipo_entrega, p.estudiante_nombre,
                        p.quien_recoge, p.recoge_dni, p.recoge_nombre,
+                       p.codigo_confirmacion,
                        cw.nombres_razon_social, cw.email
                 FROM pedidos_online p
                 INNER JOIN clientes_web cw ON p.id_cliente_web = cw.id_cliente_web

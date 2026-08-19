@@ -22,7 +22,7 @@ $format         = isset($_GET['format']) ? $_GET['format'] : '80mm'; // Formatos
 if ($id_venta <= 0 && $id_separacion <= 0) { die('Falta el parámetro id o separacion.'); }
 
 $model  = M_Venta::singleton();
-$nombresMetodo = [1 => 'Efectivo', 2 => 'Yape/Plin', 3 => 'Tarjeta'];
+$nombresMetodo = [1 => 'Efectivo', 2 => 'Yape/Plin', 3 => 'Tarjeta', 5 => 'Transferencia'];
 
 // Banner "ABONO A SEPARACIÓN" + resumen mercadería/pagado/saldo, solo cuando se
 // imprime UNA venta puntual (anticipo o abono) que pertenece a una separación.

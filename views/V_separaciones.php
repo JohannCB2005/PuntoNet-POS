@@ -245,7 +245,7 @@ async function abrirVer(id) {
     document.getElementById('verAbonado').innerText = `S/ ${parseFloat(s.abonado).toFixed(2)}`;
     document.getElementById('verSaldo').innerText = `S/ ${parseFloat(s.saldo).toFixed(2)}`;
 
-    const nombresMetodo = { 1: 'Efectivo', 2: 'Yape/Plin', 3: 'Tarjeta', 4: 'Mixto' };
+    const nombresMetodo = { 1: 'Efectivo', 2: 'Yape/Plin', 3: 'Tarjeta', 4: 'Mixto', 5: 'Transferencia' };
     document.getElementById('verAbonosBody').innerHTML = s.abonos.map(a => `
         <tr>
             <td>${a.fecha}</td>
@@ -314,6 +314,7 @@ function renderPagoSep() {
                     <option value="1" ${p.metodo_pago === 1 ? 'selected' : ''}>💵 Efectivo</option>
                     <option value="2" ${p.metodo_pago === 2 ? 'selected' : ''}>📱 Yape/Plin</option>
                     <option value="3" ${p.metodo_pago === 3 ? 'selected' : ''}>💳 Tarjeta</option>
+                    <option value="5" ${p.metodo_pago === 5 ? 'selected' : ''}>🏦 Transferencia</option>
                 </select>
             </td>
             <td><input type="text" class="form-control form-control-sm ps-referencia" data-idx="${idx}" value="${p.referencia}" placeholder="Opcional" style="font-size:12px;"></td>

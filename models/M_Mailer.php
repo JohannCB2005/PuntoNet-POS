@@ -46,6 +46,19 @@ class M_Mailer {
     public function enviarConfirmacionCompra(string $email, string $nombre, array $pedido): array {
         $codigoPedido = str_pad((string) $pedido['id_pedido'], 6, '0', STR_PAD_LEFT);
 
+        // Código de confirmación de 4 dígitos (configurable en la tienda):
+        // solo se muestra si el switch está activo y el pedido tiene código.
+        $codigoBox = '';
+        $codigoConfirmacion = trim((string) ($pedido['codigo_confirmacion'] ?? ''));
+        if ($codigoConfirmacion !== '' && configuracion('CODIGO_CONFIRMACION_HABILITADO', 'SI') === 'SI') {
+            $codigoBox = '
+            <div style="background:#f6f6f8;border:2px dashed #BD1721;border-radius:12px;padding:18px 20px;text-align:center;margin:0 0 22px;">
+                <div style="font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#838aa3;margin-bottom:6px;">Tu código de confirmación</div>
+                <div style="font-size:34px;font-weight:800;letter-spacing:.14em;color:#23284E;">' . htmlspecialchars($codigoConfirmacion) . '</div>
+                <div style="font-size:13px;color:#838aa3;margin-top:6px;">Preséntalo al recoger tu pedido</div>
+            </div>';
+        }
+
         $items = '';
         foreach ($pedido['detalles'] ?? [] as $d) {
             $items .= '<tr>
@@ -65,6 +78,7 @@ class M_Mailer {
             '<p style="margin:0 0 18px;">Hola <strong>' . htmlspecialchars($nombre) . '</strong>,</p>
             <p style="margin:0 0 4px;">¡Gracias por tu compra! Confirmamos el pago de tu pedido</p>
             <p style="margin:0 0 22px;font-size:20px;font-weight:700;color:#23284E;">Nº ' . $codigoPedido . '</p>
+            ' . $codigoBox . '
             <table style="width:100%;border-collapse:collapse;border:1px solid #ececf0;border-radius:12px;overflow:hidden;margin:0 0 22px;">
                 <thead>
                     <tr style="background:#23284E;">
